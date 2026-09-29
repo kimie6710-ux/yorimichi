@@ -1,0 +1,224 @@
+@import "tailwindcss";
+
+/*
+  Design tokens
+  - 2 typefaces: Noto Sans JP (UI, 500/700) + Klee One (みちびの吹き出しのみ, 600)
+  - 5 font sizes: 14 / 16 / 18 / 22 / 28
+  - Palette: Mint / Aqua / Lavender / Coral Pink / Butter Yellow + grays
+*/
+
+@theme {
+  /* Palette from the design reference */
+  --color-paper: #fafbfc;        /* Off White */
+  --color-paper-deep: #f1f3f6;   /* Gray 50 */
+  --color-line: #e5e8ef;         /* Gray 100 */
+  --color-gray-300: #c7cdd6;     /* Gray 300 */
+  --color-ink: #2b3548;          /* headings / body (a touch darker than Gray 700 for contrast) */
+  --color-ink-soft: #475569;     /* Gray 700 */
+  --color-ink-mute: #64748b;
+  --color-mint: #7ee7dd;
+  --color-mint-deep: #0e8c80;    /* mint for text/icons (AA on white) */
+  --color-aqua: #4dd0ff;
+  --color-lavender: #b794ff;
+  --color-lavender-soft: #f3eeff;
+  --color-lavender-deep: #6d4ee6;
+  --color-pink: #ff8fa3;         /* Coral Pink */
+  --color-star: #ffe66d;         /* Butter Yellow */
+  --color-note: #fff8d9;
+
+  --font-sans: var(--font-noto), "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+  --font-hand: var(--font-klee), var(--font-noto), sans-serif;
+
+  --text-sm: 14px;
+  --text-sm--line-height: 1.6;
+  --text-base: 16px;
+  --text-base--line-height: 1.7;
+  --text-lg: 18px;
+  --text-lg--line-height: 1.55;
+  --text-xl: 22px;
+  --text-xl--line-height: 1.4;
+  --text-2xl: 28px;
+  --text-2xl--line-height: 1.3;
+
+  --shadow-soft: 0 1px 2px rgb(71 85 105 / 0.05), 0 10px 28px -10px rgb(71 85 105 / 0.18);
+  --shadow-lift: 0 2px 6px rgb(71 85 105 / 0.06), 0 18px 40px -14px rgb(71 85 105 / 0.26);
+  --shadow-sticker: 0 1px 2px rgb(71 85 105 / 0.1), 0 6px 14px -4px rgb(71 85 105 / 0.24);
+  --shadow-glow: 0 10px 28px -8px rgb(109 78 230 / 0.45);
+
+  --animate-bob: bob 3.2s ease-in-out infinite;
+  --animate-peek: peek 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.3) both;
+  --animate-rise: rise 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-pulse-ring: pulse-ring 2s ease-out infinite;
+  --animate-wander: wander 2.4s ease-in-out infinite;
+  --animate-float: float 3.6s ease-in-out infinite;
+  --animate-progress: progress 2.4s linear infinite;
+}
+
+@keyframes bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+@keyframes peek {
+  from { opacity: 0; transform: translateY(12px) scale(0.92); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulse-ring {
+  0% { transform: scale(0.6); opacity: 0.55; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+@keyframes wander {
+  0%, 100% { transform: translateX(-10px) rotate(-3deg); }
+  50% { transform: translateX(10px) rotate(3deg); }
+}
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-weight: 500;
+    font-size: 16px;
+    line-height: 1.7;
+    font-feature-settings: "palt";
+  }
+  button {
+    cursor: pointer;
+  }
+  :focus-visible {
+    outline: 3px solid var(--color-lavender);
+    outline-offset: 2px;
+    border-radius: 8px;
+  }
+}
+
+@layer components {
+  /* Pastel gradient in the mascot's colours — used for AI things and the primary action. */
+  .rainbow {
+    background: linear-gradient(110deg, var(--color-mint) 0%, var(--color-aqua) 45%, var(--color-lavender) 100%);
+  }
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    border-radius: 9999px;
+    background: linear-gradient(105deg, #3ccbbd 0%, #3fb3f5 52%, #9c7bff 100%);
+    color: #fff;
+    font-weight: 700;
+    text-shadow: 0 1px 2px rgb(40 50 90 / 0.28);
+    box-shadow: var(--shadow-glow);
+    transition: transform 0.15s ease, opacity 0.15s ease;
+  }
+  .btn-primary:active {
+    transform: scale(0.98);
+  }
+  .btn-primary:disabled {
+    opacity: 0.45;
+    box-shadow: none;
+    cursor: not-allowed;
+  }
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border-radius: 9999px;
+    background: var(--color-lavender-soft);
+    color: var(--color-lavender-deep);
+    font-weight: 700;
+    transition: transform 0.15s ease;
+  }
+  .btn-secondary:active {
+    transform: scale(0.98);
+  }
+  /* Soft aurora used behind loading / empty states. */
+  .aurora {
+    background:
+      radial-gradient(60% 45% at 20% 15%, rgb(126 231 221 / 0.45), transparent 70%),
+      radial-gradient(55% 40% at 85% 25%, rgb(77 208 255 / 0.35), transparent 70%),
+      radial-gradient(60% 45% at 75% 85%, rgb(255 143 163 / 0.3), transparent 70%),
+      radial-gradient(55% 45% at 15% 80%, rgb(183 148 255 / 0.38), transparent 70%),
+      var(--color-paper);
+  }
+  /* Google Maps as a soft background: mute only the map canvas/tiles,
+     never our own markers (they are DOM elements, not canvas/img tiles). */
+  .yorumichi-map .gm-style canvas,
+  .yorumichi-map .gm-style img[src*="googleapis.com"],
+  .yorumichi-map .gm-style img[src*="gstatic.com"] {
+    filter: saturate(0.55) brightness(1.06) contrast(0.92);
+  }
+  /* Transparency checkerboard behind a freshly cut sticker. */
+  .checker {
+    background-color: #ffffff;
+    background-image:
+      linear-gradient(45deg, #eef0f4 25%, transparent 25%),
+      linear-gradient(-45deg, #eef0f4 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #eef0f4 75%),
+      linear-gradient(-45deg, transparent 75%, #eef0f4 75%);
+    background-size: 22px 22px;
+    background-position: 0 0, 0 11px, 11px -11px, -11px 0;
+  }
+  /* シール帳の台紙: warm paper with a faint dotted grid. */
+  .sticker-sheet {
+    background-color: #fbfaf6;
+    background-image: radial-gradient(rgb(71 85 105 / 0.09) 1px, transparent 1.3px);
+    background-size: 18px 18px;
+  }
+  /* Field-note paper with a faint dotted grid. */
+  .paper-grid {
+    background-color: var(--color-paper);
+    background-image: radial-gradient(rgb(71 85 105 / 0.1) 1px, transparent 1.2px);
+    background-size: 22px 22px;
+  }
+  /* Sticky-note surface for AI interpretations. */
+  .note {
+    background: var(--color-note);
+    box-shadow: var(--shadow-sticker);
+    border-radius: 4px 18px 18px 18px;
+  }
+  .hide-scrollbar {
+    scrollbar-width: none;
+  }
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@keyframes sheet {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+@keyframes fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes stick {
+  0% { opacity: 0; transform: scale(1.25) rotate(var(--r, 0deg)); }
+  60% { opacity: 1; transform: scale(0.96) rotate(var(--r, 0deg)); }
+  100% { transform: scale(1) rotate(var(--r, 0deg)); }
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+@keyframes progress {
+  from { background-position: 0% 50%; }
+  to { background-position: 200% 50%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
