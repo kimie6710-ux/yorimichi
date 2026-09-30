@@ -4,7 +4,6 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 
 import { SketchButton, SketchSheet, Tape } from "@/components/sketch";
-import { handFriendly } from "@/lib/kana";
 import { hashSeed, rng } from "@/components/sketch/path";
 import { StickerView } from "@/components/StickerView";
 import {
@@ -270,7 +269,7 @@ export function Notebook({
                 lift={lifted}
                 className={`pointer-events-none mx-auto ${s.tape ? "w-full opacity-90" : "w-auto"} ${s.deco && !s.tape ? "max-h-[26cqw]" : s.tape ? "" : "max-h-[36cqw]"} ${isSelected ? "rounded-xl outline-2 outline-sky-deep outline-offset-2 outline-dashed" : ""}`}
               />
-              {s.label && <span className="pointer-events-none mt-0.5 block truncate text-center font-hand text-[13px] text-ink-soft">{handFriendly(s.label)}</span>}
+              {s.label && <span className="pointer-events-none mt-0.5 block truncate text-center font-hand text-[13px] text-ink-soft">{s.label}</span>}
               {isSelected && (
                 <button
                   type="button"

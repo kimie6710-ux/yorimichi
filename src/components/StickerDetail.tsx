@@ -4,7 +4,6 @@
 import { useState } from "react";
 
 import { api, ApiClientError } from "@/lib/api-client";
-import { handFriendly } from "@/lib/kana";
 import { useSearch } from "@/lib/store/search-context";
 import type { Sticker } from "@/lib/types";
 import { SketchButton, SketchLinkButton, SketchTextarea, Tape } from "./sketch";
@@ -46,7 +45,7 @@ export function StickerDetail({ sticker, onChange, onClose }: { sticker: Sticker
         <Tape seed={sticker.id} className="!top-0" />
         <StickerView src={sticker.imageUrl} alt={sticker.label} rotation={sticker.rotation} lift />
       </div>
-      <h2 className="mt-4 text-center font-hand text-[24px]">{handFriendly(sticker.label)}</h2>
+      <h2 className="mt-4 text-center font-hand text-[24px]">{sticker.label}</h2>
       <p className="mt-1 text-center text-sm text-ink-soft">
         {date(sticker.createdAt)}・{mine ? "自分で見つけた" : "知らない誰かから届いた"}
       </p>
