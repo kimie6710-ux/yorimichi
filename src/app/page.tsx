@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { useMapBird } from "@/components/map/MapBird";
+import { BirdSays, useMapBird } from "@/components/map/MapBird";
 import { MapView, type MapMarker } from "@/components/map/MapView";
 import { Michibi } from "@/components/Michibi";
 import { SketchButton, SketchCard } from "@/components/sketch";
@@ -12,12 +12,26 @@ import { StartScreen } from "@/components/StartScreen";
 import { TopBar } from "@/components/TopBar";
 import { MICHIBI_LINES } from "@/lib/character";
 import { useSearch } from "@/lib/store/search-context";
+import { distanceMeters } from "@/lib/geo";
 import type { MapSpot } from "@/lib/types";
 
 /** Shown once each time the app is opened (per browser session). */
 const STARTED_KEY = "yorumichi:started";
 
-/** Spots in the same building would sit on top of each other: fan them out a little. */
+/**
+ * Spots in the same building or a few doors apart would stack into an unreadable
+ * pile: keep the nearest one of each cluster (~45m), at most 10 on the map.
+ */
+function spread(spots: MapSpot[], minMeters = 45, max = 10): MapSpot[] {
+  const kept: MapSpot[] = [];
+  for (const s of [...spots].sort((a, b) => a.place.distanceMeters - b.place.distanceMeters)) {
+    if (kept.length >= max) break;
+    if (kept.every((k) => distanceMeters(k.place.location, s.place.location) >= minMeters)) kept.push(s);
+  }
+  return kept;
+}
+
+/** Anything still close gets fanned out a little. */
 function declutter(spots: MapSpot[]) {
   const GAP = 0.00016;
   const placed: { spot: MapSpot; position: { latitude: number; longitude: number } }[] = [];
@@ -33,7 +47,8 @@ function declutter(spots: MapSpot[]) {
 export default function MapHome() {
   const router = useRouter();
   const town = useSearch();
-  const { currentLocation, locationStatus, spots, spotsStatus, spotsError } = town;
+  const { currentLocation, locationStatus, spotsStatus, spotsError } = town;
+  const spots = useMemo(() => spread(town.spots), [town.spots]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [onboarded, setOnboarded] = useState(true);
   const rail = useRef<HTMLUListElement>(null);
@@ -123,7 +138,10 @@ export default function MapHome() {
       )}
 
       <div className="pointer-events-none absolute inset-x-0 top-0 p-3 pt-[max(12px,env(safe-area-inset-top))]">
-        <TopBar className="pointer-events-auto" />
+        <div className="flex items-start justify-between gap-2">
+          <BirdSays says={bird.says} />
+          <TopBar className="pointer-events-auto ml-auto" />
+        </div>
       </div>
 
       {/* States without spots */}

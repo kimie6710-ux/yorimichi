@@ -1,7 +1,7 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element -- local sprites */
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { SketchBubble } from "@/components/sketch";
 import { michibiSrc, type BirdPose } from "@/lib/character";
@@ -49,9 +49,11 @@ const pick = <T,>(list: readonly T[]) => list[Math.floor(Math.random() * list.le
 function emptySpot(spots: MapSpot[], here: LatLng | null): LatLng {
   const lats = spots.map((s) => s.place.location.latitude);
   const lngs = spots.map((s) => s.place.location.longitude);
-  const pad = 0.0008;
-  const box = { s: Math.min(...lats) - pad, n: Math.max(...lats) + pad, w: Math.min(...lngs) - pad, e: Math.max(...lngs) + pad };
-  const far = (p: LatLng) => spots.every((s) => Math.hypot(s.place.location.latitude - p.latitude, s.place.location.longitude - p.longitude) > 0.0007);
+  // Stay well inside the area the spots cover (the map is fitted to it), so it never walks off screen.
+  const s0 = Math.min(...lats), n0 = Math.max(...lats), w0 = Math.min(...lngs), e0 = Math.max(...lngs);
+  const inset = 0.15;
+  const box = { s: s0 + (n0 - s0) * inset, n: n0 - (n0 - s0) * inset, w: w0 + (e0 - w0) * inset, e: e0 - (e0 - w0) * inset };
+  const far = (p: LatLng) => spots.every((s) => Math.hypot(s.place.location.latitude - p.latitude, s.place.location.longitude - p.longitude) > 0.0005);
   for (let i = 0; i < 30; i++) {
     const p = { latitude: box.s + Math.random() * (box.n - box.s), longitude: box.w + Math.random() * (box.e - box.w) };
     if (far(p)) return p;
@@ -186,39 +188,33 @@ export function useMapBird(spots: MapSpot[], selected: MapSpot | null, origin: L
     setTimeout(() => setPose("side"), 1200);
   }, [say]);
 
-  return { pos, node: pos ? <BirdSprite pose={pose} flip={flip} says={says} onTap={tap} /> : null };
+  return { pos, says, node: pos ? <BirdSprite pose={pose} flip={flip} onTap={tap} /> : null };
 }
 
-function BirdSprite({ pose, flip, says, onTap }: { pose: BirdPose; flip: boolean; says: string | null; onTap: () => void }) {
-  // Speak beside the bird (level with it, so it never covers the copy tag above the spot),
-  // on whichever side has room on the screen.
-  const ref = useRef<HTMLDivElement>(null);
-  const [toLeft, setToLeft] = useState(false);
-  useLayoutEffect(() => {
-    if (!says || !ref.current) return;
-    const r = ref.current.getBoundingClientRect();
-    setToLeft(r.left + r.width / 2 > window.innerWidth * 0.55);
-  }, [says]);
+/** The bird itself on the map (its words are shown in a corner, not over the spots). */
+function BirdSprite({ pose, flip, onTap }: { pose: BirdPose; flip: boolean; onTap: () => void }) {
   return (
-    <div ref={ref} className="relative flex flex-col items-center">
-      {says && (
-        <SketchBubble
-          key={says}
-          side={toLeft ? "right" : "left"}
-          className={`animate-peek absolute bottom-[40%] w-max max-w-[150px] ${toLeft ? "right-[88%]" : "left-[88%]"}`}
-        >
-          {says}
-        </SketchBubble>
-      )}
-      <button type="button" onClick={onTap} aria-label="小鳥" className="block">
-        <img
-          src={michibiSrc(pose, "sm")}
-          alt=""
-          draggable={false}
-          className={`h-12 w-12 select-none ${pose === "walk" ? "bird-waddle" : pose === "hop" ? "bird-hop" : pose === "sleepy" ? "" : "bird-breathe"}`}
-          style={{ ["--flip" as string]: flip ? "-1" : "1" }}
-        />
-      </button>
+    <button type="button" onClick={onTap} aria-label="小鳥" className="block">
+      <img
+        src={michibiSrc(pose, "sm")}
+        alt=""
+        draggable={false}
+        className={`h-12 w-12 select-none ${pose === "walk" ? "bird-waddle" : pose === "hop" ? "bird-hop" : pose === "sleepy" ? "" : "bird-breathe"}`}
+        style={{ ["--flip" as string]: flip ? "-1" : "1" }}
+      />
+    </button>
+  );
+}
+
+/** What the bird says, pinned to the top-left corner of the map. */
+export function BirdSays({ says }: { says: string | null }) {
+  if (!says) return null;
+  return (
+    <div className="pointer-events-none flex items-end gap-1" role="status" aria-live="polite">
+      <img src={michibiSrc("side", "sm")} alt="" className="h-9 w-9 shrink-0" />
+      <SketchBubble key={says} side="left" className="animate-peek mb-2 max-w-[210px]">
+        {says}
+      </SketchBubble>
     </div>
   );
 }
