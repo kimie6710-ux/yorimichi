@@ -79,13 +79,23 @@ export function BirdStroll({ className = "" }: { className?: string }) {
   }, [walkTo, say]);
 
   return (
-    <div className={`relative h-[74px] w-full ${className}`} aria-hidden={!says}>
+    <div
+      className={`relative h-[52px] w-full ${className}`}
+      aria-hidden={!says}
+    >
+      {/* Words sit inside the strip, on the side away from the bird, so they never spill off screen. */}
+      {says && (
+        <SketchBubble
+          key={says}
+          side={x > 50 ? "right" : "left"}
+          className="animate-peek pointer-events-none absolute bottom-0 w-max max-w-[58%]"
+          style={x > 50 ? { right: `${Math.min(100 - x + 2, 42)}%` } : { left: `${Math.min(x + 13, 42)}%` }}
+        >
+          {says}
+        </SketchBubble>
+      )}
       <div className="absolute bottom-0" style={{ left: `${x}%` }}>
-        {says && (
-          <SketchBubble key={says} side="left" className="animate-peek absolute bottom-[calc(100%-6px)] left-[70%] w-max max-w-[190px]">
-            {says}
-          </SketchBubble>
-        )}
+
         <button
           type="button"
           aria-label="小鳥"
@@ -99,7 +109,7 @@ export function BirdStroll({ className = "" }: { className?: string }) {
             src={michibiSrc(pose, "sm")}
             alt=""
             draggable={false}
-            className={`h-12 w-12 select-none ${pose === "walk" ? "bird-waddle" : pose === "hop" ? "bird-hop" : "bird-breathe"}`}
+            className={`h-10 w-10 select-none ${pose === "walk" ? "bird-waddle" : pose === "hop" ? "bird-hop" : "bird-breathe"}`}
             style={{ ["--flip" as string]: flip ? "-1" : "1" }}
           />
         </button>

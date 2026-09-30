@@ -62,11 +62,11 @@ export default function NotebookPage() {
   const open = items?.find((s) => s.id === openId) ?? null;
 
   return (
-    <main className="paper min-h-[calc(100dvh-76px)] px-4 pt-[max(12px,env(safe-area-inset-top))] pb-8">
-      <TopBar />
-      <div className="mt-5 mb-3 flex items-end justify-between px-1">
-        <h1 className="font-hand text-[28px] tracking-wide">手帳</h1>
+    <main className="paper flex h-[calc(100dvh-76px-env(safe-area-inset-bottom))] flex-col overflow-hidden px-3 pt-[max(10px,env(safe-area-inset-top))] pb-2">
+      <div className="flex shrink-0 items-center gap-3 px-1">
+        <h1 className="font-hand text-[26px] tracking-wide">手帳</h1>
         {items && items.length > 0 && <span className="text-sm text-ink-mute">{items.length}枚</span>}
+        <TopBar className="ml-auto" />
       </div>
 
       {error && <p className="mt-6 text-sm font-bold">{error}</p>}
@@ -80,8 +80,9 @@ export default function NotebookPage() {
           <Michibi mood="perch" size={64} says={MICHIBI_LINES.collectionEmpty} animate="none" />
         </div>
       )}
-      {items && items.length > 0 && <BirdStroll className="-mb-3" />}
+      {items && items.length > 0 && <BirdStroll className="relative z-10 -mb-4 shrink-0" />}
       {items && (
+        <div className="min-h-0 flex-1">
         <Notebook
           stickers={items}
           decos={decos}
@@ -93,6 +94,7 @@ export default function NotebookPage() {
           onMoveDeco={moveDeco}
           onRemoveDeco={removeDeco}
         />
+        </div>
       )}
 
       <SketchSheet open={!!open} onClose={() => setOpenId(null)} label="シール">

@@ -99,6 +99,7 @@ export function Notebook({
   const decoIds = useMemo(() => new Set(decos.map((d) => d.id)), [decos]);
   const [selected, setSelected] = useState<string | null>(null);
   const [trayOpen, setTrayOpen] = useState(false);
+  const [paperOpen, setPaperOpen] = useState(false);
   const [local, setLocal] = useState<Map<string, BookPos>>(new Map());
   const [order, setOrder] = useState<string[]>([]);
   const [page, setPage] = useState(0);
@@ -228,12 +229,12 @@ export function Notebook({
     .sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
 
   return (
-    <div>
+    <div className="flex h-full min-h-0 flex-col">
       <div
         ref={pageRef}
         onPointerDown={onPageDown}
         onPointerUp={onPageUp}
-        className={`book-page book-${bgOf(page)} relative aspect-[3/4.1] w-full touch-pan-y overflow-hidden select-none [container-type:inline-size]`}
+        className={`book-page book-${bgOf(page)} relative min-h-0 w-full flex-1 touch-none overflow-hidden select-none [container-type:inline-size]`}
       >
         <span key={page} className={`pointer-events-none absolute inset-0 ${dir === 1 ? "animate-[page-turn-r_0.3s_ease-out]" : "animate-[page-turn-l_0.3s_ease-out]"}`} aria-hidden />
         <Tape seed={`page-${page}-a`} className="!top-[-6px] !left-[14%] !w-20" />
@@ -295,34 +296,40 @@ export function Notebook({
         )}
       </div>
 
-      <div className="mt-3 flex items-center justify-between">
-        <button type="button" onClick={() => go(-1)} disabled={page === 0} aria-label="前のページ" className="sketch-btn flex h-11 w-11 items-center justify-center disabled:opacity-30">
+      {/* one compact row: pages, paper, stickers */}
+      <div className="relative mt-2 flex shrink-0 items-center justify-between gap-1">
+        {paperOpen && (
+          <div className="animate-peek absolute right-0 bottom-full left-0 mb-2 flex items-center justify-center gap-2 rounded-[12px_16px_11px_15px] bg-card/95 p-2 shadow-[0_4px_14px_-4px_rgb(60_50_30/0.35)]" role="radiogroup" aria-label="ページの紙">
+            {PAGE_BACKGROUNDS.map((bg) => (
+              <button
+                key={bg}
+                type="button"
+                role="radio"
+                aria-checked={bgOf(page) === bg}
+                aria-label={PAGE_BG_LABEL[bg]}
+                onClick={() => setBg(bg)}
+                className={`book-${bg} sketch-btn h-9 w-9 rounded-[7px_10px_6px_11px] shadow-[0_1px_2px_rgb(60_50_30/0.2)] ${bgOf(page) === bg ? "outline-2 outline-ink outline-offset-2 outline-solid" : ""}`}
+              />
+            ))}
+          </div>
+        )}
+        <button type="button" onClick={() => go(-1)} disabled={page === 0} aria-label="前のページ" className="sketch-btn flex h-10 w-10 items-center justify-center disabled:opacity-30">
           <img src="/ui/i-back.png" alt="" className="h-5 w-auto" />
         </button>
-        <span className="text-[13px] text-ink-mute tabular-nums">
+        <span className="w-12 text-center text-[13px] text-ink-mute tabular-nums">
           {page + 1} / {pageCount}
         </span>
-        <SketchButton variant="sub" size="sm" onClick={() => setTrayOpen(true)} className="!px-2.5" aria-label="シールを貼る">
+        <SketchButton variant="plain" size="sm" onClick={() => setPaperOpen((v) => !v)} aria-expanded={paperOpen} className="!min-h-10 !px-2">
+          <span className={`book-${bgOf(page)} inline-block h-5 w-5 rounded-[4px_6px_4px_5px] shadow-[0_1px_2px_rgb(60_50_30/0.25)]`} aria-hidden />
+          紙
+        </SketchButton>
+        <SketchButton variant="sub" size="sm" onClick={() => setTrayOpen(true)} className="!min-h-10 !px-2.5" aria-label="シールを貼る">
           <img src="/deco/bird-front.png" alt="" className="h-6 w-auto" />
           貼る
         </SketchButton>
-        <button type="button" onClick={() => go(1)} aria-label={page === pageCount - 1 ? "新しいページ" : "次のページ"} className="sketch-btn flex h-11 w-11 items-center justify-center">
+        <button type="button" onClick={() => go(1)} aria-label={page === pageCount - 1 ? "新しいページ" : "次のページ"} className="sketch-btn flex h-10 w-10 items-center justify-center">
           <img src="/ui/i-back.png" alt="" className="h-5 w-auto -scale-x-100" />
         </button>
-      </div>
-
-      <div className="mt-2 flex items-center justify-center gap-2.5" role="radiogroup" aria-label="ページの紙">
-        {PAGE_BACKGROUNDS.map((bg) => (
-          <button
-            key={bg}
-            type="button"
-            role="radio"
-            aria-checked={bgOf(page) === bg}
-            aria-label={PAGE_BG_LABEL[bg]}
-            onClick={() => setBg(bg)}
-            className={`book-${bg} sketch-btn h-9 w-9 rounded-[7px_10px_6px_11px] shadow-[0_1px_2px_rgb(60_50_30/0.2)] ${bgOf(page) === bg ? "outline-2 outline-ink outline-offset-2 outline-solid" : ""}`}
-          />
-        ))}
       </div>
 
       <SketchSheet open={trayOpen} onClose={() => setTrayOpen(false)} label="シールを貼る">

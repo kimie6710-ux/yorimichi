@@ -265,12 +265,14 @@ export function SketchBubble({
   side = "left",
   seed,
   className = "",
+  style,
   children,
 }: {
   /** Which side the tail points to. */
   side?: "left" | "right";
   seed?: string | number;
   className?: string;
+  style?: React.CSSProperties;
   children: ReactNode;
 }) {
   // Pick the shape by length: short lines get the compact round bubble, longer
@@ -280,7 +282,7 @@ export function SketchBubble({
   const b = len <= 9 ? BUBBLES[0] : len <= 16 ? BUBBLES[3] : BUBBLES[hashSeed(seed ?? text) % 2 === 0 ? 4 : 1];
   const [t, r, bt, l] = b.slice.map((v) => Math.round(v * BUBBLE_SCALE));
   return (
-    <div className={`relative isolate w-fit ${className}`} style={{ minHeight: t + bt, minWidth: l + r + 12 }}>
+    <div className={`relative isolate w-fit ${className}`} style={{ minHeight: t + bt, minWidth: l + r + 12, ...style }}>
       <span
         aria-hidden
         className="pointer-events-none absolute inset-0 -z-10 box-border"
