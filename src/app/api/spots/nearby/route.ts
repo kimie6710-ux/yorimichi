@@ -3,7 +3,7 @@ import { identify } from "@/lib/server/identity";
 import { PlacesApiError, searchNearbyPlaces } from "@/lib/places/google";
 import { buildMockPlaces } from "@/lib/places/mock";
 import { spotsNearbyRequestSchema } from "@/lib/schemas";
-import { isMockModeServer, serverEnv } from "@/lib/server/env";
+import { aiEnabled, isMockModeServer, serverEnv } from "@/lib/server/env";
 import { jsonError, parseJsonBody } from "@/lib/server/http";
 import { toMapSpots, touchUser } from "@/lib/server/services";
 import type { Place } from "@/lib/types";
@@ -53,7 +53,8 @@ export async function POST(req: Request) {
 
   const all = await toMapSpots(places, userId);
   const withCopy = all.filter((s) => s.copy).sort((a, b) => a.place.distanceMeters - b.place.distanceMeters).slice(0, MAX_ON_MAP);
-  const room = Math.max(0, Math.min(SEED_BATCH, MAX_ON_MAP - withCopy.length));
+  // With the AI off, only spots that already have a line are shown.
+  const room = aiEnabled() ? Math.max(0, Math.min(SEED_BATCH, MAX_ON_MAP - withCopy.length)) : 0;
   const pending = diverse(all.filter((s) => !s.copy).map((s) => s.place), room);
 
   return Response.json({ spots: withCopy, pending, total: places.length });

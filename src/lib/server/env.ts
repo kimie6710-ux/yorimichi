@@ -2,7 +2,7 @@ import "server-only";
 
 // Server-only configuration. Never import this from a client component.
 
-export type AIProviderName = "anthropic" | "mock";
+export type AIProviderName = "anthropic" | "mock" | "off";
 
 export const serverEnv = {
   /** Server-side key for Places API (New). Falls back to the browser key if you only use one. */
@@ -28,6 +28,9 @@ export const serverEnv = {
  * Mock spots must NEVER reach production users, so on Vercel production the
  * flag is ignored even if someone sets it by mistake.
  */
+/** AI_PROVIDER=off: never call the model. The map shows only spots that already have a line. */
+export const aiEnabled = () => serverEnv.aiProvider !== "off";
+
 export function isMockModeServer(): boolean {
   const requested = process.env.NEXT_PUBLIC_USE_MOCK_DATA === "true";
   if (!requested) return false;

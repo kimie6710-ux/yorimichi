@@ -16,6 +16,7 @@ let cached: AIProvider | null = null;
  */
 export function getAIProvider(): AIProvider {
   if (cached) return cached;
+  if (serverEnv.aiProvider === "off") throw new AIProviderError("AI is turned off (AI_PROVIDER=off)", "not_configured");
 
   const wantsMock =
     serverEnv.aiProvider === "mock" || ((isMockModeServer() || !serverEnv.anthropicApiKey) && process.env.VERCEL_ENV !== "production");

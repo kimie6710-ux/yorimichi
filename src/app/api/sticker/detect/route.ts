@@ -1,5 +1,6 @@
 import { getAIProvider } from "@/lib/ai";
 import { placeIdSchema } from "@/lib/schemas";
+import { aiEnabled } from "@/lib/server/env";
 import { jsonError } from "@/lib/server/http";
 import { foundLabelsAt } from "@/lib/server/services";
 
@@ -22,6 +23,8 @@ export async function POST(req: Request) {
     files.push(f);
   }
   if (files.length === 0) return jsonError("invalid_input", "画像がありません", 400);
+  // AI off: keep every cutout, the person names it themselves.
+  if (!aiEnabled()) return Response.json({ names: files.map((_, index) => ({ index, label: "見つけたもの", keep: true })) });
   const spotId = String(form.get("spotId") ?? "");
   const foundHere = placeIdSchema.safeParse(spotId).success ? await foundLabelsAt(spotId).catch(() => []) : [];
 
