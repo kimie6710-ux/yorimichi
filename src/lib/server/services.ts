@@ -89,7 +89,7 @@ function baseRow(p: Place, prev?: SpotRow): SpotRow {
   };
 }
 
-/** Real places → map spots with their よるみち layer (copy + counts). */
+/** Real places → map spots with their よりみち layer (copy + counts). */
 export async function toMapSpots(places: Place[], userId: string | null): Promise<MapSpot[]> {
   const store = getStore();
   const ids = places.map((p) => p.placeId);

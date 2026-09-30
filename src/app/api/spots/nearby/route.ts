@@ -25,7 +25,7 @@ function diverse(places: Place[], n: number): Place[] {
 }
 
 /**
- * POST /api/spots/nearby — real places around the user with their よるみち layer.
+ * POST /api/spots/nearby — real places around the user with their よりみち layer.
  * Returns what already has a copy right away, plus which places still need one.
  */
 export async function POST(req: Request) {

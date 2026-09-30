@@ -8,7 +8,7 @@ const ITEMS = [
   { href: "/", label: "地図", icon: "/ui/n-map.png", match: (p: string) => p === "/" || p.startsWith("/spot") || p.startsWith("/visit") },
   { href: "/capture", label: "撮る", icon: "/ui/n-camera.png", match: (p: string) => p.startsWith("/capture") },
   { href: "/collection", label: "手帳", icon: "/ui/n-book.png", match: (p: string) => p.startsWith("/collection") },
-  { href: "/me", label: "マイページ", icon: "/ui/n-person.png", match: (p: string) => p.startsWith("/me") || p.startsWith("/inbox") },
+  { href: "/me", label: "マイページ", icon: "/ui/n-person.png", match: (p: string) => p.startsWith("/me") || p.startsWith("/inbox") || p.startsWith("/guide") },
 ] as const;
 
 export function BottomNav() {

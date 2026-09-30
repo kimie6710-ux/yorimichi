@@ -5,7 +5,7 @@ import { serverEnv } from "@/lib/server/env";
 import { jsonError, latLngFromSearch } from "@/lib/server/http";
 import { getSpotRow, placeFromRow, spotDetail } from "@/lib/server/services";
 
-/** GET /api/spots/:id?lat=&lng= — the spot page (basic info + よるみち layer). */
+/** GET /api/spots/:id?lat=&lng= — the spot page (basic info + よりみち layer). */
 export async function GET(req: Request, ctx: RouteContext<"/api/spots/[id]">) {
   const { id } = await ctx.params;
   if (!placeIdSchema.safeParse(id).success) return jsonError("invalid_input", "invalid id", 400);

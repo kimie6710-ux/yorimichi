@@ -156,7 +156,7 @@ function HtmlMarker({
 const MASCOT_OFFSET: [number, number] = [66, 34];
 
 /**
- * Google Maps as the quiet background layer with YORUMICHI's own markers on top.
+ * Google Maps as the quiet background layer with YORIMICHI's own markers on top.
  * Initialised only with a real center (the user's location or real markers).
  */
 export default function GoogleSpotMap({

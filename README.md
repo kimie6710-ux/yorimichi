@@ -1,4 +1,4 @@
-# よるみち / YORUMICHI
+# よりみち / YORIMICHI
 
 **いつもの道に、あたらしい目を。**
 
@@ -130,7 +130,7 @@ Production では `NEXT_PUBLIC_USE_MOCK_DATA` / `NEXT_PUBLIC_USE_MOCK_LOCATION` 
 src/
   app/
     page.tsx                  マップ（ホーム）：現在地・スポットの一文・カード
-    spot/[id]/page.tsx        スポット：よるみちの層（一文・見つかったもの）＋基本情報
+    spot/[id]/page.tsx        スポット：よりみちの層（一文・見つかったもの）＋基本情報
     visit/[placeId]/page.tsx  ナビ → 探索モード → 撮る → 選ぶ → シール → 置く／送る／残す
     capture/page.tsx          ＋：今いるスポットで探す（近くにいなければ候補）
     collection/page.tsx       シール帳（ぜんぶ／場所ごと、詳細シート）

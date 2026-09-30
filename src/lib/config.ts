@@ -2,7 +2,7 @@
 
 import type { LatLng } from "./types";
 
-export const APP_NAME = "よるみち";
+export const APP_NAME = "よりみち";
 export const APP_TAGLINE = "いつもの道に、あたらしい目を。";
 
 export const publicConfig = {

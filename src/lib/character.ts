@@ -1,7 +1,7 @@
-// よるみちの小鳥。ナビゲーターだけど、説明しすぎない。
+// よりみちの小鳥「みちび」。ナビゲーターだけど、説明しすぎない。
 
 export const CHARACTER = {
-  name: "よるみちの鳥",
+  name: "みちび",
 } as const;
 
 /** Poses drawn by the user (public/bird/*.webp). */

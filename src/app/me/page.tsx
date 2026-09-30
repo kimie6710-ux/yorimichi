@@ -1,5 +1,6 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element -- hand-drawn icon sprites */
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -37,6 +38,13 @@ export default function MyPage() {
       <header className="flex items-center gap-3">
         <BackButton />
         <h1 className="font-hand text-[26px]">マイページ</h1>
+        <Link href="/guide" className="ml-auto flex flex-col items-center gap-0.5 text-[12px] transition-transform active:translate-y-0.5">
+          <img src="/ui/n-compass.png" alt="" className="h-9 w-auto" draggable={false} />
+          <span className="relative isolate px-1">
+            <img src="/ui/marker-yellow.png" alt="" aria-hidden className="absolute inset-x-0 bottom-0 -z-10 h-2 w-full" />
+            つかいかた
+          </span>
+        </Link>
       </header>
 
       {data && (

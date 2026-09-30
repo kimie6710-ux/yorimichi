@@ -152,7 +152,7 @@ export default function MapHome() {
             {noLocation ? (
               <>
                 <Michibi mood="surprise" size={72} animate="none" />
-                <p className="mt-2 text-base font-bold">現在地を使うと、今いる街のよるみちが見えます。</p>
+                <p className="mt-2 text-base font-bold">現在地を使うと、今いる街のよりみちが見えます。</p>
                 <SketchButton className="mt-4" onClick={town.locate}>
                   現在地を使う
                 </SketchButton>

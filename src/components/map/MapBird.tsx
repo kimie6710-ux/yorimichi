@@ -194,7 +194,7 @@ export function useMapBird(spots: MapSpot[], selected: MapSpot | null, origin: L
 /** The bird itself on the map (its words are shown in a corner, not over the spots). */
 function BirdSprite({ pose, flip, onTap }: { pose: BirdPose; flip: boolean; onTap: () => void }) {
   return (
-    <button type="button" onClick={onTap} aria-label="小鳥" className="block">
+    <button type="button" onClick={onTap} aria-label="みちび" className="block">
       <img
         src={michibiSrc(pose, "sm")}
         alt=""

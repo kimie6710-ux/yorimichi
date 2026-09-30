@@ -53,7 +53,7 @@ export function BirdStroll({ className = "" }: { className?: string }) {
       <div className="pointer-events-auto absolute bottom-0" style={{ left: `${x}%` }}>
         <button
           type="button"
-          aria-label="小鳥"
+          aria-label="みちび"
           onClick={() => {
             if (busy.current) return;
             setPose("hop");

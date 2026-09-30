@@ -55,7 +55,7 @@ export function StartScreen({ onStart }: { onStart: () => void }) {
       ))}
 
       <div className="relative flex flex-1 flex-col items-center justify-center px-8 pt-[18vh] text-center">
-        <h1 className="text-[56px] leading-none tracking-[0.12em]">よるみち</h1>
+        <h1 className="text-[56px] leading-none tracking-[0.12em]">よりみち</h1>
         <p className="mt-5 text-lg">{APP_TAGLINE}</p>
       </div>
 

@@ -79,7 +79,7 @@ export type ApiErrorCode =
   | "internal";
 
 // ─────────────────────────────────────────────
-// よるみち: spots, stickers, sharing
+// よりみち: spots, stickers, sharing
 // ─────────────────────────────────────────────
 
 /** The AI's first seed on a real place: a "なにそれ？" line. */
@@ -89,7 +89,7 @@ export interface SpotCopy {
   birdLine: string;
 }
 
-/** A real place on the map with its よるみち layer. */
+/** A real place on the map with its よりみち layer. */
 export interface MapSpot {
   place: Place;
   copy: SpotCopy | null;
