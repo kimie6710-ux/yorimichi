@@ -12,13 +12,13 @@ import { MessageView } from "@/components/StateViews";
 import { StickerView } from "@/components/StickerView";
 import { PlaceImage } from "@/components/PlaceImage";
 import { api, ApiClientError } from "@/lib/api-client";
-import { MICHIBI_LINES } from "@/lib/character";
-import { findThings, prepareCutter, warmUpCutter, type CutMask, type StickerCutter } from "@/lib/sticker/cutter";
-import { canvasToBlob, downscaleToJpeg, loadBitmap, randomRotation, stickerFromMask, thumbForNaming, toCanvas } from "@/lib/sticker/render";
+import { MICHIBI_LINES, michibiSrc } from "@/lib/character";
+import { boxMask, detectThings, MIDDLE_BOX, prepareCutter, warmUpCutter, within, type CutMask, type CutPoint, type StickerCutter } from "@/lib/sticker/cutter";
+import { canvasToBlob, downscaleToJpeg, loadBitmap, randomRotation, stickerFromMask, toCanvas } from "@/lib/sticker/render";
 import { useSearch } from "@/lib/store/search-context";
 import type { SpotDetail, Sticker } from "@/lib/types";
 
-type Step = "go" | "explore" | "looking" | "pick" | "make" | "share" | "done";
+type Step = "go" | "explore" | "looking" | "pick" | "making" | "make" | "share" | "done";
 type Outcome = "kept" | "placed" | "sent";
 
 /** A thing cut out of the photo, waiting to be chosen. */
@@ -28,8 +28,19 @@ interface Cutout {
   blob: Blob;
   url: string;
   rotation: number;
+  /** Where to make the exact cut when chosen (null = already exact). */
+  point: CutPoint | null;
 }
-const MAX_CUTOUTS = 7;
+const MAX_CUTOUTS = 6;
+/** The exact cut can be slow on phones; past this, the soft cut is used as is. */
+const EXACT_CUT_MS = 7000;
+
+/** Let the browser draw the waiting screen before heavy work blocks it. */
+const nextPaint = () =>
+  new Promise<void>((r) => {
+    const t = setTimeout(r, 80); // rAF never fires in a hidden tab (e.g. just back from the camera)
+    requestAnimationFrame(() => setTimeout(() => (clearTimeout(t), r()), 40));
+  });
 
 export default function VisitPage() {
   return (
@@ -111,12 +122,12 @@ function Visit() {
     }
   }, [step, detail, spotId, currentLocation, load, patchSpot]);
 
-  async function toCutout(mask: CutMask, label: string | null): Promise<Cutout | null> {
+  async function toCutout(mask: CutMask, label: string | null, point: CutPoint | null): Promise<Cutout | null> {
     if (!work.current) return null;
     const canvas = stickerFromMask(work.current, mask);
     if (!canvas) return null;
     const blob = await canvasToBlob(canvas);
-    return { id: crypto.randomUUID(), label: label ?? "見つけたもの", blob, url: track(blob), rotation: randomRotation() };
+    return { id: crypto.randomUUID(), label: label ?? "見つけたもの", blob, url: track(blob), rotation: randomRotation(), point };
   }
 
   async function onPhoto(file: File | undefined) {
@@ -126,26 +137,23 @@ function Visit() {
     setSticker(null);
     setStep("looking");
     try {
+      await nextPaint();
       const bitmap = await loadBitmap(file);
       const photo = await downscaleToJpeg(bitmap);
       setPhotoBlob(photo);
       setPhotoUrl(track(photo));
-      work.current = toCanvas(bitmap, 1024);
-      cutter.current = prepareCutter(work.current);
-      // The segmenter finds real shapes; then the AI looks at each and names it.
-      const masks = await findThings(await cutter.current, MAX_CUTOUTS - 1);
-      let made = (await Promise.all(masks.map((m) => toCutout(m, null)))).filter((c): c is Cutout => !!c);
-      if (made.length > 0) {
-        try {
-          const thumbs = await Promise.all(made.map((c) => thumbForNaming(c.blob)));
-          const { names } = await api.nameCutouts(thumbs, spotId);
-          const named = made.map((c, i) => ({ ...c, label: names[i]?.label ?? c.label, keep: names[i]?.keep ?? true }));
-          const things = named.filter((c) => c.keep);
-          made = things.length > 0 ? things : named;
-        } catch (err) {
-          console.warn("[name]", err);
-        }
-      }
+      const canvas = toCanvas(bitmap, 1024);
+      work.current = canvas;
+      // The exact cutter gets ready in the background; it's only used for the one you choose.
+      cutter.current = prepareCutter(canvas);
+      cutter.current.catch(() => undefined);
+      // Quick look: what's in the photo, with names — soft cuts right away.
+      const seen = (await within(detectThings(canvas), 6000)) ?? [];
+      const aspect = canvas.width / canvas.height;
+      const middle = { box: MIDDLE_BOX, point: { x: 0.5, y: 0.5 }, label: null };
+      // Few things recognised → also offer "the thing in the middle".
+      const picks = [...seen.slice(0, MAX_CUTOUTS), ...(seen.length < 2 ? [middle] : [])];
+      const made = (await Promise.all(picks.map((s) => toCutout(boxMask(s.box, aspect), s.label, s.point)))).filter((c): c is Cutout => !!c);
       setCutouts(made);
       setStep("pick");
     } catch (err) {
@@ -155,9 +163,25 @@ function Visit() {
     }
   }
 
-  function choose(c: Cutout) {
-    setSticker({ blob: c.blob, url: c.url, rotation: c.rotation });
+  async function choose(c: Cutout) {
     setLabel(c.label === "見つけたもの" ? "" : c.label);
+    let chosen = c;
+    if (c.point && cutter.current) {
+      setStep("making");
+      await nextPaint();
+      try {
+        const ready = await within(cutter.current, EXACT_CUT_MS);
+        const mask = ready && ready.name === "mediapipe" ? await ready.maskAt(c.point) : null;
+        const exact = mask ? await toCutout(mask, c.label, null) : null;
+        if (exact) {
+          chosen = { ...exact, id: c.id, rotation: c.rotation };
+          setCutouts((list) => list.map((x) => (x.id === c.id ? chosen : x)));
+        }
+      } catch (err) {
+        console.warn("[cut]", err);
+      }
+    }
+    setSticker({ blob: chosen.blob, url: chosen.url, rotation: chosen.rotation });
     setStep("make");
   }
 
@@ -168,8 +192,9 @@ function Visit() {
     setCutting(true);
     setError(null);
     try {
+      await nextPaint();
       const mask = await (await cutter.current).maskAt(point);
-      const c = mask ? await toCutout(mask, null) : null;
+      const c = mask ? await toCutout(mask, null, null) : null;
       if (!c) throw new Error("no mask");
       setCutouts((list) => [...list, c]);
     } catch {
@@ -317,12 +342,7 @@ function Visit() {
 
       {/* ───── 写真の中を見ている ───── */}
       {step === "looking" && (
-        <section className="mt-3 flex min-h-0 flex-1 flex-col items-center" role="status">
-          {photoUrl && <img src={photoUrl} alt="" className="min-h-0 w-full flex-1 rounded-[18px_22px_16px_24px] object-contain opacity-70" />}
-          <div className="shrink-0 pt-3">
-            <Michibi mood="side" size={56} animate="bob" says="なにが写ってるかな。" />
-          </div>
-        </section>
+        <WaitView photoUrl={photoUrl} line="なにが写ってるかな" />
       )}
 
       {/* ───── 候補から選ぶ ───── */}
@@ -350,8 +370,11 @@ function Visit() {
               className={`max-h-full max-w-full rounded-[14px_18px_12px_20px] object-contain ${cutting ? "cursor-progress" : "cursor-crosshair"}`}
             />
             {cutting && (
-              <div className="absolute inset-0 flex items-center justify-center bg-card/40">
-                <Michibi mood="flap" size={64} animate="bob" />
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-card/50">
+                <img src={michibiSrc("flap", "sm")} alt="" className="bird-hop-loop h-14 w-14" />
+                <p className="text-[15px]">
+                  切ってる<span className="wait-dots" aria-hidden><i>.</i><i>.</i><i>.</i></span>
+                </p>
               </div>
             )}
           </div>
@@ -362,6 +385,9 @@ function Visit() {
           </div>
         </section>
       )}
+
+      {/* ───── 切り抜いている ───── */}
+      {step === "making" && <WaitView photoUrl={photoUrl} line="ふちを切ってる" cutting />}
 
       {/* ───── シールができた ───── */}
       {step === "make" && sticker && (
@@ -450,5 +476,33 @@ function Visit() {
         </section>
       )}
     </main>
+  );
+}
+
+/**
+ * The waiting screen while the photo is looked at / cut out. Everything moves
+ * with CSS only, so it keeps going even while the cutter keeps the page busy.
+ */
+function WaitView({ photoUrl, line, cutting = false }: { photoUrl: string | null; line: string; cutting?: boolean }) {
+  return (
+    <section className="mt-3 flex min-h-0 flex-1 flex-col items-center" role="status" aria-live="polite">
+      <div className="relative flex min-h-0 w-full flex-1 items-center justify-center">
+        {photoUrl ? (
+          <div className="relative max-h-full overflow-hidden rounded-[18px_22px_16px_24px]">
+            <img src={photoUrl} alt="" className={`block max-h-[60dvh] w-auto max-w-full object-contain ${cutting ? "opacity-60" : "opacity-85"}`} />
+            <div className="scan-line pointer-events-none absolute inset-x-0 h-10" />
+          </div>
+        ) : (
+          <div className="h-[40dvh] w-full rounded-[18px_22px_16px_24px] bg-card" />
+        )}
+      </div>
+      <div className="flex shrink-0 items-end gap-2 pt-3">
+        <img src={michibiSrc(cutting ? "flap" : "side", "sm")} alt="" className="bird-hop-loop h-14 w-14" />
+        <p className="mb-2 text-[18px]">
+          {line}
+          <span className="wait-dots" aria-hidden><i>.</i><i>.</i><i>.</i></span>
+        </p>
+      </div>
+    </section>
   );
 }

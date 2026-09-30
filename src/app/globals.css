@@ -373,3 +373,36 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Waiting screens (CSS only, so they keep moving while the cutter is busy) */
+.bird-hop-loop {
+  animation: bird-hop-loop 0.9s cubic-bezier(0.3, 1.4, 0.5, 1) infinite;
+}
+@keyframes bird-hop-loop {
+  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  40% { transform: translateY(-10px) rotate(3deg); }
+  70% { transform: translateY(0) rotate(-1deg); }
+}
+.scan-line {
+  top: -2.5rem;
+  background: linear-gradient(to bottom, transparent, rgb(255 222 90 / 0.55) 55%, rgb(255 222 90 / 0.85) 70%, transparent);
+  mix-blend-mode: multiply;
+  animation: scan-line 1.6s ease-in-out infinite;
+}
+@keyframes scan-line {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(calc(60dvh + 2.5rem)); }
+}
+.wait-dots i {
+  font-style: normal;
+  animation: wait-dot 1.2s ease-in-out infinite;
+}
+.wait-dots i:nth-child(2) { animation-delay: 0.2s; }
+.wait-dots i:nth-child(3) { animation-delay: 0.4s; }
+@keyframes wait-dot {
+  0%, 60%, 100% { opacity: 0.15; }
+  30% { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bird-hop-loop, .scan-line, .wait-dots i { animation: none; }
+}
