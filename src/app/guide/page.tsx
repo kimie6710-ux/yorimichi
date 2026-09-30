@@ -9,7 +9,8 @@ import { APP_NAME } from "@/lib/config";
 import { PaperFrame, SketchButton, SketchLinkButton, type FrameKind } from "@/components/sketch";
 
 interface Page {
-  icon: string;
+  /** An icon, or the bird itself on the page that introduces it. */
+  icon: string | "michibi";
   title: string;
   lines: string[];
   frame: FrameKind;
@@ -17,6 +18,13 @@ interface Page {
 }
 
 const PAGES: Page[] = [
+  {
+    icon: "michibi",
+    title: "みちびです",
+    lines: ["よりみちを案内する、小さな鳥。", "地図の一言も、シールの名前も", "みちびが考えています。", "ほうっておくと、ひとりで散歩へ。"],
+    frame: "dash",
+    bird: "happy",
+  },
   {
     icon: "/ui/n-map.png",
     title: "地図で、気になる一言を",
@@ -28,7 +36,7 @@ const PAGES: Page[] = [
     icon: "/ui/n-compass.png",
     title: "着くまで、ひみつ",
     lines: ["どんな場所かは、着いてのお楽しみ。", "線と矢印のとおりに歩くだけ。"],
-    frame: "dash",
+    frame: "stack",
     bird: "walk",
   },
   {
@@ -90,7 +98,11 @@ export default function GuidePage() {
         <div key={i} className="animate-rise w-full max-w-[400px]">
           <PaperFrame kind={page.frame} tape={page.frame === "fold" || page.frame === "tape" ? `guide-${i}` : undefined} className="w-full">
             <div className="flex flex-col items-center px-1 py-3 text-center">
-              <img src={page.icon} alt="" className="h-12 w-auto" draggable={false} />
+              {page.icon === "michibi" ? (
+                <img src={michibiSrc(page.bird, "sm")} alt="みちび" className="bird-breathe h-24 w-24" draggable={false} />
+              ) : (
+                <img src={page.icon} alt="" className="h-12 w-auto" draggable={false} />
+              )}
               <h2 className="relative isolate mt-3 px-1 text-[22px] leading-snug">
                 <img src="/ui/marker-yellow.png" alt="" aria-hidden className="absolute inset-x-0 bottom-0.5 -z-10 h-3 w-full" />
                 {page.title}
@@ -103,7 +115,7 @@ export default function GuidePage() {
             </div>
           </PaperFrame>
         </div>
-        <img src={michibiSrc(page.bird, "sm")} alt="みちび" className="bird-breathe mt-4 h-16 w-16" draggable={false} />
+        {page.icon !== "michibi" && <img src={michibiSrc(page.bird, "sm")} alt="みちび" className="bird-breathe mt-4 h-16 w-16" draggable={false} />}
       </section>
 
       <div className="shrink-0">
