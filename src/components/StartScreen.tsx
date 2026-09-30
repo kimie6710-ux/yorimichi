@@ -9,11 +9,10 @@ import { SketchBubble, SketchButton, Tape } from "./sketch";
 
 /** Stickers loosely stuck around the title, like the cover of a notebook. */
 const COVER_STICKERS: { src: string; className: string; rot: number }[] = [
-  { src: "/deco/bird-perch.png", className: "top-[9%] left-[6%] w-[30%]", rot: -6 },
-  { src: "/deco/tape-stripe.png", className: "top-[5%] right-[-4%] w-[46%]", rot: 8 },
-  { src: "/deco/bird-sleepy.png", className: "top-[20%] right-[6%] w-[24%]", rot: 7 },
-  { src: "/deco/tape-yellowdots.png", className: "bottom-[30%] left-[-6%] w-[40%]", rot: -10 },
-  { src: "/deco/bird-flap.png", className: "bottom-[33%] right-[5%] w-[22%]", rot: -4 },
+  { src: "/deco/bird-perch.png", className: "top-[4%] left-[5%] w-[30%] max-w-[150px]", rot: -6 },
+  { src: "/deco/tape-stripe.png", className: "top-[2%] right-[-6%] w-[46%]", rot: 8 },
+  { src: "/deco/bird-sleepy.png", className: "top-[9%] right-[6%] w-[22%] max-w-[110px]", rot: 7 },
+  { src: "/deco/tape-yellowdots.png", className: "bottom-[24%] left-[-8%] w-[34%]", rot: -10 },
 ];
 
 /** The first thing you see: a notebook cover with the bird walking across it. */
@@ -55,7 +54,7 @@ export function StartScreen({ onStart }: { onStart: () => void }) {
         />
       ))}
 
-      <div className="relative flex flex-1 flex-col items-center justify-center px-8 text-center">
+      <div className="relative flex flex-1 flex-col items-center justify-center px-8 pt-[18vh] text-center">
         <div className="relative">
           <Tape seed="cover-title" className="!-top-5 !w-20" />
           <h1 className="text-[56px] leading-none tracking-[0.12em]">よるみち</h1>
