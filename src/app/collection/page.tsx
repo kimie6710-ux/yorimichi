@@ -64,7 +64,7 @@ export default function NotebookPage() {
       )}
 
       <SketchSheet open={!!open} onClose={() => setOpenId(null)} label="シール">
-        {open && <StickerDetail key={open.id} sticker={open} onChange={(s) => setItems((list) => list?.map((x) => (x.id === s.id ? s : x)) ?? null)} />}
+        {open && <StickerDetail key={open.id} sticker={open} onClose={() => setOpenId(null)} onChange={(s) => setItems((list) => list?.map((x) => (x.id === s.id ? s : x)) ?? null)} />}
       </SketchSheet>
     </main>
   );

@@ -7,6 +7,7 @@ import { api, ApiClientError } from "@/lib/api-client";
 import { useSearch } from "@/lib/store/search-context";
 import type { Sticker } from "@/lib/types";
 import { SketchButton, SketchLinkButton, SketchTextarea } from "./sketch";
+import { SendAnimation } from "./SendAnimation";
 import { StickerView } from "./StickerView";
 
 function date(iso: string) {
@@ -15,12 +16,13 @@ function date(iso: string) {
 }
 
 /** Everything about one sticker, plus what you can do with it. */
-export function StickerDetail({ sticker, onChange }: { sticker: Sticker; onChange: (s: Sticker) => void }) {
+export function StickerDetail({ sticker, onChange, onClose }: { sticker: Sticker; onChange: (s: Sticker) => void; onClose?: () => void }) {
   const { currentLocation, refreshUnread } = useSearch();
   const [memo, setMemo] = useState(sticker.memo);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [showPhoto, setShowPhoto] = useState(false);
+  const [sending, setSending] = useState(false);
   const mine = sticker.origin === "found";
 
   async function run(fn: () => Promise<Sticker>, done: string) {
@@ -81,21 +83,32 @@ export function StickerDetail({ sticker, onChange }: { sticker: Sticker; onChang
 
       {note && <p className="mt-4 text-center text-sm font-bold" role="status">{note}</p>}
 
-      <div className="mt-5 flex flex-col gap-3">
+      <div className="mt-6 flex flex-col items-center gap-3">
+        {mine && (
+          <SketchButton size="lg" block onClick={() => setSending(true)}>
+            誰かに送る
+            <img src="/ui/i-send.png" alt="" className="h-5 w-auto" />
+          </SketchButton>
+        )}
         <SketchLinkButton href={`/spot/${encodeURIComponent(sticker.spotId)}`} variant={mine ? "sub" : "primary"} block>
-          このシールが生まれた場所を見る
+          生まれた場所を見る
         </SketchLinkButton>
         {mine && sticker.status === "kept" && (
-          <div className="grid grid-cols-2 gap-3">
-            <SketchButton variant="plain" size="sm" disabled={busy} onClick={() => void run(async () => (await api.place(sticker.id, currentLocation)).sticker, "置いてきました。")}>
-              ここに置く
-            </SketchButton>
-            <SketchButton variant="plain" size="sm" disabled={busy} onClick={() => void run(async () => (await api.send(sticker.id)).sticker, "どこかの誰かに届けました。")}>
-              送り出す
-            </SketchButton>
-          </div>
+          <SketchButton variant="plain" size="sm" disabled={busy} onClick={() => void run(async () => (await api.place(sticker.id, currentLocation)).sticker, "置いてきました。")}>
+            ここに置く
+          </SketchButton>
         )}
       </div>
+
+      {sending && (
+        <SendAnimation
+          sticker={sticker}
+          onClose={() => {
+            setSending(false);
+            onClose?.();
+          }}
+        />
+      )}
     </div>
   );
 }
