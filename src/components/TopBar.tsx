@@ -5,12 +5,11 @@ import Link from "next/link";
 
 import { useSearch } from "@/lib/store/search-context";
 
-/** Wordmark + 届いたもの. */
+/** 届いたもの (top right). */
 export function TopBar({ className = "" }: { className?: string }) {
   const { unread } = useSearch();
   return (
-    <div className={`flex items-center justify-between gap-2 ${className}`}>
-      <span className="rounded-[10px_14px_9px_13px] bg-card/90 px-3 py-1 text-base font-bold tracking-[0.18em]">よるみち</span>
+    <div className={`flex items-center justify-end ${className}`}>
       <Link
         href="/inbox"
         aria-label={unread ? `届いたもの ${unread}件` : "届いたもの"}
