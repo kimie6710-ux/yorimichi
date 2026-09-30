@@ -22,6 +22,7 @@ export default function FieldMap({
   bottomInset = 0,
   className = "",
   mascotAt = null,
+  mascot,
   interactive = true,
   route = null,
   bubbles = true,
@@ -126,10 +127,10 @@ export default function FieldMap({
 
       {mascotAt && (
         <span
-          className="absolute -translate-x-[140%] -translate-y-[70%]"
-          style={{ ...projection.project(mascotAt), zIndex: 4 }}
+          className="absolute -translate-x-1/2 -translate-y-full"
+          style={{ ...projection.project(mascotAt), zIndex: 40, marginLeft: 66, marginTop: 34 }}
         >
-          <MichibiMapMarker />
+          {mascot ?? <MichibiMapMarker />}
         </span>
       )}
 

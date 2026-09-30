@@ -273,7 +273,11 @@ export function SketchBubble({
   className?: string;
   children: ReactNode;
 }) {
-  const b = BUBBLES[hashSeed(seed ?? (typeof children === "string" ? children : "bubble")) % BUBBLES.length];
+  // Pick the shape by length: short lines get the compact round bubble, longer
+  // ones the wider shapes, so the corners and tail never look squashed.
+  const text = typeof children === "string" ? children : "";
+  const len = text.length;
+  const b = len <= 9 ? BUBBLES[0] : len <= 16 ? BUBBLES[3] : BUBBLES[hashSeed(seed ?? text) % 2 === 0 ? 4 : 1];
   const [t, r, bt, l] = b.slice.map((v) => Math.round(v * BUBBLE_SCALE));
   return (
     <div className={`relative isolate w-fit ${className}`} style={{ minHeight: t + bt, minWidth: l + r + 12 }}>

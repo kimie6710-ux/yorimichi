@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { BirdStroll } from "@/components/BirdStroll";
 import { Michibi } from "@/components/Michibi";
 import { Notebook } from "@/components/notebook/Notebook";
 import { SketchSheet } from "@/components/sketch";
@@ -79,6 +80,7 @@ export default function NotebookPage() {
           <Michibi mood="perch" size={64} says={MICHIBI_LINES.collectionEmpty} animate="none" />
         </div>
       )}
+      {items && items.length > 0 && <BirdStroll className="-mb-3" />}
       {items && (
         <Notebook
           stickers={items}

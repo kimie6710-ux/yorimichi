@@ -4,16 +4,31 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { useMapBird } from "@/components/map/MapBird";
 import { MapView, type MapMarker } from "@/components/map/MapView";
 import { Michibi } from "@/components/Michibi";
 import { SketchButton, SketchCard } from "@/components/sketch";
+import { StartScreen } from "@/components/StartScreen";
 import { TopBar } from "@/components/TopBar";
-import { APP_TAGLINE } from "@/lib/config";
 import { MICHIBI_LINES } from "@/lib/character";
 import { useSearch } from "@/lib/store/search-context";
 import type { MapSpot } from "@/lib/types";
 
-const ONBOARDED_KEY = "yorumichi:onboarded";
+/** Shown once each time the app is opened (per browser session). */
+const STARTED_KEY = "yorumichi:started";
+
+/** Spots in the same building would sit on top of each other: fan them out a little. */
+function declutter(spots: MapSpot[]) {
+  const GAP = 0.00016;
+  const placed: { spot: MapSpot; position: { latitude: number; longitude: number } }[] = [];
+  for (const spot of spots) {
+    const p = spot.place.location;
+    const near = placed.filter((o) => Math.hypot(o.position.latitude - p.latitude, o.position.longitude - p.longitude) < GAP).length;
+    const a = near * 2.2;
+    placed.push({ spot, position: near ? { latitude: p.latitude + Math.sin(a) * GAP * 0.9, longitude: p.longitude + Math.cos(a) * GAP * 1.1 } : p });
+  }
+  return placed;
+}
 
 export default function MapHome() {
   const router = useRouter();
@@ -26,19 +41,20 @@ export default function MapHome() {
   useEffect(() => {
     try {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- read once from browser storage
-      setOnboarded(localStorage.getItem(ONBOARDED_KEY) === "1");
+      setOnboarded(sessionStorage.getItem(STARTED_KEY) === "1");
     } catch {
       /* storage blocked: skip onboarding */
     }
   }, []);
 
   const selected = spots.find((s) => s.place.placeId === selectedId) ?? spots[0] ?? null;
+  const bird = useMapBird(spots, spots.length ? selected : null, currentLocation);
 
   const markers = useMemo<MapMarker[]>(
     () =>
-      spots.map((s, i) => ({
+      declutter(spots).map(({ spot: s, position }, i) => ({
         id: s.place.placeId,
-        position: s.place.location,
+        position,
         label: s.copy?.copy ?? "",
         tone: "spot",
         index: i + 1,
@@ -73,26 +89,17 @@ export default function MapHome() {
 
   if (!onboarded) {
     return (
-      <main className="paper flex min-h-[calc(100dvh-76px)] flex-col items-center justify-center px-8 text-center">
-        <Michibi mood="front" size={150} animate="bob" />
-        <h1 className="mt-4 font-hand text-4xl tracking-[0.1em]">よるみち</h1>
-        <p className="mt-3 text-lg font-bold">{APP_TAGLINE}</p>
-        <SketchButton
-          size="lg"
-          className="mt-10 w-full max-w-[280px]"
-          onClick={() => {
-            try {
-              localStorage.setItem(ONBOARDED_KEY, "1");
-            } catch {
-              /* ignore */
-            }
-            setOnboarded(true);
-            if (locationStatus !== "ready") town.locate();
-          }}
-        >
-          はじめる
-        </SketchButton>
-      </main>
+      <StartScreen
+        onStart={() => {
+          try {
+            sessionStorage.setItem(STARTED_KEY, "1");
+          } catch {
+            /* ignore */
+          }
+          setOnboarded(true);
+          if (locationStatus !== "ready") town.locate();
+        }}
+      />
     );
   }
 
@@ -106,7 +113,9 @@ export default function MapHome() {
           markers={markers}
           selectedId={selected?.place.placeId ?? null}
           onSelect={(id) => select(id)}
-          bottomInset={200}
+          bottomInset={170}
+          mascotAt={bird.pos}
+          mascot={bird.node}
           className="yorumichi-map h-full w-full"
         />
       ) : (
@@ -162,7 +171,7 @@ export default function MapHome() {
           )}
           <ul ref={rail} className="hide-scrollbar flex snap-x snap-mandatory gap-4 overflow-x-auto px-[9%] pt-4 pb-1" aria-label="近くのスポット">
             {spots.map((s, i) => (
-              <li key={s.place.placeId} data-id={s.place.placeId} className="w-[82%] shrink-0 snap-center">
+              <li key={s.place.placeId} data-id={s.place.placeId} className="w-[84%] shrink-0 snap-center">
                 <SpotCard spot={s} index={i + 1} active={selected?.place.placeId === s.place.placeId} onFocus={() => select(s.place.placeId, false)} onGo={() => router.push(`/visit/${encodeURIComponent(s.place.placeId)}`)} />
               </li>
             ))}
@@ -175,16 +184,16 @@ export default function MapHome() {
 
 function SpotCard({ spot, index, active, onFocus, onGo }: { spot: MapSpot; index: number; active: boolean; onFocus: () => void; onGo: () => void }) {
   return (
-    <SketchCard tone={active ? "white" : "paper"} pad="lg" seed={`card-${spot.place.placeId}`} tape={active ? "auto" : undefined} className="flex h-full flex-col" onClick={onFocus}>
-      <span className="text-[12px] font-bold tracking-widest text-ink-mute tabular-nums">{String(index).padStart(2, "0")}</span>
-      <Link href={`/spot/${encodeURIComponent(spot.place.placeId)}`} className="mt-1 block font-hand text-[22px] leading-snug whitespace-pre-line">
+    <SketchCard tone={active ? "white" : "paper"} pad="md" seed={`card-${spot.place.placeId}`} tape={active ? "auto" : undefined} onClick={onFocus}>
+      <span className="text-[12px] tracking-widest text-ink-mute tabular-nums">{String(index).padStart(2, "0")}</span>
+      <Link href={`/spot/${encodeURIComponent(spot.place.placeId)}`} className="mt-0.5 line-clamp-2 block text-[20px] leading-snug whitespace-pre-line">
         {spot.copy?.copy}
       </Link>
-      <p className="mt-2 text-sm text-ink-mute">
-        徒歩{spot.place.walkMinutes}分{spot.placedCount > 0 ? "・誰かの発見あり" : ""}
-      </p>
-      <div className="mt-auto flex justify-end pt-3">
-        <SketchButton size="sm" onClick={onGo}>
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <p className="text-sm text-ink-mute">
+          徒歩{spot.place.walkMinutes}分{spot.placedCount > 0 ? "・誰かの発見あり" : ""}
+        </p>
+        <SketchButton size="sm" onClick={onGo} className="shrink-0">
           行ってみる →
         </SketchButton>
       </div>

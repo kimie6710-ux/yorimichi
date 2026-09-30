@@ -270,6 +270,31 @@
   to { opacity: 0; }
 }
 
+/* The bird on the map */
+.bird-waddle {
+  animation: bird-waddle 0.36s ease-in-out infinite alternate;
+}
+@keyframes bird-waddle {
+  from { transform: scaleX(var(--flip, 1)) rotate(-7deg) translateY(0); }
+  to { transform: scaleX(var(--flip, 1)) rotate(7deg) translateY(-3px); }
+}
+.bird-hop {
+  animation: bird-hop 0.7s cubic-bezier(0.3, 1.6, 0.5, 1) both;
+}
+@keyframes bird-hop {
+  0% { transform: scaleX(var(--flip, 1)) translateY(0); }
+  40% { transform: scaleX(var(--flip, 1)) translateY(-16px) rotate(-6deg); }
+  100% { transform: scaleX(var(--flip, 1)) translateY(0); }
+}
+.bird-breathe {
+  transform: scaleX(var(--flip, 1));
+  animation: bird-breathe 2.6s ease-in-out infinite;
+}
+@keyframes bird-breathe {
+  0%, 100% { transform: scaleX(var(--flip, 1)) scaleY(1); }
+  50% { transform: scaleX(var(--flip, 1)) scaleY(0.96) translateY(1px); }
+}
+
 /* Sending a sticker */
 .send-lift {
   animation: send-lift 0.9s cubic-bezier(0.3, 1.4, 0.5, 1) both;

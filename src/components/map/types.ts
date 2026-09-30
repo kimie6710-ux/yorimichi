@@ -31,6 +31,8 @@ export interface MapViewProps {
   route?: LatLng[] | null;
   /** Put the little bird next to this point. */
   mascotAt?: LatLng | null;
+  /** What to draw there (defaults to a small walking bird). */
+  mascot?: import("react").ReactNode;
   /** Show the selected spot's copy as a bubble on the map (default true). */
   bubbles?: boolean;
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { APIProvider, Map, useMap } from "@vis.gl/react-google-maps";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 import { publicConfig } from "@/lib/config";
@@ -111,6 +111,9 @@ function HtmlMarker({
 }) {
   const map = useMap();
   const [container] = useState(() => (typeof document === "undefined" ? null : document.createElement("div")));
+  // Kept in refs so a moving marker (the walking bird) only redraws, never re-creates the overlay.
+  const pos = useRef(position);
+  const overlayRef = useRef<google.maps.OverlayView | null>(null);
   useEffect(() => {
     if (!map || !container || typeof google === "undefined") return;
     class Overlay extends google.maps.OverlayView {
@@ -119,7 +122,7 @@ function HtmlMarker({
         this.getPanes()?.overlayMouseTarget.appendChild(container!);
       }
       draw() {
-        const p = this.getProjection()?.fromLatLngToDivPixel(new google.maps.LatLng(position.latitude, position.longitude));
+        const p = this.getProjection()?.fromLatLngToDivPixel(new google.maps.LatLng(pos.current.latitude, pos.current.longitude));
         if (!p) return;
         container!.style.position = "absolute";
         container!.style.left = `${p.x + offset[0]}px`;
@@ -132,13 +135,22 @@ function HtmlMarker({
       }
     }
     const overlay = new Overlay();
+    overlayRef.current = overlay;
     overlay.setMap(map);
-    return () => overlay.setMap(null);
-  }, [map, container, position.latitude, position.longitude, zIndex, anchor, offset]);
+    return () => {
+      overlay.setMap(null);
+      overlayRef.current = null;
+    };
+  }, [map, container, zIndex, anchor, offset]);
+  useEffect(() => {
+    pos.current = position;
+    overlayRef.current?.draw();
+  }, [position]);
   return container ? createPortal(children, container) : null;
 }
 
-const MASCOT_OFFSET: [number, number] = [-54, 8];
+/** Stand a little away (right, below) from the spot marker so it stays easy to tap. */
+const MASCOT_OFFSET: [number, number] = [66, 34];
 
 /**
  * Google Maps as the quiet background layer with YORUMICHI's own markers on top.
@@ -153,6 +165,7 @@ export default function GoogleSpotMap({
   className = "",
   interactive = true,
   mascotAt = null,
+  mascot,
   route = null,
   bubbles = true,
   onLoadError,
@@ -183,8 +196,8 @@ export default function GoogleSpotMap({
         )}
 
         {mascotAt && (
-          <HtmlMarker position={mascotAt} zIndex={4} offset={MASCOT_OFFSET}>
-            <MichibiMapMarker />
+          <HtmlMarker position={mascotAt} zIndex={40} offset={MASCOT_OFFSET}>
+            {mascot ?? <MichibiMapMarker />}
           </HtmlMarker>
         )}
 
