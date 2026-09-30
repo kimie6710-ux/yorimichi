@@ -127,6 +127,19 @@ function maskIoU(a: CutMask, b: CutMask): number {
   return union === 0 ? 0 : inter / union;
 }
 
+/** How much of `a` lies inside `b` (0–1). */
+function insideOf(a: CutMask, b: CutMask): number {
+  if (a.width !== b.width || a.height !== b.height) return 0;
+  let area = 0;
+  let inside = 0;
+  for (let i = 0; i < a.alpha.length; i++) {
+    if (a.alpha[i] < 128) continue;
+    area++;
+    if (b.alpha[i] >= 128) inside++;
+  }
+  return area === 0 ? 0 : inside / area;
+}
+
 /** Reject masks that look like "the background" (too big, or touching 3+ edges). */
 function looksLikeObject(mask: CutMask): boolean {
   const { width: w, height: h, alpha } = mask;
@@ -188,6 +201,62 @@ export function warmUpCutter(): void {
 /** SAM's low-res masks are 256×256 over the photo scaled so its long side is 1024 (padded). */
 const LOW = 256;
 
+/** Sliding-window mean over a (2r+1)² box, separable, O(n). */
+function boxMean(src: Float32Array, w: number, h: number, r: number): Float32Array {
+  const tmp = new Float32Array(w * h);
+  const out = new Float32Array(w * h);
+  for (let y = 0; y < h; y++) {
+    const row = y * w;
+    let sum = 0;
+    for (let x = -r; x <= r; x++) sum += src[row + Math.min(w - 1, Math.max(0, x))];
+    for (let x = 0; x < w; x++) {
+      tmp[row + x] = sum;
+      sum += src[row + Math.min(w - 1, x + r + 1)] - src[row + Math.max(0, x - r)];
+    }
+  }
+  const n = (2 * r + 1) * (2 * r + 1);
+  for (let x = 0; x < w; x++) {
+    let sum = 0;
+    for (let y = -r; y <= r; y++) sum += tmp[Math.min(h - 1, Math.max(0, y)) * w + x];
+    for (let y = 0; y < h; y++) {
+      out[y * w + x] = sum / n;
+      sum += tmp[Math.min(h - 1, y + r + 1) * w + x] - tmp[Math.max(0, y - r) * w + x];
+    }
+  }
+  return out;
+}
+
+/**
+ * Guided filter (He et al.): nudges a soft mask so its edges follow the
+ * photo's own edges — hair, ears, thin parts come out instead of a blob.
+ */
+function guidedFilter(guide: Float32Array, p: Float32Array, w: number, h: number, r: number, eps: number): Float32Array {
+  const n = w * h;
+  const ip = new Float32Array(n);
+  const ii = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    ip[i] = guide[i] * p[i];
+    ii[i] = guide[i] * guide[i];
+  }
+  const mI = boxMean(guide, w, h, r);
+  const mP = boxMean(p, w, h, r);
+  const mIP = boxMean(ip, w, h, r);
+  const mII = boxMean(ii, w, h, r);
+  const a = new Float32Array(n);
+  const b = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const varI = mII[i] - mI[i] * mI[i];
+    const cov = mIP[i] - mI[i] * mP[i];
+    a[i] = cov / (varI + eps);
+    b[i] = mP[i] - a[i] * mI[i];
+  }
+  const mA = boxMean(a, w, h, r);
+  const mB = boxMean(b, w, h, r);
+  const q = new Float32Array(n);
+  for (let i = 0; i < n; i++) q[i] = mA[i] * guide[i] + mB[i];
+  return q;
+}
+
 class SamCutter implements StickerCutter {
   readonly name = "sam";
   private sam: Sam | null = null;
@@ -198,6 +267,8 @@ class SamCutter implements StickerCutter {
   /** The photo's own size: masks are drawn at this size so edges stay crisp. */
   private iw = 0;
   private ih = 0;
+  /** The photo in grey (0–1), to snap mask edges onto real edges. */
+  private guide: Float32Array | null = null;
 
   async prepare(image: HTMLCanvasElement) {
     this.sam = await withTimeout(loadSam(), PREPARE_MS, "sam");
@@ -206,44 +277,93 @@ class SamCutter implements StickerCutter {
     [this.rh, this.rw] = inputs.reshaped_input_sizes[0] as [number, number];
     this.iw = image.width;
     this.ih = image.height;
+    const { data } = image.getContext("2d", { willReadFrequently: true })!.getImageData(0, 0, image.width, image.height);
+    this.guide = new Float32Array(image.width * image.height);
+    for (let i = 0; i < this.guide.length; i++) this.guide[i] = (0.299 * data[i * 4] + 0.587 * data[i * 4 + 1] + 0.114 * data[i * 4 + 2]) / 255;
     this.embeddings = await withTimeout(model.get_image_embeddings(inputs), PREPARE_MS, "sam encode");
   }
 
-  async maskAt(point: CutPoint) {
-    if (!this.sam || !this.embeddings) return null;
-    const { tf, model } = this.sam;
-    const out = await model({
-      ...this.embeddings,
-      input_points: new tf.Tensor("float32", Float32Array.from([point.x * this.rw, point.y * this.rh]), [1, 1, 1, 2]),
-      input_labels: new tf.Tensor("int64", BigInt64Array.from([BigInt(1)]), [1, 1, 1]),
-    });
-    const scores = out.iou_scores.data as Float32Array;
-    const logits = out.pred_masks.data as Float32Array; // [3, 256, 256]
-    const w = Math.max(1, Math.round((this.rw / 1024) * LOW));
-    const h = Math.max(1, Math.round((this.rh / 1024) * LOW));
+  /** Size of the valid (unpadded) part of SAM's 256×256 masks. */
+  private get lowSize() {
+    return { w: Math.max(1, Math.round((this.rw / 1024) * LOW)), h: Math.max(1, Math.round((this.rh / 1024) * LOW)) };
+  }
 
-    // SAM offers 3 readings (a part → the whole thing). Take the biggest
-    // confident one that still looks like a thing, not the background.
-    let pick = -1;
-    let pickArea = 0;
-    let best = 0;
-    for (let k = 0; k < scores.length; k++) {
-      if (scores[k] > scores[best]) best = k;
-      let area = 0;
-      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (logits[k * LOW * LOW + y * LOW + x] > 0) area++;
-      const ratio = area / (w * h);
-      if (scores[k] >= 0.7 && ratio <= 0.6 && area > pickArea) {
-        pick = k;
-        pickArea = area;
+  private async decode(prompt: { point: CutPoint; box?: [number, number, number, number] }) {
+    const { tf, model } = this.sam!;
+    const inputs: Record<string, unknown> = {
+      ...this.embeddings,
+      input_points: new tf.Tensor("float32", Float32Array.from([prompt.point.x * this.rw, prompt.point.y * this.rh]), [1, 1, 1, 2]),
+      input_labels: new tf.Tensor("int64", BigInt64Array.from([BigInt(1)]), [1, 1, 1]),
+    };
+    if (prompt.box) inputs.input_boxes = new tf.Tensor("float32", Float32Array.from(prompt.box), [1, 1, 4]);
+    const out = await model(inputs);
+    return { scores: out.iou_scores.data as Float32Array, logits: out.pred_masks.data as Float32Array };
+  }
+
+  /** Area (in low-res px) and box of one of SAM's readings. */
+  private stats(logits: Float32Array, k: number) {
+    const { w, h } = this.lowSize;
+    let area = 0, x0 = w, y0 = h, x1 = -1, y1 = -1;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        if (logits[k * LOW * LOW + y * LOW + x] <= 0) continue;
+        area++;
+        if (x < x0) x0 = x;
+        if (x > x1) x1 = x;
+        if (y < y0) y0 = y;
+        if (y > y1) y1 = y;
       }
     }
-    const k = pick >= 0 ? pick : best;
+    return { area, ratio: area / (w * h), box: [x0, y0, x1, y1] as const };
+  }
 
-    // Crisp edges: stretch the low-res logits smoothly (bilinear) to the photo's
-    // own size and cut at 0 there, instead of enlarging a finished jagged mask.
+  async maskAt(point: CutPoint) {
+    if (!this.sam || !this.embeddings || !this.guide) return null;
+    const first = await this.decode({ point });
+
+    // SAM offers 3 readings (a part → the whole thing). Take the whole thing:
+    // the biggest confident reading that isn't just "the whole photo".
+    let k = 0;
+    let bestArea = -1;
+    for (let i = 0; i < first.scores.length; i++) {
+      const st = this.stats(first.logits, i);
+      if (first.scores[i] >= 0.6 && st.ratio <= 0.92 && st.area > bestArea) {
+        k = i;
+        bestArea = st.area;
+      }
+    }
+    if (bestArea < 0) k = first.scores.indexOf(Math.max(...first.scores));
+    let logits = first.logits;
+
+    // Second look with a box around what it found: fills in missing bits and
+    // trims spill-over, so the whole outline comes out.
+    const st = this.stats(first.logits, k);
+    if (st.area > 0) {
+      const pad = 0.04 * Math.max(st.box[2] - st.box[0], st.box[3] - st.box[1]);
+      const box: [number, number, number, number] = [
+        Math.max(0, (st.box[0] - pad) * 4),
+        Math.max(0, (st.box[1] - pad) * 4),
+        Math.min(this.rw, (st.box[2] + 1 + pad) * 4),
+        Math.min(this.rh, (st.box[3] + 1 + pad) * 4),
+      ];
+      try {
+        const again = await this.decode({ point, box });
+        const j = again.scores.indexOf(Math.max(...again.scores));
+        const st2 = this.stats(again.logits, j);
+        if (again.scores[j] >= 0.75 && st2.area > st.area * 0.6 && st2.area < st.area * 1.6 && st2.ratio <= 0.92) {
+          logits = again.logits;
+          k = j;
+        }
+      } catch (err) {
+        console.warn("[sam] box pass skipped", err);
+      }
+    }
+
+    // Stretch the low-res reading smoothly to the photo's size (soft 0–1)…
+    const { w, h } = this.lowSize;
     const W = this.iw;
     const H = this.ih;
-    const alpha = new Uint8ClampedArray(W * H);
+    const soft = new Float32Array(W * H);
     const sx = this.rw / W / 4; // photo px → low-res px
     const sy = this.rh / H / 4;
     const base = k * LOW * LOW;
@@ -260,9 +380,13 @@ class SamCutter implements StickerCutter {
         const x1 = Math.min(w - 1, x0 + 1);
         const tx = fx - x0;
         const v = (logits[r0 + x0] * (1 - tx) + logits[r0 + x1] * tx) * (1 - ty) + (logits[r1 + x0] * (1 - tx) + logits[r1 + x1] * tx) * ty;
-        alpha[Y * W + X] = v > 0 ? 255 : 0;
+        soft[Y * W + X] = 1 / (1 + Math.exp(-v));
       }
     }
+    // …then let the photo's own edges decide the exact outline.
+    const refined = guidedFilter(this.guide, soft, W, H, Math.max(3, Math.round(W / 170)), 1e-3);
+    const alpha = new Uint8ClampedArray(W * H);
+    for (let i = 0; i < alpha.length; i++) alpha[i] = refined[i] > 0.5 ? 255 : 0;
     return cleanMask(alpha, W, H, point);
   }
 }
@@ -437,7 +561,8 @@ export async function findThings(cutter: StickerCutter, max: number, budgetMs: n
       const m = await cutter.maskAt(t.point);
       if (!m) continue;
       if (t.strict && found.length > 0 && !looksLikeObject(m)) continue;
-      if (found.some((f) => maskIoU(f.mask, m) > 0.55)) continue;
+      // Already have it, or it's just a part of something already cut (an eye of a face).
+      if (found.some((f) => maskIoU(f.mask, m) > 0.55 || insideOf(m, f.mask) > 0.8)) continue;
       found.push({ mask: m, point: t.point });
     } catch (err) {
       console.warn("[find] point failed", err);
