@@ -4,21 +4,19 @@ import { StickerMapMarker } from "./StickerMapMarker";
 import type { MapMarker } from "./types";
 import { YorumichiMarker } from "./YorumichiMarker";
 
-/** Exploring → AI marker. Visited → your sticker. */
-export function MapMarkerView(props: { marker: MapMarker; selected: boolean; onClick: () => void }) {
-  return props.marker.tone === "collected" ? <StickerMapMarker {...props} /> : <YorumichiMarker {...props} />;
+export function MapMarkerView(props: { marker: MapMarker; selected: boolean; onClick: () => void; bubble?: boolean }) {
+  return props.marker.tone === "sticker" ? <StickerMapMarker {...props} /> : <YorumichiMarker {...props} />;
 }
 
-/** A tiny みちび peeking near the spot she's most curious about. */
+/** The little bird, walking next to a spot. */
 export function MichibiMapMarker() {
   return (
     <img
-      src={michibiSrc("found", "sm")}
+      src={michibiSrc("walk", "sm")}
       alt=""
-      width={52}
-      height={52}
-      className="pointer-events-none h-[52px] w-[52px] animate-bob select-none"
-      style={{ filter: "drop-shadow(0 4px 6px rgb(71 85 105 / 0.25))" }}
+      width={48}
+      height={48}
+      className="pointer-events-none h-12 w-12 animate-bob select-none"
       draggable={false}
     />
   );

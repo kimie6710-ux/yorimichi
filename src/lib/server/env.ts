@@ -17,6 +17,8 @@ export const serverEnv = {
   anthropicEffort: (process.env.ANTHROPIC_EFFORT ?? "low") as "low" | "medium" | "high",
   supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
   supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
+  /** Server only. Needed for placing / sending stickers between users. */
+  supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
   storageBucket: process.env.SUPABASE_STORAGE_BUCKET || "stickers",
   removeBgApiKey: process.env.REMOVE_BG_API_KEY ?? "",
 };
@@ -37,4 +39,4 @@ export function isMockModeServer(): boolean {
 }
 
 export const hasSupabaseServer = () =>
-  serverEnv.supabaseUrl.length > 0 && serverEnv.supabaseAnonKey.length > 0;
+  serverEnv.supabaseUrl.length > 0 && serverEnv.supabaseAnonKey.length > 0 && serverEnv.supabaseServiceRoleKey.length > 0;

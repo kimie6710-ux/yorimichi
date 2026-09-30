@@ -17,7 +17,6 @@ const M_PER_DEG_LAT = 111_320;
 export default function FieldMap({
   origin,
   markers,
-  dots = [],
   selectedId,
   onSelect,
   bottomInset = 0,
@@ -25,6 +24,7 @@ export default function FieldMap({
   mascotAt = null,
   interactive = true,
   route = null,
+  bubbles = true,
 }: MapViewProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 360, h: 480 });
@@ -43,7 +43,6 @@ export default function FieldMap({
     const all: LatLng[] = [
       ...(origin ? [origin] : []),
       ...markers.map((m) => m.position),
-      ...dots.map((d) => d.position),
       ...(route ?? []),
     ];
     // Only real points are used. With none there is nothing to project (see below).
@@ -74,7 +73,7 @@ export default function FieldMap({
         return { left: cx + m.x * scale, top: cy + m.y * scale };
       },
     };
-  }, [origin, markers, dots, size, bottomInset, interactive, route]);
+  }, [origin, markers, size, bottomInset, interactive, route]);
 
   if (!projection) return <div ref={ref} className={`paper-grid ${className}`} />;
   const radiusPx = SEARCH_RADIUS_METERS * projection.scale;
@@ -96,11 +95,11 @@ export default function FieldMap({
           <polyline
             points={route.map((p) => { const q = projection.project(p); return `${q.left},${q.top}`; }).join(" ")}
             fill="none"
-            stroke="#6d4ee6"
+            stroke="#22201c"
             strokeWidth="4"
             strokeLinecap="round"
             strokeLinejoin="round"
-            strokeDasharray="1 10"
+            strokeDasharray="6 7"
           />
         )}
         {origin && !route && (
@@ -108,24 +107,13 @@ export default function FieldMap({
             cx={projection.cx}
             cy={projection.cy}
             r={radiusPx}
-            fill="rgb(185 162 255 / 0.08)"
-            stroke="rgb(106 75 232 / 0.35)"
+            fill="rgb(63 134 173 / 0.06)"
+            stroke="rgb(34 32 28 / 0.3)"
             strokeWidth="1.5"
             strokeDasharray="6 7"
           />
         )}
       </svg>
-
-      {dots.map((d) => {
-        const { left, top } = projection.project(d.position);
-        return (
-          <span
-            key={d.id}
-            className="absolute h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-ink-mute/50"
-            style={{ left, top }}
-          />
-        );
-      })}
 
       {origin && (
         <span
@@ -153,7 +141,7 @@ export default function FieldMap({
             className="absolute -translate-x-1/2 -translate-y-full"
             style={{ left, top, zIndex: m.id === selectedId ? 30 : 10 }}
           >
-            <MapMarkerView marker={m} selected={m.id === selectedId} onClick={() => onSelect(m.id)} />
+            <MapMarkerView marker={m} selected={m.id === selectedId} onClick={() => onSelect(m.id)} bubble={bubbles} />
           </div>
         );
       })}

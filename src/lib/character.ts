@@ -1,53 +1,65 @@
-// みちび — the street creature that personifies the AI's "slightly off" reading.
-// Rename freely: every UI string pulls from CHARACTER.
+// よるみちの小鳥。ナビゲーターだけど、説明しすぎない。
 
 export const CHARACTER = {
-  name: "みちび",
-  description: "街のすき間に住んでいる、正体不明の生き物。たまに間違う。悪びれない。",
+  name: "よるみちの鳥",
 } as const;
 
-/**
- * Poses drawn by the user (public/michibi/*.webp).
- * idle=正面おすわり / wonder=見上げ / peek=横向き / wander=うしろ姿
- * found=伏せてワクワク / happy=ジャンプ / lazy=へそ天 / sleepy=おやすみ
- */
-export type MichibiMood =
-  | "idle"
-  | "wonder"
-  | "peek"
-  | "wander"
-  | "found"
-  | "happy"
-  | "lazy"
-  | "sleepy";
+/** Poses drawn by the user (public/bird/*.webp). */
+export type BirdPose =
+  | "front" // まえ
+  | "side" // よこ
+  | "back" // うしろ
+  | "walk" // あるく
+  | "flap" // はばたく
+  | "perch" // とまる
+  | "hop" // ぴょん
+  | "happy" // うれしい
+  | "surprise" // びっくり
+  | "sleepy"; // ねむい
+
+/** Older mood names still used in a few places. */
+type LegacyMood = "idle" | "wonder" | "peek" | "wander" | "found" | "lazy";
+export type MichibiMood = BirdPose | LegacyMood;
+
+const LEGACY: Record<LegacyMood, BirdPose> = {
+  idle: "front",
+  wonder: "surprise",
+  peek: "side",
+  wander: "walk",
+  found: "flap",
+  lazy: "perch",
+};
+
+export function birdPose(mood: MichibiMood): BirdPose {
+  return (LEGACY as Record<string, BirdPose>)[mood] ?? (mood as BirdPose);
+}
 
 export function michibiSrc(mood: MichibiMood, size: "sm" | "md" = "md"): string {
-  return `/michibi/${mood}${size === "sm" ? "-sm" : ""}.webp`;
+  return `/bird/${birdPose(mood)}${size === "sm" ? "-sm" : ""}.webp`;
 }
 
 export const MICHIBI_LINES = {
-  homeGreeting: ["今日はどこ、ちょっと寄ってく？", "今、なにしたい？", "このへん、なんかありそう。"],
-  loading: [
-    "このへん、勝手に見てみるね。",
-    "ふむふむ……街のうわさを集めてる。",
-    "どこに寄ろうか、考えてる。",
-  ],
-  resultIntro: ["こっち、ちょっと気になる。", "ぜんぶ正解じゃないかも。でも、なんかいい。"],
-  fallback: "今日は勘がにぶいかも。とりあえず近くのふつうの場所。",
-  empty: "このへん、今日は静かすぎるみたい。ちょっと歩いてみる？",
-  aiEmpty: "うーん、今日はピンとこなかった。近くの場所を置いとくね。",
-  locationDenied: "どこにいるか分からないと、寄り道を探せない……。",
-  outsideArea: "いまは東京の街を探索中です。",
+  homeGreeting: ["ここ、なんかあるかも。", "気になるの、ある？"],
+  loading: ["このへん、見てまわってる。", "なんかありそう。"],
+  fallback: "今日は勘がにぶいかも。",
+  empty: "このへん、今日は静かみたい。",
+  aiEmpty: "うーん、ピンとこなかった。",
+  locationDenied: "どこにいるか分からないと、探せない。",
+  outsideArea: "いまは東京の街を歩いています。",
   networkError: "電波がどこかに行っちゃった。",
-  reactionAsk: "で、実際どうだった？",
-  reaction: {
-    totally_off: "違った？ でも覚えたでしょ。",
-    kind_of: "でしょ。ちょっとだけ、ね。",
-    totally_get_it: "ほらね。街はだいたい、そういうもの。",
-  },
-  photoAsk: "記念にひとつ、切り取っとく？",
-  saved: "採集帳に貼っといた。",
-  collectionEmpty: "まだ何も貼ってないね。どこか、寄り道しに行こ。",
+  arrived: "このへんだよ。",
+  explore: "なにか見つけた？",
+  somebodyWasHere: "誰かは、ここでこれを見てた。",
+  nudge: "上とか、足もととか。",
+  photoAsk: "それ、シールにする？",
+  choose: "どれにする？",
+  made: "それ、私は気づかなかった。",
+  shareAsk: "置いていく？",
+  placed: "置いてきた。次の誰かが見つけるかも。",
+  sent: "どこかの誰かに届けたよ。",
+  received: "誰かの発見が届いたよ。",
+  collectionEmpty: "まだ一枚もないね。",
+  inboxEmpty: "まだ何も届いてない。",
 } as const;
 
 export function pick<T>(list: readonly T[], seed?: number): T {

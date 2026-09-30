@@ -1,38 +1,26 @@
 /* eslint-disable @next/next/no-img-element -- tiny local webp sprites, next/image adds nothing here */
-import { CHARACTER, michibiSrc, type MichibiMood } from "@/lib/character";
+import { michibiSrc, type MichibiMood } from "@/lib/character";
+import { SketchBubble } from "./sketch";
 
 interface MichibiProps {
   mood?: MichibiMood;
   size?: number;
-  /** Speech bubble text. Omit for a silent cameo. */
+  /** One short line. Omit for a silent cameo. */
   says?: string;
-  /** Bubble on the right (default) or left of the character. */
+  /** Bubble on the right (default) or left of the bird. */
   side?: "right" | "left";
   animate?: "bob" | "wander" | "none";
   className?: string;
 }
 
-/**
- * みちび — appears small, says one thing, gets out of the way.
- * The bubble uses the handwritten face so its voice is visually distinct from
- * real (Google) information.
- */
-export function Michibi({
-  mood = "idle",
-  size = 64,
-  says,
-  side = "right",
-  animate = "bob",
-  className = "",
-}: MichibiProps) {
+/** The little bird: appears small, says one thing, gets out of the way. */
+export function Michibi({ mood = "front", size = 64, says, side = "right", animate = "bob", className = "" }: MichibiProps) {
   const anim = animate === "bob" ? "animate-bob" : animate === "wander" ? "animate-wander" : "";
   return (
-    <div
-      className={`flex items-end gap-2 ${side === "left" ? "flex-row-reverse" : ""} ${className}`}
-    >
+    <div className={`flex items-end gap-2 ${side === "left" ? "flex-row-reverse" : ""} ${className}`}>
       <img
-        src={michibiSrc(mood, size <= 80 ? "sm" : "md")}
-        alt={says ? `${CHARACTER.name}` : ""}
+        src={michibiSrc(mood, size <= 96 ? "sm" : "md")}
+        alt=""
         width={size}
         height={size}
         className={`shrink-0 select-none ${anim}`}
@@ -40,14 +28,9 @@ export function Michibi({
         draggable={false}
       />
       {says && (
-        <p
-          key={says}
-          className={`animate-peek relative mb-3 max-w-[300px] rounded-2xl bg-white px-4 py-2.5 font-hand text-base leading-snug text-ink shadow-soft ${
-            side === "right" ? "rounded-bl-md" : "rounded-br-md"
-          }`}
-        >
+        <SketchBubble key={says} side={side === "right" ? "left" : "right"} className="animate-peek mb-5 max-w-[260px]">
           {says}
-        </p>
+        </SketchBubble>
       )}
     </div>
   );

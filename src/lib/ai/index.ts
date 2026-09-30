@@ -18,7 +18,7 @@ export function getAIProvider(): AIProvider {
   if (cached) return cached;
 
   const wantsMock =
-    serverEnv.aiProvider === "mock" || (isMockModeServer() && !serverEnv.anthropicApiKey);
+    serverEnv.aiProvider === "mock" || ((isMockModeServer() || !serverEnv.anthropicApiKey) && process.env.VERCEL_ENV !== "production");
 
   if (wantsMock) {
     if (process.env.VERCEL_ENV === "production") {

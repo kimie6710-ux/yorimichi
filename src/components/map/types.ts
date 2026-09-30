@@ -1,25 +1,25 @@
 import type { LatLng } from "@/lib/types";
 
-export type MarkerTone = "shifted" | "literal" | "collected";
+export type MarkerTone = "spot" | "sticker";
 
 export interface MapMarker {
   id: string;
   position: LatLng;
-  /** AI title shown on the sticker marker. */
+  /** The spot's copy (or a sticker's label). */
   label: string;
   tone: MarkerTone;
-  /** Optional tiny image (e.g. sticker thumbnail in the collection map). */
-  thumbUrl?: string | null;
   index?: number;
-  /** Collected stickers are stuck on the map with their own tilt. */
+  /** Sticker markers: the transparent PNG. */
+  thumbUrl?: string | null;
   rotation?: number;
+  /** Someone left stickers here. */
+  placed?: number;
+  visited?: boolean;
 }
 
 export interface MapViewProps {
   origin: LatLng | null;
   markers: MapMarker[];
-  /** Quiet dots for "normal" nearby places the AI didn't pick. */
-  dots?: { id: string; position: LatLng; name: string }[];
   selectedId: string | null;
   onSelect: (id: string) => void;
   /** Extra bottom padding (px) so fitted markers aren't hidden behind cards. */
@@ -29,6 +29,8 @@ export interface MapViewProps {
   interactive?: boolean;
   /** Walking route to draw (guide mode). */
   route?: LatLng[] | null;
-  /** Put a tiny みちび next to this point (the spot she's most curious about). */
+  /** Put the little bird next to this point. */
   mascotAt?: LatLng | null;
+  /** Show the selected spot's copy as a bubble on the map (default true). */
+  bubbles?: boolean;
 }

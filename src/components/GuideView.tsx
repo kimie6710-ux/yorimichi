@@ -4,28 +4,20 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { distanceMeters, walkMinutes } from "@/lib/geo";
 import { useSearch } from "@/lib/store/search-context";
-import type { LatLng, RecommendedSpot } from "@/lib/types";
+import { MICHIBI_LINES } from "@/lib/character";
+import type { LatLng, MapSpot } from "@/lib/types";
 import { MapView } from "./map/MapView";
 import { Michibi } from "./Michibi";
+import { SketchButton, SketchCard, SketchIconButton } from "./sketch";
 
 const ARRIVE_METERS = 40;
 const REROUTE_METERS = 150;
 
 /**
- * In-app walking guide. Shows only the number and the copy — the real place
- * stays a surprise until arrival. Follows the device position live.
+ * In-app walking guide. Shows only the copy — the real place stays a surprise
+ * until arrival. Follows the device position live.
  */
-export function GuideView({
-  spot,
-  index,
-  onArrive,
-  onQuit,
-}: {
-  spot: RecommendedSpot;
-  index: number | null;
-  onArrive: () => void;
-  onQuit: () => void;
-}) {
+export function GuideView({ spot, onArrive, onQuit }: { spot: MapSpot; onArrive: () => void; onQuit: () => void }) {
   const { currentLocation, startTracking, stopTracking } = useSearch();
   const dest = spot.place.location;
   const [route, setRoute] = useState<LatLng[] | null>(null);
@@ -59,17 +51,10 @@ export function GuideView({
   const remaining = currentLocation ? distanceMeters(currentLocation, dest) : null;
   const near = remaining !== null && remaining <= ARRIVE_METERS;
 
+  const copy = spot.copy?.copy ?? "ここ、なんか気になる。";
   const markers = useMemo(
-    () => [
-      {
-        id: spot.place.placeId,
-        position: dest,
-        label: spot.recommendation.title,
-        tone: "shifted" as const,
-        index: index ?? undefined,
-      },
-    ],
-    [spot, dest, index],
+    () => [{ id: spot.place.placeId, position: dest, label: copy, tone: "spot" as const, placed: spot.placedCount }],
+    [spot, dest, copy],
   );
 
   return (
@@ -80,41 +65,32 @@ export function GuideView({
         selectedId={spot.place.placeId}
         onSelect={() => undefined}
         route={route}
+        bubbles={false}
         bottomInset={210}
         className="h-full w-full"
       />
 
       <div className="pointer-events-none absolute inset-x-0 top-0 p-3 pt-[max(12px,env(safe-area-inset-top))]">
-        <div className="pointer-events-auto flex items-center gap-3 rounded-3xl bg-white/95 p-3 shadow-soft">
-          <button
-            type="button"
-            onClick={onQuit}
-            aria-label="もどる"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-paper-deep"
-          >
+        <SketchCard tone="white" pad="sm" seed={`guide-${spot.place.placeId}`} className="pointer-events-auto flex items-center gap-3">
+          <SketchIconButton label="もどる" onClick={onQuit}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
-              <path d="M15 5l-7 7 7 7" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M15 5.2c-2.4 2.3-4.6 4.4-7 6.9 2.3 2.2 4.6 4.5 6.9 6.8" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-          </button>
-          {index !== null && (
-            <span className="rainbow flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold">
-              {index}
-            </span>
-          )}
-          <p className="min-w-0 flex-1 text-base leading-snug font-bold">{spot.recommendation.title}</p>
-        </div>
+          </SketchIconButton>
+          <p className="min-w-0 flex-1 text-base leading-snug font-bold">{copy}</p>
+        </SketchCard>
       </div>
 
       <div className="absolute inset-x-0 bottom-0 p-3">
-        <div className="mb-2 px-1">
+        <div className="mb-1 px-1">
           <Michibi
-            mood={near ? "found" : "wander"}
+            mood={near ? "flap" : "walk"}
             size={52}
             animate={near ? "bob" : "wander"}
-            says={near ? "このへんだよ。" : spot.recommendation.michibiLine}
+            says={near ? MICHIBI_LINES.arrived : (spot.copy?.birdLine || undefined)}
           />
         </div>
-        <div className="rounded-3xl bg-white p-4 shadow-lift">
+        <SketchCard tone="paper" pad="md" seed={`guide-panel-${spot.place.placeId}`}>
           <p className="text-center text-2xl font-bold" aria-live="polite">
             {remaining === null
               ? "現在地を確認中…"
@@ -122,10 +98,10 @@ export function GuideView({
                 ? "もうすぐそこ"
                 : `あと ${remaining >= 1000 ? `${(remaining / 1000).toFixed(1)}km` : `${Math.round(remaining / 10) * 10}m`}・約${walkMinutes(remaining)}分`}
           </p>
-          <button type="button" onClick={onArrive} className="btn-primary mt-3 h-14 w-full text-lg">
+          <SketchButton onClick={onArrive} size="lg" block className="mt-3">
             着いた
-          </button>
-        </div>
+          </SketchButton>
+        </SketchCard>
       </div>
     </div>
   );

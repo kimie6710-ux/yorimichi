@@ -3,7 +3,7 @@
 import type { LatLng } from "./types";
 
 export const APP_NAME = "YORUMICHI";
-export const APP_TAGLINE = "いつもの街に、ちょっとした寄り道を。";
+export const APP_TAGLINE = "いつもの道に、あたらしい目を。";
 
 export const publicConfig = {
   /** Browser key for the Maps JavaScript API (restrict it by HTTP referrer). */
@@ -56,4 +56,3 @@ export const SERVICE_AREAS: ServiceArea[] = [
 ];
 
 export const SEARCH_RADIUS_METERS = 800;
-export const MAX_QUERY_LENGTH = 80;

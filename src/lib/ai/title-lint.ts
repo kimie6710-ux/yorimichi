@@ -1,60 +1,35 @@
 import "server-only";
 
-// Detects when a result set's nicknames repeat themselves, per the naming
-// rules: 「っぽい」×2+, the same ending ×3+, a shared noun, or the same opening.
+// Checks a batch of spot copies for the naming rules: no place names
+// (spoilers), no crutch words, and not all the same shape.
 
-const NOUN_RUN = /[\p{Script=Han}\p{Script=Katakana}ー]{2,}|[A-Za-z]{3,}/gu;
 const TRAILING = /[？?！!。…、\s]+$/u;
+const CRUTCH = /余白|記憶|物語|呼吸|心|光|そっと|静かに|癒|秘密|エモ|穴場|隠れ家|おしゃれ/;
 
-export function findTitleProblems(titles: string[]): string[] {
+/** True if the copy leaks the place's real name. */
+export function leaksName(copy: string, name: string): boolean {
+  const n = name.replace(/\s+/g, "");
+  if (n.length < 2) return false;
+  // Any 3+ char chunk of the name (or the whole name if shorter) appearing in the copy.
+  const size = Math.min(3, n.length);
+  for (let i = 0; i + size <= n.length; i++) {
+    if (copy.includes(n.slice(i, i + size))) return true;
+  }
+  return false;
+}
+
+export function usesCrutch(copy: string): boolean {
+  return CRUTCH.test(copy);
+}
+
+export function findCopyProblems(copies: string[]): string[] {
+  const clean = copies.map((t) => t.replace(TRAILING, ""));
   const problems: string[] = [];
-  const clean = titles.map((t) => t.replace(TRAILING, ""));
-
-  const ppoi = clean.filter((t) => t.includes("っぽ")).length;
-  if (ppoi >= 2) problems.push(`「っぽい」が${ppoi}件ある（1件まで）`);
-
   const endings = new Map<string, number>();
-  for (const t of clean) {
-    const e = t.slice(-2);
-    endings.set(e, (endings.get(e) ?? 0) + 1);
-  }
-  for (const [e, n] of endings) if (n >= 3) problems.push(`語尾「${e}」が${n}件ある`);
-
-  const nounOwners = new Map<string, Set<number>>();
-  clean.forEach((t, i) => {
-    for (const m of t.matchAll(NOUN_RUN)) {
-      const set = nounOwners.get(m[0]) ?? new Set<number>();
-      set.add(i);
-      nounOwners.set(m[0], set);
-    }
-  });
-  for (const [noun, owners] of nounOwners) {
-    if (owners.size >= 2) problems.push(`「${noun}」が${owners.size}つのタイトルに出ている`);
-  }
-
+  for (const t of clean) endings.set(t.slice(-2), (endings.get(t.slice(-2)) ?? 0) + 1);
+  for (const [e, n] of endings) if (n >= 3) problems.push(`語尾「${e}」が${n}件`);
   const openings = new Map<string, number>();
-  for (const t of clean) {
-    if (t.length < 4) continue;
-    const o = t.slice(0, 3);
-    openings.set(o, (openings.get(o) ?? 0) + 1);
-  }
-  for (const [o, n] of openings) if (n >= 2) problems.push(`書き出し「${o}」が${n}件同じ`);
-
-  // Same sentence shape: many titles ending in a plain verb (…る／…する).
-  const verbEnding = clean.filter((t) => /(る|う|く|す|む|ぶ|つ|ぐ)$/.test(t)).length;
-  if (verbEnding >= 2) problems.push(`動詞で終わる説明文のタイトルが${verbEnding}件ある（短いコピーにする）`);
-  const woPattern = clean.filter((t) => /^[^、。]{1,8}を[^、。]+(る|する)$/.test(t)).length;
-  if (woPattern >= 2) problems.push(`「〇〇を〇〇する」の形が${woPattern}件ある（1件まで）`);
-
-  // Crutch words should stay under ~10% of the set.
-  const crutch = /っぽ|寄り道|落ち着|静か|癒|穴場|隠れ家|おしゃれ|余白|記憶|物語|呼吸|心|光|そっと|秘密|な場所|な時間|する場所|してみる/;
-  const crutchCount = clean.filter((t) => crutch.test(t)).length;
-  if (crutchCount > Math.floor(clean.length * 0.1)) {
-    problems.push(`ありがちな言葉（っぽい・静か・余白・記憶・物語・光・心・〜な場所 など）に頼ったタイトルが${crutchCount}件ある`);
-  }
-
-  // Category words mean the copy is describing, not inventing a use.
-
-
+  for (const t of clean) if (t.length >= 4) openings.set(t.slice(0, 3), (openings.get(t.slice(0, 3)) ?? 0) + 1);
+  for (const [o, n] of openings) if (n >= 3) problems.push(`書き出し「${o}」が${n}件`);
   return problems;
 }

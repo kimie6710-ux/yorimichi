@@ -293,36 +293,6 @@ export async function searchNearbyPlaces(
   return merged;
 }
 
-/** Fetch reviews / hours / atmosphere for a handful of places and merge them in. */
-export async function enrichPlaceDetails(places: Place[], origin: LatLng): Promise<Place[]> {
-  const results = await Promise.allSettled(
-    places.map((p) =>
-      placesFetch<GPlace>(
-        `${PLACES_BASE}/places/${encodeURIComponent(p.placeId)}?languageCode=${LANGUAGE}&regionCode=${REGION}`,
-        { method: "GET", fieldMask: DETAILS_FIELD_MASK },
-      ),
-    ),
-  );
-  return places.map((p, i) => {
-    const r = results[i];
-    if (r.status !== "fulfilled") return p;
-    const d = r.value;
-    const detailed = toPlace(
-      { ...d, id: p.placeId, displayName: { text: p.name }, location: p.location },
-      origin,
-    );
-    return {
-      ...p,
-      reviews: detailed?.reviews ?? p.reviews,
-      weekdayHours: detailed?.weekdayHours.length ? detailed.weekdayHours : p.weekdayHours,
-      websiteUri: detailed?.websiteUri ?? p.websiteUri,
-      editorialSummary: detailed?.editorialSummary ?? p.editorialSummary,
-      openNow: detailed?.openNow ?? p.openNow,
-      attributes: detailed?.attributes.length ? detailed.attributes : p.attributes,
-    };
-  });
-}
-
 /** Full details (basic + reviews/atmosphere) for a few place ids. */
 export async function getPlaceDetails(placeIds: string[], origin: LatLng): Promise<Place[]> {
   const basic = NEARBY_FIELD_MASK.split(",").map((f) => f.replace(/^places\./, ""));

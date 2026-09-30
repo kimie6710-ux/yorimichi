@@ -1,24 +1,26 @@
-# YORUMICHI
+# よるみち / YORUMICHI
 
-**実在する場所 × AIの勝手な解釈。**
-「本屋行きたい」と入れると、本屋だけでなく「漫画を待つための町中華」も出てくる。
-検索していたものとは違う。でも、なんかいい。──そんな寄り道をつくる、スマホ向けWebアプリです。
+**いつもの道に、あたらしい目を。**
 
-案内役（というより勝手なことを言う相棒）は、街のすき間に住む生き物「みちび」。
+実在する街の中で、自分だけの発見を見つけ、その発見をシールとして残し、
+知らない誰かの発見から、また新しい街へ出会うスマホ向けWebアプリです。
+
+街 → 発見 → シール → 共有 → 新しい街
 
 ---
 
 ## 流れ
 
-1. アプリを開く → **端末の現在地**を取得（取得中は「今いる街を探しています」、拒否時は許可ボタン。勝手な場所には切り替えない）
-2. 現在地のまわり800mの実在スポットを **Google Places (New)** で先に取得しておく
-3. 一言入力（音声入力可）→「寄ってみる」
-4. Claude が実在スポットに「一言あだ名」をつける（3〜5件）
-5. 地図上のマーカーをタップ → Bottom Sheet（REAL / AI FILTER）
-6. 「行ってみる」→ Google マップ（アプリ／Web）で道案内、YORUMICHI 側は「着いた？」画面へ
-7. 「実際どうだった？」😐 / 🙂 / 🤩
-8. 写真を撮る → **写っている物だけを自動で切り抜いて白フチのシールに**（1枚の写真から複数OK）
-9. シール帳に貼る。採集マップでは、自分のシールがその場所に貼られる
+1. アプリを開く → **端末の現在地**のまわりの地図。実在スポット（Google Places）に、AIが置いた「なにそれ？」な一文が並ぶ
+2. 気になった一文の「行ってみる」→ アプリ内の地図で徒歩ナビ（名前と写真は着くまで伏せる）
+3. 「着いた」→ **探索モード**：「ここでした」で本物の場所が分かる。誰かが置いていったシールもここで初めて見える
+4. 自分の目で探して、気になったものを撮る
+5. 端末内で写真の中のモノを切り抜き（MediaPipe）→ AIが切り抜きそれぞれに名前をつけ、背景のかけらを外す
+6. ひとつ選ぶ → 白フチ＋手描きの輪郭＋紙の質感のシールに。ひとことメモ
+7. **ここに置いていく／知らない誰かに送り出す／シール帳に残す**
+8. 送り出すと、自分にも誰かの発見がひとつ届く。届いたシールから「このシールが生まれた場所を見る」→ また街へ
+
+AIは主人公ではなく、最初の種（スポットの一文）と、切り抜いたものの名付けだけを手伝います。星評価や口コミは画面に出しません。
 
 ---
 
@@ -49,8 +51,13 @@ NEXT_PUBLIC_USE_MOCK_DATA=true
 ```
 
 - **現在地は本物**を使い、そのまわりに開発用のサンプルスポットを配置します
-- `ANTHROPIC_API_KEY` が空なら、キーワードベースの簡易解釈を使います（入力を理解できないときは「みちびの連想」を出しません）
+- `ANTHROPIC_API_KEY` が空なら、カテゴリ別の用意された一文と、仮の名前を使います
 - **Vercel本番（`VERCEL_ENV=production`）では無視されます**
+
+### データの保存先
+
+Supabase の3つの値（URL・anon key・service role key）がそろっていれば Supabase、なければサーバーを動かしているマシンの `./.data` に保存します。
+`./.data` はそのサーバーにつながる全端末で共有されるので、PCとスマホで「置く／送る／届く」を試せます（Vercel本番では使えません）。
 
 ---
 
@@ -63,10 +70,10 @@ NEXT_PUBLIC_USE_MOCK_DATA=true
 | `GOOGLE_PLACES_API_KEY` | ✅ | サーバー用キー（Places API (New) のみ）。ブラウザには出ません |
 | `ANTHROPIC_API_KEY` | ✅ | Claude API キー |
 | `AI_PROVIDER` | 任意 | `anthropic`（既定）/ `mock` |
-| `ANTHROPIC_MODEL` | 任意 | 最終解釈（既定 `claude-opus-5`） |
-| `ANTHROPIC_SHORTLIST_MODEL` | 任意 | 一次選定（既定 `claude-haiku-4-5`、速度優先） |
+| `ANTHROPIC_MODEL` | 任意 | スポットの一文（既定 `claude-opus-5`） |
+| `ANTHROPIC_SHORTLIST_MODEL` | 任意 | 切り抜きの名付け（既定 `claude-haiku-4-5`、速度優先） |
 | `ANTHROPIC_EFFORT` | 任意 | `low`（既定）/ `medium` / `high` |
-| `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` | 任意 | 未設定ならスマホ本体（IndexedDB）に保存 |
+| `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` | 任意 | 3つそろうと Supabase。なければ `./.data` |
 | `SUPABASE_STORAGE_BUCKET` | 任意 | 既定 `stickers` |
 | `REMOVE_BG_API_KEY` | 任意 | 切り抜きの予備（端末内の切り抜きが使えない環境向け） |
 | `NEXT_PUBLIC_USE_MOCK_DATA` | 任意 | デモモード（上記） |
@@ -80,13 +87,13 @@ NEXT_PUBLIC_USE_MOCK_DATA=true
 ## Google Cloud の設定
 
 1. プロジェクトを作成し、課金を有効化
-2. **APIを有効化**：Maps JavaScript API / Places API (New)
+2. **APIを有効化**：Maps JavaScript API / Places API (New) / Routes API
 3. **キーを2つ作る**
    - ブラウザ用：HTTPリファラー制限（`http://localhost:3000/*`, `https://<your-app>.vercel.app/*`, スマホ確認用のIP）、API制限＝Maps JavaScript API
    - サーバー用：API制限＝Places API (New)
 4. 任意：Map Management で JavaScript 用 Map ID（ベクター）を作り、淡い配色のスタイルを当てる（アプリ側でも地図の彩度を落としています）
 
-取得フィールドは Nearby Search では基本情報＋評価＋営業状況のみ。口コミはAIが一次選定した6〜8件だけ Place Details で取得し、**AIの根拠づけ（内部）にだけ使い、画面には出しません**。口コミ・写真・営業時間を見たい人は「Google マップで見る」でそのスポットのページへ。閉業（`businessStatus` が `OPERATIONAL` 以外）は除外します。
+Nearby Search で周辺の実在スポットを取り、AIの一文は**スポットごとに1回だけ**作って保存し、全員で使い回します（2回目以降はAIを呼びません）。星評価・口コミは画面に出しません。閉業（`businessStatus` が `OPERATIONAL` 以外）は除外します。
 
 ---
 
@@ -95,11 +102,10 @@ NEXT_PUBLIC_USE_MOCK_DATA=true
 1. プロジェクトを作成
 2. **Authentication → Sign In / Providers → Anonymous sign-ins を ON**
 3. **SQL Editor で `supabase/schema.sql` を実行**
-   - テーブル：`users` / `searches` / `recommendations` / `visits` / `stickers`
-   - すべてRLS有効（本人の行だけ）
-   - Storage：非公開バケット `stickers`（`{user_id}/...` のみ本人がアクセス可）
-   - Google の口コミ等は保存しない。`place_id` と、ユーザーが生み出したもの（シール、写真、リアクション）だけ
-4. URL と anon key を `.env.local` へ
+   - テーブル：`users` / `spots` / `visits` / `spot_saves` / `observations` / `stickers` / `sticker_transfers` / `sticker_views`
+   - 置く・送るはユーザーをまたぐため、書き込みはAPIルート（サーバー）だけが service role key で行う。ルール（本人のシールか、現地にいるか、1日の上限）はサーバー側でチェック
+   - 元の写真は本人にだけ返す。置かれたシールの画像は、現地にいる人にだけ返す
+4. URL・anon key・service role key を `.env.local` へ
 
 ---
 
@@ -123,61 +129,76 @@ Production では `NEXT_PUBLIC_USE_MOCK_DATA` / `NEXT_PUBLIC_USE_MOCK_LOCATION` 
 ```
 src/
   app/
-    page.tsx                  Home（現在地の地図・一言入力・寄ってみる）
-    map/page.tsx              AIマップ（Loading / エラー / マーカー / Bottom Sheet）
-    place/[placeId]/page.tsx  スポット詳細（Bottom Sheet と同じ中身のページ版）
-    visit/[placeId]/page.tsx  着いた → リアクション → 撮影 → 切り抜き → 貼る
-    collection/page.tsx       シール帳（シールだけ）／採集マップ
+    page.tsx                  マップ（ホーム）：現在地・スポットの一文・カード
+    spot/[id]/page.tsx        スポット：よるみちの層（一文・見つかったもの）＋基本情報
+    visit/[placeId]/page.tsx  ナビ → 探索モード → 撮る → 選ぶ → シール → 置く／送る／残す
+    capture/page.tsx          ＋：今いるスポットで探す（近くにいなければ候補）
+    collection/page.tsx       シール帳（ぜんぶ／場所ごと、詳細シート）
+    inbox/page.tsx            届いたもの
+    me/page.tsx               マイページ（行った場所・残した・送った・届いた）
     api/
-      places/nearby           POST 周辺スポット（3系統を並列取得）
-      places/details          POST スポット詳細
-      places/photo            GET  写真（キーを隠してリダイレクト）
-      interpret               POST AIフィルター（一次選定 → 詳細 → 最終解釈 → タイトル重複チェック）
-      reaction                POST リアクション
-      stickers                GET/POST シール（写真1枚 + シール複数）
-      sticker/cutout          POST 予備の切り抜きAPI（remove.bg）
+      spots/nearby            POST 周辺スポット＋保存済みの一文（まだのものを返す）
+      spots/seed              POST まだのスポットにAIが一文を置く
+      spots/[id]              GET  スポット詳細（現地判定つき）
+      spots/[id]/visit|save   POST 着いた／気になる
+      sticker/detect          POST 切り抜きに名前をつける（AI）
+      stickers                GET/POST シール帳／シールを作る
+      stickers/[id]           PATCH メモ
+      stickers/[id]/place     POST ここに置く（150m以内 or 24時間以内に来た）
+      stickers/[id]/send      POST 知らない誰かへ（＋お返し）
+      inbox, inbox/count, inbox/[id]/open, me
+      route                   POST 徒歩ルート（Routes API）
+      places/photo            GET  写真（キーを隠す）
+      files/[...path]         GET  ./.data の画像（ローカル保存時のみ）
   components/
-    map/  MapView, GoogleSpotMap, FieldMap, CurrentLocationMarker,
-          YorumichiMarker, StickerMapMarker, MapMarkerView(＋みちび)
-    BottomSheet, PlaceSheetContent, SpotCard, StickerView, Michibi, StateViews …
+    sketch/   手描きの囲い（SketchOutline, Card, Section, Button, Input, Bubble, Sheet, Modal, Tabs）
+    map/      MapView, GoogleSpotMap, FieldMap, YorumichiMarker …
+    GuideView, SpotReveal, StickerView, StickerGrid, StickerDetail, TopBar, BottomNav, Michibi …
   lib/
-    store/search-context.tsx  現在地・検索の唯一の状態（currentLocation）
-    ai/        provider（interface）, anthropic, mock, prompts, pipeline, title-lint
+    store/search-context.tsx  現在地とまわりのスポットの唯一の状態
+    server/services.ts        置く・送る・届くなどのルール
+    server/repo/              保存先（local = ./.data / supabase）
+    ai/        provider, anthropic, mock, prompts, title-lint
     places/    google, mock（development-only）, place-types
-    sticker/   cutter（MediaPipe → remove.bg → 予備）, render（白フチ・透明PNG）
-    character.ts              みちびの名前・セリフ・ポーズ
+    sticker/   cutter（MediaPipe → remove.bg → 予備）, render（白フチ・手描き輪郭・紙の質感）
+    character.ts              小鳥のポーズとセリフ
 supabase/schema.sql
-public/michibi/*.webp         みちびの8ポーズ
+public/bird/*.webp            小鳥の10ポーズ
+docs/REDESIGN.md              再設計プラン
 ```
 
 ### 現在地の流れ
 
-`SearchProvider` がアプリ起動時に一度だけ `navigator.geolocation.getCurrentPosition`（`enableHighAccuracy: true, timeout: 10000, maximumAge: 30000`）を呼び、`currentLocation`（緯度・経度・精度）を保持。地図の中心・現在地マーカー・Nearby Search・AIへの `origin`・距離計算はすべてこの値を使います。
+`SearchProvider` が起動時に一度だけ `navigator.geolocation.getCurrentPosition` を呼び、`currentLocation` を保持。地図の中心・現在地マーカー・周辺スポット・距離・現地判定はすべてこの値。ナビ中だけ `watchPosition` で追いかけます。固定座標のフォールバックはありません。
 
-### AIタイトル（一言あだ名）
+### スポットの一文
 
-- タイトルはカテゴリ説明ではなく、その場所にしか成立しない一言あだ名
-- スポットごとに発想軸（音／時間／用途のズレ…）を変える
-- サーバー側で「っぽい」×2以上・同じ語尾×3・同じ名詞・同じ書き出しを検出したら、タイトルだけAIに付け直させる
-- 画面に出すのは タイトル・一言コピー・みちびのひとことだけ。根拠（口コミ）は内部メモとしてのみ保持
+- 本来の用途から少しずれた見方を、一文（断定／うわさ／条件／じゃなく／用途名／未満以上／疑問／名詞句）で
+- 店名は書かない（着いてからの答え合わせ）。データにない事実は断定しない
+- 店名が混ざった一文・ありがちな言葉（余白・記憶・物語…）を使った一文はサーバー側で捨てる
 
 ### シール
 
-写真 → 端末内で MediaPipe Interactive Segmenter が物体を切り抜き（中央＋周囲4点を自動で探索、重複除去）→ 白フチ＋かすかな縁の透明PNG。候補トレイで選んで貼る。写真からタップで追加も可。モデルは初回に Google のCDNから読み込みます。
+写真 → 端末内の MediaPipe Interactive Segmenter が写真の中を3×3で見てまわり、重ならないモノを切り抜く → 小さな画像にしてAI（`ANTHROPIC_SHORTLIST_MODEL`）が名前をつけ、背景のかけらを外す → 選んだひとつを白フチ＋手描きの輪郭＋紙の質感の透明PNGに。写真をタップして自分で追加もできます。
+
+### 送り出すしくみ（MVP）
+
+受け取る人は、①送った本人・作った本人ではない ②14日以内に使っている ③そのスポットに行ったことがない ④6時間以内に何も受け取っていない ⑤同じシールを持っていない 人からランダム。別のエリアの人を優先。該当者がいなければ保留し、次に誰かが開いたときに届けます。送った人には、誰かが見つけたシールがひとつ返ってきます。1日3枚まで。
 
 ---
 
 ## 現時点での制約
 
-- 徒歩時間は直線距離×1.25÷80m/分の概算（Routes API未使用）
-- 切り抜きは初回にモデル（数MB）をダウンロード。オフラインや非対応端末では丸型の切り取りにフォールバック
-- 「場所を入力する」代替手段は未実装（位置情報を許可しないと使えない）
-- Supabase未設定時は端末内保存のみ（機種変更で消える）
-- デモモードの解釈はキーワードベースで、分かる言葉が限られる（本番は Claude）
+- `./.data` 保存はサーバー1台用。本番は Supabase が必要
+- Supabase 保存は実装済みだが、実プロジェクトでの動作確認はまだ
+- オフライン時の一時保存はなし（電波がないとシールを保存できない）
+- 通知はアプリを開いたときだけ（プッシュ通知なし）
+- 切り抜きは初回にモデル（数MB）をダウンロード。非対応端末では丸型の切り取りにフォールバック
+- 位置情報を許可しないと使えない
 
 ## 次に改善するなら
 
-- 「実際どうだった？」の結果を次の解釈に反映（ズレ具合の個人チューニング）
-- Routes API で実際の徒歩時間
-- 時間帯・天気で解釈を変える
-- シール帳の自由配置（ドラッグで貼り直し）
+- シール帳の日付別・エリア別
+- スポットで見つかったものをAIがまとめる（見つかったものが増えてから）
+- プッシュ通知、オフライン保存
+- 地域限定シール・街歩きイベント（`area_key` と `origin` を土台に）

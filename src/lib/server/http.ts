@@ -2,6 +2,8 @@ import "server-only";
 
 import type { z } from "zod";
 import type { ApiErrorBody, ApiErrorCode } from "@/lib/types";
+import { identify } from "./identity";
+import { RuleError } from "./services";
 
 export function jsonError(code: ApiErrorCode, message: string, status: number): Response {
   const body: ApiErrorBody = { error: { code, message } };
@@ -33,4 +35,29 @@ export async function parseJsonBody<S extends z.ZodType>(
     };
   }
   return { ok: true, data: result.data };
+}
+
+/** Run a handler as the calling user; turns rule violations into friendly errors. */
+export async function asUser(
+  req: Request,
+  run: (userId: string) => Promise<Response>,
+): Promise<Response> {
+  const userId = await identify(req);
+  if (!userId) return jsonError("unauthorized", "もう一度開き直してください", 401);
+  try {
+    return await run(userId);
+  } catch (err) {
+    if (err instanceof RuleError) return jsonError("invalid_input", err.message, err.status);
+    console.error("[api]", err);
+    return jsonError("db_failed", "うまく保存できませんでした", 500);
+  }
+}
+
+export function latLngFromSearch(req: Request): { latitude: number; longitude: number } | null {
+  const u = new URL(req.url);
+  const latitude = Number(u.searchParams.get("lat"));
+  const longitude = Number(u.searchParams.get("lng"));
+  if (!u.searchParams.get("lat") || !Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+  if (Math.abs(latitude) > 90 || Math.abs(longitude) > 180) return null;
+  return { latitude, longitude };
 }

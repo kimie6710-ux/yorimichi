@@ -32,6 +32,9 @@ export const TOWN_TYPES = [
   "church",
   "hindu_temple",
   "shopping_mall",
+  "train_station",
+  "subway_station",
+  "playground",
 ];
 
 /**
@@ -44,6 +47,9 @@ export const EXTENDED_TOWN_TYPES = [
   "public_bath",
   "garden",
   "plaza",
+  "bridge",
+  "observation_deck",
+  "market",
 ];
 
 /** Short Japanese fallback labels when primaryTypeDisplayName is missing. */

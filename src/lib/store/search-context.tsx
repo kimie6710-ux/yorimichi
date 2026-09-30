@@ -11,17 +11,16 @@ import {
   type ReactNode,
 } from "react";
 
-import { ApiClientError, fetchNearby, interpret } from "@/lib/api-client";
+import { api, ApiClientError } from "@/lib/api-client";
 import { MICHIBI_LINES } from "@/lib/character";
 import { mockLocation } from "@/lib/config";
 import { distanceMeters, isInServiceArea } from "@/lib/geo";
-import { querySchema } from "@/lib/schemas";
-import type { LatLng, Place, RecommendedSpot, SearchResponse } from "@/lib/types";
+import type { LatLng, MapSpot } from "@/lib/types";
 
 // ─────────────────────────────────────────────────────────────
 // The single source of truth for "where the user is".
 // Location is read once from the device (Geolocation API) and flows to:
-//   map center → current-location marker → Nearby Search → AI → distances.
+//   map center → current-location marker → nearby spots → distances.
 // No component asks for the location on its own, and there is no hard-coded
 // fallback coordinate. The only exception is the explicit dev mock
 // (NEXT_PUBLIC_USE_MOCK_LOCATION=true + NEXT_PUBLIC_MOCK_LAT/LNG).
@@ -34,106 +33,108 @@ export interface CurrentLocation extends LatLng {
 }
 
 export type LocationStatus = "locating" | "ready" | "denied" | "unavailable" | "unsupported" | "outside";
-export type SearchStatus = "idle" | "places" | "ai" | "done" | "error";
+/** loading = fetching places; seeding = the AI is writing copies for new ones. */
+export type SpotsStatus = "idle" | "loading" | "seeding" | "ready" | "error";
 
-export interface SearchError {
-  kind: "places" | "empty" | "network" | "config" | "input" | "unknown";
-  message: string;
-}
-
-interface SearchState {
+interface TownState {
   currentLocation: CurrentLocation | null;
   locationStatus: LocationStatus;
-  /** Places around currentLocation, prefetched as soon as the location is known. */
-  nearby: Place[] | null;
-  status: SearchStatus;
-  query: string;
-  result: SearchResponse | null;
-  error: SearchError | null;
-  history: string[];
+  spots: MapSpot[];
+  spotsStatus: SpotsStatus;
+  spotsError: string | null;
+  /** Where the spots were loaded from. */
+  spotsOrigin: LatLng | null;
+  unread: number;
 }
 
-interface SearchContextValue extends SearchState {
-  /** Ask the device for its position (also used by 「現在地を許可する」). */
+interface TownContextValue extends TownState {
+  /** Ask the device for its position (also used by 「現在地を使う」). */
   locate: () => void;
-  /** Keep using the real location even if it's outside the service area. */
   acceptOutsideArea: () => void;
-  runSearch: (query: string) => Promise<boolean>;
-  retry: () => void;
-  findSpot: (placeId: string) => RecommendedSpot | null;
-  /** Follow the device position live (used while guiding to a spot). */
+  refreshSpots: () => void;
+  findSpot: (placeId: string) => MapSpot | null;
+  patchSpot: (placeId: string, patch: Partial<MapSpot>) => void;
+  refreshUnread: () => void;
+  /** Follow the device position live (used while walking to a spot). */
   startTracking: () => void;
   stopTracking: () => void;
 }
 
 const GEO_OPTIONS: PositionOptions = { enableHighAccuracy: true, timeout: 10_000, maximumAge: 30_000 };
-/** Re-use prefetched places only while the user is still roughly in the same spot. */
-const PREFETCH_REUSE_METERS = 120;
+/** Reload the neighbourhood only after moving this far. */
+const RELOAD_METERS = 250;
 
-/**
- * The loading screen is part of the experience (みちびが街を読み込む時間), so it
- * stays up for a minimum time even when the APIs answer instantly.
- * Slower real responses are never delayed further.
- */
-const MIN_PLACES_STAGE_MS = 1400;
-const MIN_TOTAL_LOADING_MS = 4200;
-const waitUntil = (start: number, ms: number) =>
-  new Promise<void>((r) => setTimeout(r, Math.max(0, start + ms - performance.now())));
-
-const RESULT_KEY = "yorumichi:lastSearch";
-const HISTORY_KEY = "yorumichi:history";
-
-function readStorage<T>(storage: "session" | "local", key: string): T | null {
-  try {
-    const s = storage === "session" ? window.sessionStorage : window.localStorage;
-    const raw = s.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : null;
-  } catch {
-    return null;
-  }
-}
-function writeStorage(storage: "session" | "local", key: string, value: unknown) {
-  try {
-    const s = storage === "session" ? window.sessionStorage : window.localStorage;
-    s.setItem(key, JSON.stringify(value));
-  } catch {
-    /* storage full or blocked — non-critical */
-  }
-}
-
-const SearchContext = createContext<SearchContextValue | null>(null);
+const TownContext = createContext<TownContextValue | null>(null);
 
 export function SearchProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<SearchState>({
+  const [state, setState] = useState<TownState>({
     currentLocation: null,
     locationStatus: "locating",
-    nearby: null,
-    status: "idle",
-    query: "",
-    result: null,
-    error: null,
-    history: [],
+    spots: [],
+    spotsStatus: "idle",
+    spotsError: null,
+    spotsOrigin: null,
+    unread: 0,
   });
-  const lastQuery = useRef("");
-  const runId = useRef(0);
-  const prefetch = useRef<{ origin: LatLng; promise: Promise<Place[]> } | null>(null);
   const watchId = useRef<number | null>(null);
+  const loadId = useRef(0);
+  const originRef = useRef<LatLng | null>(null);
+  const locRef = useRef<CurrentLocation | null>(null);
+
+  const loadSpots = useCallback(async (origin: LatLng) => {
+    const id = ++loadId.current;
+    originRef.current = origin;
+    setState((s) => ({ ...s, spotsStatus: "loading", spotsError: null, spotsOrigin: origin }));
+    try {
+      const res = await api.nearbySpots(origin);
+      if (id !== loadId.current) return;
+      setState((s) => ({ ...s, spots: res.spots, spotsStatus: res.pending.length ? "seeding" : "ready" }));
+      if (res.pending.length === 0) {
+        if (res.spots.length === 0) setState((s) => ({ ...s, spotsError: MICHIBI_LINES.empty }));
+        return;
+      }
+      const seeded = await api.seedSpots(origin, res.pending).catch(() => ({ spots: [] as MapSpot[] }));
+      if (id !== loadId.current) return;
+      setState((s) => {
+        const known = new Set(s.spots.map((x) => x.place.placeId));
+        const spots = [...s.spots, ...seeded.spots.filter((x) => !known.has(x.place.placeId))].sort(
+          (a, b) => a.place.distanceMeters - b.place.distanceMeters,
+        );
+        return { ...s, spots, spotsStatus: "ready", spotsError: spots.length ? null : MICHIBI_LINES.empty };
+      });
+    } catch (err) {
+      if (id !== loadId.current) return;
+      const e = err instanceof ApiClientError ? err : null;
+      setState((s) => ({
+        ...s,
+        spotsStatus: "error",
+        spotsError: e?.code === "network" ? MICHIBI_LINES.networkError : (e?.message ?? "うまくいかなかった。"),
+      }));
+    }
+  }, []);
+
+  const refreshUnread = useCallback(() => {
+    api
+      .unread()
+      .then(({ unread }) => setState((s) => (s.unread === unread ? s : { ...s, unread })))
+      .catch(() => undefined);
+  }, []);
 
   // Live tracking updates the same currentLocation — still one source of truth.
   const startTracking = useCallback(() => {
     if (mockLocation() || typeof navigator === "undefined" || !navigator.geolocation) return;
     if (watchId.current !== null) return;
     watchId.current = navigator.geolocation.watchPosition(
-      (pos) =>
-        setState((s) => ({
-          ...s,
-          currentLocation: {
-            latitude: pos.coords.latitude,
-            longitude: pos.coords.longitude,
-            accuracy: Number.isFinite(pos.coords.accuracy) ? Math.round(pos.coords.accuracy) : null,
-            source: "device",
-          },
-        })),
+      (pos) => {
+        const loc: CurrentLocation = {
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+          accuracy: Number.isFinite(pos.coords.accuracy) ? Math.round(pos.coords.accuracy) : null,
+          source: "device",
+        };
+        locRef.current = loc;
+        setState((s) => ({ ...s, currentLocation: loc }));
+      },
       () => undefined,
       { enableHighAccuracy: true, maximumAge: 5_000, timeout: 20_000 },
     );
@@ -143,23 +144,15 @@ export function SearchProvider({ children }: { children: ReactNode }) {
     watchId.current = null;
   }, []);
 
-  const startPrefetch = useCallback((origin: LatLng) => {
-    const promise = fetchNearby(origin).then((r) => r.places);
-    prefetch.current = { origin, promise };
-    promise
-      .then((places) => setState((s) => (s.currentLocation === null ? s : { ...s, nearby: places })))
-      .catch(() => {
-        if (prefetch.current?.promise === promise) prefetch.current = null;
-      });
-  }, []);
-
   const applyLocation = useCallback(
     (loc: CurrentLocation) => {
       const inside = isInServiceArea(loc);
+      locRef.current = loc;
       setState((s) => ({ ...s, currentLocation: loc, locationStatus: inside ? "ready" : "outside" }));
-      if (inside) startPrefetch(loc);
+      const origin = originRef.current;
+      if (inside && (!origin || distanceMeters(origin, loc) > RELOAD_METERS)) void loadSpots(loc);
     },
-    [startPrefetch],
+    [loadSpots],
   );
 
   const locate = useCallback(() => {
@@ -181,116 +174,43 @@ export function SearchProvider({ children }: { children: ReactNode }) {
           accuracy: Number.isFinite(pos.coords.accuracy) ? Math.round(pos.coords.accuracy) : null,
           source: "device",
         }),
-      (err) =>
-        setState((s) => ({
-          ...s,
-          locationStatus: err.code === err.PERMISSION_DENIED ? "denied" : "unavailable",
-        })),
+      (err) => setState((s) => ({ ...s, locationStatus: err.code === err.PERMISSION_DENIED ? "denied" : "unavailable" })),
       GEO_OPTIONS,
     );
   }, [applyLocation]);
 
   const acceptOutsideArea = useCallback(() => {
-    setState((s) => {
-      if (!s.currentLocation) return s;
-      startPrefetch(s.currentLocation);
-      return { ...s, locationStatus: "ready" };
-    });
-  }, [startPrefetch]);
+    if (locRef.current) void loadSpots(locRef.current);
+    setState((s) => ({ ...s, locationStatus: "ready" }));
+  }, [loadSpots]);
 
-  // One location request for the whole app, on first mount. Also restore the
-  // last result and query history (never a stored location).
+  const refreshSpots = useCallback(() => {
+    if (locRef.current) void loadSpots(locRef.current);
+  }, [loadSpots]);
+
+  // One location request for the whole app, on first mount.
   useEffect(() => {
-    const result = readStorage<SearchResponse>("session", RESULT_KEY);
-    const history = readStorage<string[]>("local", HISTORY_KEY) ?? [];
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time hydration from browser storage
-    setState((s) => ({
-      ...s,
-      history,
-      ...(result ? { result, status: "done" as const, query: result.query } : {}),
-    }));
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time: ask the device where we are
     locate();
-  }, [locate]);
+    refreshUnread();
+    const t = setInterval(refreshUnread, 60_000);
+    return () => clearInterval(t);
+  }, [locate, refreshUnread]);
 
-  const runSearch = useCallback(
-    async (rawQuery: string): Promise<boolean> => {
-      const parsed = querySchema.safeParse(rawQuery);
-      if (!parsed.success) {
-        setState((s) => ({
-          ...s,
-          error: { kind: "input", message: parsed.error.issues[0]?.message ?? "入力を確認してね" },
-        }));
-        return false;
-      }
-      const origin = state.currentLocation;
-      if (!origin || state.locationStatus !== "ready") return false;
+  const findSpot = useCallback((placeId: string) => state.spots.find((s) => s.place.placeId === placeId) ?? null, [state.spots]);
+  const patchSpot = useCallback((placeId: string, patch: Partial<MapSpot>) => {
+    setState((s) => ({ ...s, spots: s.spots.map((x) => (x.place.placeId === placeId ? { ...x, ...patch } : x)) }));
+  }, []);
 
-      const query = parsed.data;
-      lastQuery.current = query;
-      const id = ++runId.current;
-      const history = [query, ...state.history.filter((h) => h !== query)].slice(0, 3);
-      writeStorage("local", HISTORY_KEY, history);
-      setState((s) => ({ ...s, query, history, status: "places", error: null }));
-
-      const startedAt = performance.now();
-      try {
-        // Nearby Search is centred on the same currentLocation (prefetched if possible).
-        const cached = prefetch.current;
-        const places =
-          cached && distanceMeters(cached.origin, origin) < PREFETCH_REUSE_METERS
-            ? await cached.promise.catch(() => fetchNearby(origin).then((r) => r.places))
-            : await fetchNearby(origin).then((r) => r.places);
-        await waitUntil(startedAt, MIN_PLACES_STAGE_MS);
-        if (id !== runId.current) return false;
-        if (places.length === 0) {
-          setState((s) => ({ ...s, status: "error", error: { kind: "empty", message: MICHIBI_LINES.empty } }));
-          return false;
-        }
-        setState((s) => ({ ...s, status: "ai" }));
-        const result = await interpret(query, origin, places);
-        await waitUntil(startedAt, MIN_TOTAL_LOADING_MS);
-        if (id !== runId.current) return false;
-        writeStorage("session", RESULT_KEY, result);
-        setState((s) => ({ ...s, status: "done", result }));
-        return true;
-      } catch (err) {
-        if (id !== runId.current) return false;
-        prefetch.current = null;
-        const e = err instanceof ApiClientError ? err : null;
-        const error: SearchError =
-          e?.code === "network"
-            ? { kind: "network", message: MICHIBI_LINES.networkError }
-            : e?.code === "not_configured"
-              ? { kind: "config", message: e.message }
-              : e?.code === "places_failed"
-                ? { kind: "places", message: "周辺スポットを取ってこれなかった。少しおいて、もう一回。" }
-                : { kind: "unknown", message: e?.message ?? "うまくいかなかった。" };
-        setState((s) => ({ ...s, status: "error", error }));
-        return false;
-      }
-    },
-    [state.currentLocation, state.locationStatus, state.history],
+  const value = useMemo<TownContextValue>(
+    () => ({ ...state, locate, acceptOutsideArea, refreshSpots, findSpot, patchSpot, refreshUnread, startTracking, stopTracking }),
+    [state, locate, acceptOutsideArea, refreshSpots, findSpot, patchSpot, refreshUnread, startTracking, stopTracking],
   );
-
-  const retry = useCallback(() => {
-    if (lastQuery.current) void runSearch(lastQuery.current);
-  }, [runSearch]);
-
-  const findSpot = useCallback(
-    (placeId: string) => state.result?.spots.find((s) => s.place.placeId === placeId) ?? null,
-    [state.result],
-  );
-
-  const value = useMemo<SearchContextValue>(
-    () => ({ ...state, locate, acceptOutsideArea, runSearch, retry, findSpot, startTracking, stopTracking }),
-    [state, locate, acceptOutsideArea, runSearch, retry, findSpot, startTracking, stopTracking],
-  );
-
-  return <SearchContext.Provider value={value}>{children}</SearchContext.Provider>;
+  return <TownContext.Provider value={value}>{children}</TownContext.Provider>;
 }
 
-export function useSearch(): SearchContextValue {
-  const ctx = useContext(SearchContext);
+export function useSearch(): TownContextValue {
+  const ctx = useContext(TownContext);
   if (!ctx) throw new Error("useSearch must be used inside <SearchProvider>");
   return ctx;
 }

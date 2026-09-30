@@ -41,8 +41,8 @@ function RouteLine({ route }: { route: LatLng[] }) {
   useEffect(() => {
     if (!map || typeof google === "undefined" || route.length < 2) return;
     const path = route.map(toGoogle);
-    // White casing + lavender dots: reads as "our" path on a muted map.
-    const casing = new google.maps.Polyline({ path, map, strokeColor: "#ffffff", strokeOpacity: 1, strokeWeight: 9, zIndex: 1 });
+    // Paper casing + ink dashes: a path drawn with a pen on the map.
+    const casing = new google.maps.Polyline({ path, map, strokeColor: "#fffefb", strokeOpacity: 1, strokeWeight: 8, zIndex: 1 });
     const line = new google.maps.Polyline({
       path,
       map,
@@ -50,9 +50,9 @@ function RouteLine({ route }: { route: LatLng[] }) {
       zIndex: 2,
       icons: [
         {
-          icon: { path: google.maps.SymbolPath.CIRCLE, fillColor: "#6d4ee6", fillOpacity: 1, strokeOpacity: 0, scale: 3.2 },
+          icon: { path: "M 0,-1 0,1", strokeColor: "#22201c", strokeOpacity: 1, strokeWeight: 3.2, scale: 3 },
           offset: "0",
-          repeat: "12px",
+          repeat: "11px",
         },
       ],
     });
@@ -78,17 +78,18 @@ function PanToSelected({ markers, selectedId }: Pick<MapViewProps, "markers" | "
  * surprise), muted pastel colours, roads kept for orientation.
  */
 const MAP_STYLES: google.maps.MapTypeStyle[] = [
-  { elementType: "geometry", stylers: [{ color: "#f4f5f8" }] },
-  { elementType: "labels.text.fill", stylers: [{ color: "#8a93a3" }] },
-  { elementType: "labels.text.stroke", stylers: [{ color: "#ffffff" }] },
+  { elementType: "geometry", stylers: [{ color: "#f6f1e4" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#8a8272" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#fbf8f0" }] },
   { featureType: "poi", stylers: [{ visibility: "off" }] },
-  { featureType: "poi.park", elementType: "geometry", stylers: [{ visibility: "on" }, { color: "#e3f4ea" }] },
+  { featureType: "poi.park", elementType: "geometry", stylers: [{ visibility: "on" }, { color: "#e4ecd6" }] },
   { featureType: "transit", stylers: [{ visibility: "off" }] },
   { featureType: "administrative.land_parcel", stylers: [{ visibility: "off" }] },
-  { featureType: "road", elementType: "geometry", stylers: [{ color: "#ffffff" }] },
+  { featureType: "road", elementType: "geometry", stylers: [{ color: "#fffdf7" }] },
+  { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#e2d9c4" }] },
   { featureType: "road", elementType: "labels.icon", stylers: [{ visibility: "off" }] },
-  { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#eceef3" }] },
-  { featureType: "water", elementType: "geometry", stylers: [{ color: "#d6f0f6" }] },
+  { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#efe7d4" }] },
+  { featureType: "water", elementType: "geometry", stylers: [{ color: "#d3e8f2" }] },
 ];
 
 /**
@@ -146,7 +147,6 @@ const MASCOT_OFFSET: [number, number] = [-54, 8];
 export default function GoogleSpotMap({
   origin,
   markers,
-  dots = [],
   selectedId,
   onSelect,
   bottomInset,
@@ -154,6 +154,7 @@ export default function GoogleSpotMap({
   interactive = true,
   mascotAt = null,
   route = null,
+  bubbles = true,
   onLoadError,
 }: MapViewProps & { onLoadError: () => void }) {
   const center = origin ?? markers[0]?.position;
@@ -175,12 +176,6 @@ export default function GoogleSpotMap({
         {interactive && <PanToSelected markers={markers} selectedId={selectedId} />}
         {route && <RouteLine route={route} />}
 
-        {dots.map((d) => (
-          <HtmlMarker key={d.id} position={d.position} zIndex={1} anchor="center">
-            <span className="block h-2.5 w-2.5 rounded-full border-2 border-white bg-ink-mute/60" aria-hidden />
-          </HtmlMarker>
-        ))}
-
         {origin && (
           <HtmlMarker position={origin} zIndex={5} anchor="center">
             <CurrentLocationMarker />
@@ -195,7 +190,7 @@ export default function GoogleSpotMap({
 
         {markers.map((m) => (
           <HtmlMarker key={m.id} position={m.position} zIndex={m.id === selectedId ? 30 : 10}>
-            <MapMarkerView marker={m} selected={m.id === selectedId} onClick={() => onSelect(m.id)} />
+            <MapMarkerView marker={m} selected={m.id === selectedId} onClick={() => onSelect(m.id)} bubble={bubbles} />
           </HtmlMarker>
         ))}
       </Map>

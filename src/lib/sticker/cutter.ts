@@ -112,15 +112,6 @@ export function looksLikeObject(mask: CutMask): boolean {
   return area / (w * h) <= 0.6 && edges < 3;
 }
 
-/** Where to look for objects automatically: the middle first, then around it. */
-export const AUTO_POINTS: CutPoint[] = [
-  { x: 0.5, y: 0.5 },
-  { x: 0.28, y: 0.32 },
-  { x: 0.72, y: 0.32 },
-  { x: 0.28, y: 0.72 },
-  { x: 0.72, y: 0.72 },
-];
-
 // ── MediaPipe (default, on-device) ────────────────────────
 
 type Segmenter = import("@mediapipe/tasks-vision").InteractiveSegmenter;
@@ -277,4 +268,28 @@ export async function prepareCutter(image: HTMLCanvasElement): Promise<StickerCu
   const fallback = new BlobCutter();
   await fallback.prepare(image);
   return fallback;
+}
+
+/** A 3×3 look-around, middle first. */
+const GRID: CutPoint[] = [
+  { x: 0.5, y: 0.5 },
+  ...[0.22, 0.5, 0.78].flatMap((y) => [0.22, 0.5, 0.78].map((x) => ({ x, y }))).filter((p) => !(p.x === 0.5 && p.y === 0.5)),
+];
+
+/** Find distinct things worth cutting out of the prepared photo. */
+export async function findThings(cutter: StickerCutter, max = 6): Promise<CutMask[]> {
+  const found: CutMask[] = [];
+  const points = cutter.name === "blob" ? GRID.slice(0, 1) : GRID;
+  for (const p of points) {
+    if (found.length >= max) break;
+    try {
+      const m = await cutter.maskAt(p);
+      if (!m || (found.length > 0 && !looksLikeObject(m))) continue;
+      if (found.some((f) => maskIoU(f, m) > 0.55)) continue;
+      found.push(m);
+    } catch (err) {
+      console.warn("[find] point failed", err);
+    }
+  }
+  return found;
 }

@@ -58,115 +58,6 @@ export interface Place {
   isMock?: boolean;
 }
 
-export interface InterpretedIntent {
-  literal: string;
-  expanded: string[];
-}
-
-export type RecommendationKind = "literal" | "shifted";
-
-export interface AIRecommendation {
-  /** Recommendation id (Supabase row id if persisted, otherwise a local uuid). */
-  id: string;
-  placeId: string;
-  title: string;
-  interpretation: string;
-  why: string;
-  /** 1 = ほぼ文字通り, 5 = かなりズレている */
-  surpriseScore: number;
-  confidence: number;
-  kind: RecommendationKind;
-  /** How the place was shifted: 行動 / 時間 / 感情 / 用途 / 詩的. */
-  interpretationAxis: string;
-  /** Internal reasoning chain (never shown before the visit). */
-  realPurpose: string;
-  hiddenUserNeed: string;
-  reinterpretedPurpose: string;
-  /** Short line spoken by the mascot on the card / marker. */
-  michibiLine: string;
-}
-
-/** Recommendation joined with the real place data it points to. */
-export interface RecommendedSpot {
-  recommendation: AIRecommendation;
-  place: Place;
-}
-
-export interface SearchRequest {
-  query: string;
-  location: LatLng;
-}
-
-export type SearchMode = "ai" | "fallback" | "mock";
-
-export interface SearchResponse {
-  searchId: string;
-  query: string;
-  origin: LatLng;
-  interpretedIntent: InterpretedIntent | null;
-  spots: RecommendedSpot[];
-  /** All nearby places that were considered (drawn as quiet dots on the map). */
-  nearby: Place[];
-  mode: SearchMode;
-  /** Mascot comment for the whole result set. */
-  michibiComment: string;
-  /** Human-readable notice when we degraded (AI failure etc.). */
-  notice: string | null;
-  createdAt: string;
-}
-
-export type UserReaction = "totally_off" | "kind_of" | "totally_get_it";
-
-export const REACTIONS: {
-  value: UserReaction;
-  emoji: string;
-  label: string;
-}[] = [
-  { value: "totally_off", emoji: "😐", label: "全然違った" },
-  { value: "kind_of", emoji: "🙂", label: "ちょっと分かる" },
-  { value: "totally_get_it", emoji: "🤩", label: "めっちゃ分かる" },
-];
-
-/**
- * A sticker = an object cut out of the user's photo (transparent PNG with a
- * white die-cut border), tied to the Google place where it was collected.
- * One photo can produce several stickers (one row each, same photoUrl).
- */
-export interface StickerItem {
-  id: string;
-  placeId: string;
-  recommendationId: string | null;
-  realName: string;
-  aiTitle: string;
-  query: string;
-  reaction: UserReaction | null;
-  /** Rotation in degrees used when the sticker is "stuck" somewhere. */
-  rotation: number;
-  /** The original photo (never shown as the sticker itself). */
-  photoUrl: string | null;
-  /** Transparent PNG of the cut-out object. */
-  stickerUrl: string | null;
-  latitude: number;
-  longitude: number;
-  address: string | null;
-  createdAt: string;
-}
-
-export interface NewStickersInput {
-  placeId: string;
-  recommendationId: string | null;
-  realName: string;
-  aiTitle: string;
-  query: string;
-  reaction: UserReaction | null;
-  latitude: number;
-  longitude: number;
-  address: string | null;
-  photo: Blob | null;
-  /** At least one; each becomes its own sticker row. */
-  stickers: { blob: Blob; rotation: number }[];
-}
-
 /** Uniform error body returned by every API route. */
 export interface ApiErrorBody {
   error: {
@@ -186,3 +77,93 @@ export type ApiErrorCode =
   | "upload_failed"
   | "db_failed"
   | "internal";
+
+// ─────────────────────────────────────────────
+// よるみち: spots, stickers, sharing
+// ─────────────────────────────────────────────
+
+/** The AI's first seed on a real place: a "なにそれ？" line. */
+export interface SpotCopy {
+  copy: string;
+  form: string;
+  birdLine: string;
+}
+
+/** A real place on the map with its よるみち layer. */
+export interface MapSpot {
+  place: Place;
+  copy: SpotCopy | null;
+  /** Stickers other people left here. */
+  placedCount: number;
+  /** Stickers ever made here (by anyone). */
+  foundCount: number;
+  visited: boolean;
+  saved: boolean;
+}
+
+export type StickerStatus = "kept" | "placed" | "sent";
+export type StickerOrigin = "found" | "received";
+
+export interface Sticker {
+  id: string;
+  spotId: string;
+  spotName: string;
+  spotCopy: string | null;
+  spotLocation: LatLng;
+  label: string;
+  memo: string;
+  imageUrl: string;
+  /** The original photo — only for the person who took it. */
+  photoUrl: string | null;
+  rotation: number;
+  origin: StickerOrigin;
+  status: StickerStatus;
+  placedAt: string | null;
+  /** How many people saw it where it was placed. */
+  seenCount: number;
+  createdAt: string;
+}
+
+/** A sticker somebody left at a spot. The image only comes with you on site. */
+export interface PlacedSticker {
+  id: string;
+  label: string;
+  memo: string;
+  imageUrl: string | null;
+  rotation: number;
+  mine: boolean;
+  createdAt: string;
+}
+
+export interface SpotDetail {
+  spot: MapSpot;
+  /** True when the caller is on site (or arrived recently): placed stickers are visible. */
+  onSite: boolean;
+  placed: PlacedSticker[];
+  /** Labels of what people found here (no images, no names). */
+  foundLabels: string[];
+  mine: Sticker[];
+}
+
+export interface InboxItem {
+  id: string;
+  sticker: Sticker;
+  kind: "send" | "return";
+  openedAt: string | null;
+  deliveredAt: string;
+}
+
+export interface MyHistory {
+  visited: { spotId: string; name: string; copy: string | null; at: string }[];
+  placed: Sticker[];
+  sent: Sticker[];
+  received: Sticker[];
+}
+
+/** The AI's name for one thing cut out of a photo. */
+export interface CutoutName {
+  index: number;
+  label: string;
+  /** false = background / not really a thing. */
+  keep: boolean;
+}
