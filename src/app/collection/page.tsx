@@ -9,20 +9,22 @@ import { StickerDetail } from "@/components/StickerDetail";
 import { TopBar } from "@/components/TopBar";
 import { api, ApiClientError } from "@/lib/api-client";
 import { MICHIBI_LINES } from "@/lib/character";
-import type { BookPage, BookPos, Sticker } from "@/lib/types";
+import type { BookDeco, BookPage, BookPos, DecoKind, Sticker } from "@/lib/types";
 
 /** 手帳: pages you flip through, stickers you stick wherever you like. */
 export default function NotebookPage() {
   const [items, setItems] = useState<Sticker[] | null>(null);
   const [pages, setPages] = useState<BookPage[]>([]);
+  const [decos, setDecos] = useState<BookDeco[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([api.myStickers(), api.bookPages()])
-      .then(([s, p]) => {
+    Promise.all([api.myStickers(), api.bookPages(), api.decos()])
+      .then(([s, p, d]) => {
         setItems(s.items);
         setPages(p.pages);
+        setDecos(d.decos);
       })
       .catch((e) => setError(e instanceof ApiClientError ? e.message : "読み込めませんでした"));
   }, []);
@@ -35,6 +37,25 @@ export default function NotebookPage() {
   const changePages = useCallback((next: BookPage[]) => {
     setPages(next);
     void api.saveBookPages(next).catch(() => undefined);
+  }, []);
+
+  const addDeco = useCallback((kind: DecoKind, pos: BookPos) => {
+    const temp = `tmp-${crypto.randomUUID()}`;
+    setDecos((list) => [...list, { id: temp, kind, pos }]);
+    api
+      .addDeco(kind, pos)
+      .then(({ deco }) => setDecos((list) => list.map((d) => (d.id === temp ? deco : d))))
+      .catch(() => setDecos((list) => list.filter((d) => d.id !== temp)));
+  }, []);
+
+  const moveDeco = useCallback((id: string, pos: BookPos) => {
+    setDecos((list) => list.map((d) => (d.id === id ? { ...d, pos } : d)));
+    if (!id.startsWith("tmp-")) void api.moveDeco(id, pos).catch(() => undefined);
+  }, []);
+
+  const removeDeco = useCallback((id: string) => {
+    setDecos((list) => list.filter((d) => d.id !== id));
+    if (!id.startsWith("tmp-")) void api.removeDeco(id).catch(() => undefined);
   }, []);
 
   const open = items?.find((s) => s.id === openId) ?? null;
@@ -54,13 +75,22 @@ export default function NotebookPage() {
         </div>
       )}
       {items && items.length === 0 && (
-        <div className="mt-16 flex flex-col items-center text-center">
-          <Michibi mood="perch" size={96} says={MICHIBI_LINES.collectionEmpty} className="flex-col-reverse !items-center" animate="none" />
-          <p className="mt-4 max-w-[260px] text-sm text-ink-soft">街で見つけたものを撮ると、ここに貼られていきます。</p>
+        <div className="mb-4 flex justify-center">
+          <Michibi mood="perch" size={64} says={MICHIBI_LINES.collectionEmpty} animate="none" />
         </div>
       )}
-      {items && items.length > 0 && (
-        <Notebook stickers={items} pages={pages} onOpen={setOpenId} onMove={move} onPagesChange={changePages} />
+      {items && (
+        <Notebook
+          stickers={items}
+          decos={decos}
+          pages={pages}
+          onOpen={setOpenId}
+          onMove={move}
+          onPagesChange={changePages}
+          onAddDeco={addDeco}
+          onMoveDeco={moveDeco}
+          onRemoveDeco={removeDeco}
+        />
       )}
 
       <SketchSheet open={!!open} onClose={() => setOpenId(null)} label="シール">

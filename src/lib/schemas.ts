@@ -121,3 +121,28 @@ export const nameOutputSchema = z.object({
   ),
 });
 export type NameOutput = z.infer<typeof nameOutputSchema>;
+
+const bookPosSchema = z.object({
+  page: z.number().int().min(0).max(199),
+  x: z.number().min(0).max(1),
+  y: z.number().min(0).max(1),
+  rot: z.number().min(-30).max(30),
+});
+
+export const decoCreateSchema = z.object({
+  kind: z.enum([
+    "bird-front",
+    "bird-side",
+    "bird-back",
+    "bird-walk",
+    "bird-flap",
+    "bird-perch",
+    "bird-hop",
+    "bird-happy",
+    "bird-surprise",
+    "bird-sleepy",
+  ]),
+  pos: bookPosSchema,
+});
+
+export const decoMoveSchema = z.object({ pos: bookPosSchema });

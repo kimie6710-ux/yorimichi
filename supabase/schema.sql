@@ -169,6 +169,21 @@ create table if not exists public.book_pages (
   bg text not null check (bg in ('cream', 'grid', 'dots'))
 );
 alter table public.book_pages enable row level security;
+
+-- book_decos: character stickers stuck in the notebook
+create table if not exists public.book_decos (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.users (id) on delete cascade,
+  kind text not null,
+  page int not null,
+  x real not null,
+  y real not null,
+  rot real not null default 0,
+  created_at timestamptz not null default now()
+);
+alter table public.book_decos enable row level security;
+drop policy if exists "book_decos: own" on public.book_decos;
+create policy "book_decos: own" on public.book_decos for select using (user_id = auth.uid());
 drop policy if exists "book_pages: own" on public.book_pages;
 create policy "book_pages: own" on public.book_pages for select using (user_id = auth.uid());
 

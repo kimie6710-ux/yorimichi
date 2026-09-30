@@ -76,6 +76,17 @@ export interface StickerRow {
   created_at: string;
 }
 
+export interface BookDecoRow {
+  id: string;
+  user_id: string;
+  kind: string; // e.g. "bird-flap"
+  page: number;
+  x: number;
+  y: number;
+  rot: number;
+  created_at: string;
+}
+
 export interface BookPageRow {
   id: string; // `${user_id}:${idx}`
   user_id: string;
@@ -113,6 +124,7 @@ export interface Tables {
   sticker_transfers: TransferRow;
   sticker_views: StickerViewRow;
   book_pages: BookPageRow;
+  book_decos: BookDecoRow;
 }
 export type TableName = keyof Tables;
 

@@ -25,6 +25,7 @@ const EMPTY: Db = {
   sticker_transfers: [],
   sticker_views: [],
   book_pages: [],
+  book_decos: [],
 };
 
 const g = globalThis as unknown as { __yorumichiDb?: Promise<Db>; __yorumichiWrite?: Promise<void> };

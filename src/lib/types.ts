@@ -137,6 +137,27 @@ export interface BookPos {
 export const PAGE_BACKGROUNDS = ["cream", "grid", "dots"] as const;
 export type PageBackground = (typeof PAGE_BACKGROUNDS)[number];
 
+/** Character stickers you can decorate the notebook with. */
+export const DECO_KINDS = [
+  "bird-front",
+  "bird-side",
+  "bird-back",
+  "bird-walk",
+  "bird-flap",
+  "bird-perch",
+  "bird-hop",
+  "bird-happy",
+  "bird-surprise",
+  "bird-sleepy",
+] as const;
+export type DecoKind = (typeof DECO_KINDS)[number];
+
+export interface BookDeco {
+  id: string;
+  kind: DecoKind;
+  pos: BookPos;
+}
+
 export interface BookPage {
   idx: number;
   bg: PageBackground;

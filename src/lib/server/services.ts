@@ -578,3 +578,38 @@ export async function history(userId: string): Promise<MyHistory> {
     received: mine.filter((s) => s.origin === "received"),
   };
 }
+
+// ─────────────────────────────────────────────
+// Notebook decorations (character stickers)
+// ─────────────────────────────────────────────
+type Pos = { page: number; x: number; y: number; rot: number };
+const MAX_DECOS = 300;
+
+export async function listDecos(userId: string) {
+  const rows = await getStore().find("book_decos", { where: { user_id: userId }, order: { key: "created_at", asc: true } });
+  return rows.map((r) => ({ id: r.id, kind: r.kind, pos: { page: r.page, x: r.x, y: r.y, rot: r.rot } }));
+}
+
+export async function addDeco(userId: string, kind: string, pos: Pos) {
+  const store = getStore();
+  if ((await store.count("book_decos", { where: { user_id: userId } })) >= MAX_DECOS) throw new RuleError("これ以上は貼れません");
+  const row = { id: uuid(), user_id: userId, kind, page: pos.page, x: pos.x, y: pos.y, rot: pos.rot, created_at: now() };
+  await store.insert("book_decos", [row]);
+  return { id: row.id, kind, pos };
+}
+
+async function ownDeco(userId: string, id: string) {
+  const row = await getStore().get("book_decos", id);
+  if (!row || row.user_id !== userId) throw new RuleError("見つかりません", 404);
+  return row;
+}
+
+export async function moveDeco(userId: string, id: string, pos: Pos) {
+  await ownDeco(userId, id);
+  await getStore().update("book_decos", id, { page: pos.page, x: pos.x, y: pos.y, rot: pos.rot });
+}
+
+export async function removeDeco(userId: string, id: string) {
+  await ownDeco(userId, id);
+  await getStore().remove("book_decos", id);
+}

@@ -3,9 +3,19 @@
 /* eslint-disable @next/next/no-img-element -- local UI sprites */
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 
+import { SketchButton, SketchSheet } from "@/components/sketch";
 import { hashSeed, rng } from "@/components/sketch/path";
 import { StickerView } from "@/components/StickerView";
-import { PAGE_BACKGROUNDS, type BookPage, type BookPos, type PageBackground, type Sticker } from "@/lib/types";
+import {
+  DECO_KINDS,
+  PAGE_BACKGROUNDS,
+  type BookDeco,
+  type BookPage,
+  type BookPos,
+  type DecoKind,
+  type PageBackground,
+  type Sticker,
+} from "@/lib/types";
 
 const PER_PAGE = 6;
 /** Loose slots for stickers that haven't been arranged yet (centre, 0..1). */
@@ -62,18 +72,33 @@ interface Drag {
 
 export function Notebook({
   stickers,
+  decos,
   pages,
   onOpen,
   onMove,
   onPagesChange,
+  onAddDeco,
+  onMoveDeco,
+  onRemoveDeco,
 }: {
   stickers: Sticker[];
+  decos: BookDeco[];
   pages: BookPage[];
   onOpen: (id: string) => void;
   onMove: (id: string, pos: BookPos) => void;
   onPagesChange: (pages: BookPage[]) => void;
+  onAddDeco: (kind: DecoKind, pos: BookPos) => void;
+  onMoveDeco: (id: string, pos: BookPos) => void;
+  onRemoveDeco: (id: string) => void;
 }) {
-  const base = useMemo(() => layout(stickers), [stickers]);
+  const base = useMemo(() => {
+    const m = layout(stickers);
+    for (const d of decos) m.set(d.id, d.pos);
+    return m;
+  }, [stickers, decos]);
+  const decoIds = useMemo(() => new Set(decos.map((d) => d.id)), [decos]);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [trayOpen, setTrayOpen] = useState(false);
   const [local, setLocal] = useState<Map<string, BookPos>>(new Map());
   const [order, setOrder] = useState<string[]>([]);
   const [page, setPage] = useState(0);
@@ -165,16 +190,26 @@ export function Notebook({
     setDragId(null);
     if (!d || d.pointerId !== e.pointerId) return;
     if (!d.moved) {
-      onOpen(d.id);
+      if (decoIds.has(d.id)) setSelected((cur) => (cur === d.id ? null : d.id));
+      else onOpen(d.id);
       return;
     }
     const p = local.get(d.id);
-    if (p) onMove(d.id, p);
+    if (!p) return;
+    if (decoIds.has(d.id)) onMoveDeco(d.id, p);
+    else onMove(d.id, p);
   }
 
   // ── swiping the page itself ──
   function onPageDown(e: ReactPointerEvent<HTMLDivElement>) {
     swipe.current = { x: e.clientX, y: e.clientY };
+    setSelected(null);
+  }
+
+  function addDeco(kind: DecoKind) {
+    const r = rng(hashSeed(`${kind}-${decos.length}-${page}`))();
+    onAddDeco(kind, { page, x: 0.35 + r * 0.3, y: 0.3 + ((r * 7) % 1) * 0.4, rot: Math.round((r * 16 - 8) * 10) / 10 });
+    setTrayOpen(false);
   }
   function onPageUp(e: ReactPointerEvent<HTMLDivElement>) {
     const s = swipe.current;
@@ -184,8 +219,12 @@ export function Notebook({
     if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(e.clientY - s.y)) go(dx < 0 ? 1 : -1);
   }
 
-  const onPage = stickers
-    .filter((s) => pos(s.id).page === page)
+  type Item = { id: string; src: string | null; label: string | null; deco: boolean };
+  const onPage: Item[] = [
+    ...stickers.map((s) => ({ id: s.id, src: s.imageUrl, label: s.label, deco: false })),
+    ...decos.map((d) => ({ id: d.id, src: `/deco/${d.kind}.png`, label: null, deco: true })),
+  ]
+    .filter((it) => pos(it.id).page === page)
     .sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
 
   return (
@@ -206,6 +245,7 @@ export function Notebook({
         {onPage.map((s) => {
           const p = pos(s.id);
           const lifted = dragId === s.id;
+          const isSelected = selected === s.id;
           return (
             <div
               key={s.id}
@@ -213,7 +253,7 @@ export function Notebook({
               onPointerMove={onStickerMove}
               onPointerUp={onStickerUp}
               onPointerCancel={onStickerUp}
-              className={`absolute w-[31%] cursor-grab touch-none ${lifted ? "z-50 cursor-grabbing" : ""}`}
+              className={`absolute cursor-grab touch-none ${s.deco ? "w-[24%]" : "w-[31%]"} ${lifted ? "z-50 cursor-grabbing" : ""} ${isSelected ? "z-40" : ""}`}
               style={{
                 left: `${p.x * 100}%`,
                 top: `${p.y * 100}%`,
@@ -221,8 +261,27 @@ export function Notebook({
                 transition: lifted ? "none" : "transform 0.15s ease",
               }}
             >
-              <StickerView src={s.imageUrl} alt={s.label} lift={lifted} className="pointer-events-none mx-auto max-h-[36cqw] w-auto" />
-              <span className="pointer-events-none mt-0.5 block truncate text-center text-[12px] text-ink-soft">{s.label}</span>
+              <StickerView
+                src={s.src}
+                alt={s.label ?? ""}
+                lift={lifted}
+                className={`pointer-events-none mx-auto w-auto ${s.deco ? "max-h-[26cqw]" : "max-h-[36cqw]"} ${isSelected ? "rounded-xl outline-2 outline-sky-deep outline-offset-2 outline-dashed" : ""}`}
+              />
+              {s.label && <span className="pointer-events-none mt-0.5 block truncate text-center text-[12px] text-ink-soft">{s.label}</span>}
+              {isSelected && (
+                <button
+                  type="button"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={() => {
+                    onRemoveDeco(s.id);
+                    setSelected(null);
+                  }}
+                  className="absolute -top-9 left-1/2 -translate-x-1/2 rounded-[8px_11px_9px_10px] bg-card px-3 py-1 text-[13px] font-bold whitespace-nowrap shadow-[0_2px_8px_-2px_rgb(60_50_30/0.35)]"
+                  style={{ rotate: `${-p.rot}deg` }}
+                >
+                  はがす
+                </button>
+              )}
             </div>
           );
         })}
@@ -254,10 +313,26 @@ export function Notebook({
             {page + 1} / {pageCount}
           </span>
         </div>
+        <SketchButton variant="sub" size="sm" onClick={() => setTrayOpen(true)} className="!px-2.5" aria-label="シールを貼る">
+          <img src="/deco/bird-front.png" alt="" className="h-6 w-auto" />
+          貼る
+        </SketchButton>
         <button type="button" onClick={() => go(1)} aria-label={page === pageCount - 1 ? "新しいページ" : "次のページ"} className="sketch-btn flex h-11 w-11 items-center justify-center">
           <img src="/ui/i-back.png" alt="" className="h-5 w-auto -scale-x-100" />
         </button>
       </div>
+
+      <SketchSheet open={trayOpen} onClose={() => setTrayOpen(false)} label="シールを貼る">
+        <ul className="grid grid-cols-4 gap-3 px-5 pt-2 pb-4">
+          {DECO_KINDS.map((k) => (
+            <li key={k}>
+              <button type="button" onClick={() => addDeco(k)} className="sketch-btn flex aspect-square w-full items-center justify-center" aria-label="このシールを貼る">
+                <img src={`/deco/${k}.png`} alt="" className="max-h-full w-auto" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      </SketchSheet>
     </div>
   );
 }
