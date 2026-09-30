@@ -41,26 +41,29 @@ function RouteLine({ route }: { route: LatLng[] }) {
   useEffect(() => {
     if (!map || typeof google === "undefined" || route.length < 2) return;
     const path = route.map(toGoogle);
-    // Paper casing + ink dashes: a path drawn with a pen on the map.
-    const casing = new google.maps.Polyline({ path, map, strokeColor: "#fffefb", strokeOpacity: 1, strokeWeight: 8, zIndex: 1 });
-    const line = new google.maps.Polyline({
-      path,
-      map,
-      strokeOpacity: 0,
-      zIndex: 2,
-      icons: [
-        {
-          icon: { path: "M 0,-1 0,1", strokeColor: "#22201c", strokeOpacity: 1, strokeWeight: 3.2, scale: 3 },
-          offset: "0",
-          repeat: "11px",
-        },
-      ],
-    });
+    // A clear sky-blue path with a paper casing, readable on the pale map.
+    const casing = new google.maps.Polyline({ path, map, strokeColor: "#fffefb", strokeOpacity: 1, strokeWeight: 11, zIndex: 1 });
+    const line = new google.maps.Polyline({ path, map, strokeColor: "#3f86ad", strokeOpacity: 0.95, strokeWeight: 6, zIndex: 2 });
     return () => {
       casing.setMap(null);
       line.setMap(null);
     };
   }, [map, route]);
+  return null;
+}
+
+/** Keep the person in view while they walk (navigation). */
+function FollowOrigin({ origin }: { origin: LatLng | null }) {
+  const map = useMap();
+  const zoomed = useRef(false);
+  useEffect(() => {
+    if (!map || !origin) return;
+    if (!zoomed.current) {
+      map.setZoom(17);
+      zoomed.current = true;
+    }
+    map.panTo(toGoogle(origin));
+  }, [map, origin]);
   return null;
 }
 
@@ -168,6 +171,7 @@ export default function GoogleSpotMap({
   mascot,
   route = null,
   bubbles = true,
+  follow = false,
   onLoadError,
 }: MapViewProps & { onLoadError: () => void }) {
   const center = origin ?? markers[0]?.position;
@@ -185,7 +189,8 @@ export default function GoogleSpotMap({
         disableDefaultUI
         clickableIcons={false}
       >
-        {interactive && <FitBounds origin={origin} markers={markers} bottomInset={bottomInset} />}
+        {interactive && !follow && <FitBounds origin={origin} markers={markers} bottomInset={bottomInset} />}
+        {follow && <FollowOrigin origin={origin} />}
         {interactive && <PanToSelected markers={markers} selectedId={selectedId} />}
         {route && <RouteLine route={route} />}
 

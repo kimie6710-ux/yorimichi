@@ -14,6 +14,10 @@ export async function identify(req: Request): Promise<string | null> {
     const sb = await supabaseForRequest(req);
     return sb?.userId ?? null;
   }
+  // Personal server: every device (PC, phone) is the same person, so the
+  // notebook and inbox stay in sync. Set YORUMICHI_OWNER_ID in .env.local.
+  const owner = process.env.YORUMICHI_OWNER_ID ?? "";
+  if (DEVICE_RE.test(owner)) return owner.toLowerCase();
   const id = req.headers.get("x-yorumichi-device") ?? "";
   return DEVICE_RE.test(id) ? id.toLowerCase() : null;
 }

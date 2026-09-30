@@ -45,7 +45,8 @@ export async function POST(req: Request) {
       headers: {
         "Content-Type": "application/json",
         "X-Goog-Api-Key": serverEnv.placesApiKey,
-        "X-Goog-FieldMask": "routes.polyline.encodedPolyline,routes.distanceMeters,routes.duration",
+        "X-Goog-FieldMask":
+          "routes.polyline.encodedPolyline,routes.distanceMeters,routes.duration,routes.legs.steps.navigationInstruction,routes.legs.steps.distanceMeters,routes.legs.steps.startLocation,routes.legs.steps.endLocation",
       },
       body: JSON.stringify({
         origin: { location: { latLng: origin } },
@@ -59,14 +60,31 @@ export async function POST(req: Request) {
       console.warn("[route] Routes API", res.status, (await res.text()).slice(0, 200));
       return Response.json(straight);
     }
+    type GStep = {
+      navigationInstruction?: { maneuver?: string; instructions?: string };
+      distanceMeters?: number;
+      startLocation?: { latLng?: { latitude: number; longitude: number } };
+      endLocation?: { latLng?: { latitude: number; longitude: number } };
+    };
     const data = (await res.json()) as {
-      routes?: { polyline?: { encodedPolyline?: string }; distanceMeters?: number; duration?: string }[];
+      routes?: { polyline?: { encodedPolyline?: string }; distanceMeters?: number; duration?: string; legs?: { steps?: GStep[] }[] }[];
     };
     const r = data.routes?.[0];
     if (!r?.polyline?.encodedPolyline) return Response.json(straight);
+    const steps = (r.legs ?? [])
+      .flatMap((l) => l.steps ?? [])
+      .filter((st) => st.startLocation?.latLng && st.endLocation?.latLng)
+      .map((st) => ({
+        maneuver: st.navigationInstruction?.maneuver ?? "STRAIGHT",
+        instruction: st.navigationInstruction?.instructions ?? "",
+        distanceMeters: st.distanceMeters ?? 0,
+        start: st.startLocation!.latLng!,
+        end: st.endLocation!.latLng!,
+      }));
     return Response.json({
       points: decodePolyline(r.polyline.encodedPolyline),
       distanceMeters: r.distanceMeters ?? null,
+      steps,
       source: "google",
     });
   } catch (err) {

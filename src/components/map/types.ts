@@ -33,6 +33,8 @@ export interface MapViewProps {
   mascotAt?: LatLng | null;
   /** What to draw there (defaults to a small walking bird). */
   mascot?: import("react").ReactNode;
+  /** Keep the map centred on the person (navigation). */
+  follow?: boolean;
   /** Show the selected spot's copy as a bubble on the map (default true). */
   bubbles?: boolean;
 }
