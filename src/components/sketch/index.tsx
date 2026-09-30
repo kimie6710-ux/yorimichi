@@ -60,32 +60,37 @@ export function SketchCard({
 
 const WASHI = ["yellow", "dots", "pink", "greencheck", "yellowdots", "bluegrid", "green", "stripe", "purple", "kraft"] as const;
 
-/** A short piece of washi tape stuck on the top edge (pattern picked by seed unless given). */
+/**
+ * A short piece of washi tape (both ends torn) holding down a corner.
+ * Tape is only ever where something is being held: the corners, never the middle.
+ */
 export function Tape({
   color,
   seed,
+  corner,
   className = "",
   style,
 }: {
   color?: (typeof WASHI)[number] | "blue";
   seed?: string | number;
+  /** Which top corner it holds (picked by seed unless given). */
+  corner?: "left" | "right";
   className?: string;
   style?: React.CSSProperties;
 }) {
   const s = hashSeed(seed ?? color ?? "tape");
   const name = color === "blue" ? "bluegrid" : (color ?? WASHI[s % WASHI.length]);
-  const left = 30 + (s % 40);
-  const rot = ((s >> 3) % 11) - 5;
+  const side = corner ?? (s % 2 ? "left" : "right");
+  const tilt = 34 + ((s >> 3) % 10); // 34–43°, across the corner
   return (
     <span
       aria-hidden
-      className={`pointer-events-none absolute -top-2.5 z-10 block h-5 w-16 opacity-90 ${className}`}
+      className={`pointer-events-none absolute -top-2 z-10 block aspect-[190/72] w-14 opacity-95 ${className}`}
       style={{
-        left: `${left}%`,
-        transform: `translateX(-50%) rotate(${rot}deg)`,
-        backgroundImage: `url(/deco/tape-${name}.png)`,
-        backgroundSize: "cover",
-        backgroundPosition: `${(s >> 5) % 100}% 50%`,
+        [side]: "-14px",
+        transform: `rotate(${side === "left" ? -tilt : tilt}deg)`,
+        backgroundImage: `url(/deco/tape-${name}-short.png)`,
+        backgroundSize: "100% 100%",
         ...style,
       }}
     />

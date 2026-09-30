@@ -237,8 +237,8 @@ export function Notebook({
         className={`book-page book-${bgOf(page)} relative min-h-0 w-full flex-1 touch-none overflow-hidden select-none [container-type:inline-size]`}
       >
         <span key={page} className={`pointer-events-none absolute inset-0 ${dir === 1 ? "animate-[page-turn-r_0.3s_ease-out]" : "animate-[page-turn-l_0.3s_ease-out]"}`} aria-hidden />
-        <Tape seed={`page-${page}-a`} className="!top-[-6px] !left-[14%] !w-20" />
-        <Tape seed={`page-${page}-b`} className="!top-[-6px] !left-[86%] !w-16" />
+        <Tape seed={`page-${page}-a`} corner="left" className="!-top-1 !w-16" />
+        <Tape seed={`page-${page}-b`} corner="right" className="!-top-1 !w-16" />
         <span className="pointer-events-none absolute top-3 right-4 text-[12px] text-ink-mute tabular-nums">
           {page + 1}
         </span>

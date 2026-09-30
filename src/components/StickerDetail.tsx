@@ -42,7 +42,8 @@ export function StickerDetail({ sticker, onChange, onClose }: { sticker: Sticker
   return (
     <div className="px-5 pb-4">
       <div className="relative mx-auto w-[58%] pt-2">
-        <Tape seed={sticker.id} className="!top-0" />
+        <Tape seed={sticker.id} corner="left" />
+        <Tape seed={`${sticker.id}-r`} corner="right" />
         <StickerView src={sticker.imageUrl} alt={sticker.label} rotation={sticker.rotation} lift />
       </div>
       <h2 className="mt-4 text-center font-hand text-[24px]">{sticker.label}</h2>

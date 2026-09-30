@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 
 import { APP_TAGLINE } from "@/lib/config";
 import { michibiSrc, type BirdPose } from "@/lib/character";
-import { SketchBubble, SketchButton, Tape } from "./sketch";
+import { SketchBubble, SketchButton } from "./sketch";
 
 /** Stickers loosely stuck around the title, like the cover of a notebook. */
 const COVER_STICKERS: { src: string; className: string; rot: number }[] = [
@@ -55,10 +55,7 @@ export function StartScreen({ onStart }: { onStart: () => void }) {
       ))}
 
       <div className="relative flex flex-1 flex-col items-center justify-center px-8 pt-[18vh] text-center">
-        <div className="relative">
-          <Tape seed="cover-title" className="!-top-5 !w-20" />
-          <h1 className="text-[56px] leading-none tracking-[0.12em]">よるみち</h1>
-        </div>
+        <h1 className="text-[56px] leading-none tracking-[0.12em]">よるみち</h1>
         <p className="mt-5 text-lg">{APP_TAGLINE}</p>
       </div>
 
