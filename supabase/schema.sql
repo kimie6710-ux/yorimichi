@@ -184,6 +184,20 @@ create table if not exists public.book_decos (
 alter table public.book_decos enable row level security;
 drop policy if exists "book_decos: own" on public.book_decos;
 create policy "book_decos: own" on public.book_decos for select using (user_id = auth.uid());
+-- vision_memory: what your stickers looked like, so recognition learns your names
+create table if not exists public.vision_memory (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.users (id) on delete cascade,
+  sticker_id uuid references public.stickers (id) on delete set null,
+  label text not null,
+  emb text not null,
+  scale real not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists vision_memory_user on public.vision_memory (user_id, created_at desc);
+alter table public.vision_memory enable row level security;
+drop policy if exists "vision_memory: own" on public.vision_memory;
+create policy "vision_memory: own" on public.vision_memory for select using (user_id = auth.uid());
 drop policy if exists "book_pages: own" on public.book_pages;
 create policy "book_pages: own" on public.book_pages for select using (user_id = auth.uid());
 

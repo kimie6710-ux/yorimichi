@@ -120,6 +120,10 @@ export const api = {
   unread: () => request<{ unread: number }>("/api/inbox/count", { timeoutMs: 10_000 }),
   open: (id: string) => request<{ ok: true }>(`/api/inbox/${id}/open`, { method: "POST" }),
   history: () => request<MyHistory>("/api/me"),
+
+  visionMemory: () => request<{ items: { label: string; emb: string; scale: number }[] }>("/api/vision/memory", { timeoutMs: 15_000 }),
+  rememberVision: (input: { stickerId: string | null; label: string; emb: string; scale: number }) =>
+    request<{ ok: true }>("/api/vision/memory", post(input)),
 };
 
 export function photoUrl(photoName: string, width = 600): string {

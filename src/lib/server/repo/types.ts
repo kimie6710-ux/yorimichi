@@ -114,6 +114,18 @@ export interface StickerViewRow {
   created_at: string;
 }
 
+/** What a sticker looked like to the on-device recogniser, so it can learn your names. */
+export interface VisionMemoryRow {
+  id: string;
+  user_id: string;
+  sticker_id: string | null;
+  label: string;
+  /** base64 int8 image embedding (+ scale in `scale`). */
+  emb: string;
+  scale: number;
+  created_at: string;
+}
+
 export interface Tables {
   users: UserRow;
   spots: SpotRow;
@@ -125,6 +137,7 @@ export interface Tables {
   sticker_views: StickerViewRow;
   book_pages: BookPageRow;
   book_decos: BookDecoRow;
+  vision_memory: VisionMemoryRow;
 }
 export type TableName = keyof Tables;
 

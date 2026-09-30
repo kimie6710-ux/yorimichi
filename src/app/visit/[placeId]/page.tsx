@@ -13,9 +13,10 @@ import { StickerView } from "@/components/StickerView";
 import { PlaceImage } from "@/components/PlaceImage";
 import { api, ApiClientError } from "@/lib/api-client";
 import { MICHIBI_LINES, michibiSrc } from "@/lib/character";
-import { boxMask, detectThings, MIDDLE_BOX, prepareCutter, warmUpCutter, within, type CutMask, type CutPoint, type StickerCutter } from "@/lib/sticker/cutter";
-import { canvasToBlob, downscaleToJpeg, loadBitmap, randomRotation, stickerFromMask, toCanvas } from "@/lib/sticker/render";
+import { boxMask, findThings, MIDDLE_BOX, prepareCutter, warmUpCutter, within, type CutMask, type CutPoint, type StickerCutter } from "@/lib/sticker/cutter";
+import { canvasToBlob, downscaleToJpeg, loadBitmap, plainFromMask, randomRotation, stickerFromMask, toCanvas } from "@/lib/sticker/render";
 import { useSearch } from "@/lib/store/search-context";
+import { recognize, remember, UNNAMED, warmUpVision, type Guess } from "@/lib/vision/recognize";
 import type { SpotDetail, Sticker } from "@/lib/types";
 
 type Step = "go" | "explore" | "looking" | "pick" | "making" | "make" | "share" | "done";
@@ -30,10 +31,18 @@ interface Cutout {
   rotation: number;
   /** Where to make the exact cut when chosen (null = already exact). */
   point: CutPoint | null;
+  /** The object as it looks (no sticker border), for naming. */
+  canvas: HTMLCanvasElement;
+  /** Still being named. */
+  naming: boolean;
+  guesses: Guess[];
+  emb: Float32Array | null;
 }
 const MAX_CUTOUTS = 6;
-/** The exact cut can be slow on phones; past this, the soft cut is used as is. */
-const EXACT_CUT_MS = 7000;
+/** Waiting for the cutter to study the photo; past this, a soft round cut is used. */
+const EXACT_CUT_MS = 9000;
+/** Time for finding things in the photo (the first one is always cut). */
+const FIND_MS = 2500;
 
 /** Let the browser draw the waiting screen before heavy work blocks it. */
 const nextPaint = () =>
@@ -70,6 +79,9 @@ function Visit() {
   const [cutting, setCutting] = useState(false);
   const [sticker, setSticker] = useState<{ blob: Blob; url: string; rotation: number } | null>(null);
   const [label, setLabel] = useState("");
+  const [guesses, setGuesses] = useState<Guess[]>([]);
+  const chosenEmb = useRef<Float32Array | null>(null);
+  const run = useRef(0);
   const [memo, setMemo] = useState("");
   const [saved, setSaved] = useState<Sticker | null>(null);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
@@ -102,6 +114,7 @@ function Visit() {
   useEffect(() => {
     void load();
     warmUpCutter();
+    warmUpVision();
   }, [load]);
 
   const recorded = useRef(false);
@@ -122,16 +135,39 @@ function Visit() {
     }
   }, [step, detail, spotId, currentLocation, load, patchSpot]);
 
-  async function toCutout(mask: CutMask, label: string | null, point: CutPoint | null): Promise<Cutout | null> {
+  async function toCutout(mask: CutMask, point: CutPoint | null): Promise<Cutout | null> {
     if (!work.current) return null;
     const canvas = stickerFromMask(work.current, mask);
-    if (!canvas) return null;
+    const plain = plainFromMask(work.current, mask);
+    if (!canvas || !plain) return null;
     const blob = await canvasToBlob(canvas);
-    return { id: crypto.randomUUID(), label: label ?? "見つけたもの", blob, url: track(blob), rotation: randomRotation(), point };
+    return { id: crypto.randomUUID(), label: UNNAMED, blob, url: track(blob), rotation: randomRotation(), point, canvas: plain, naming: true, guesses: [], emb: null };
+  }
+
+  /** Name one cutout on the device (word list + what you've named before). */
+  async function nameOne(c: Cutout): Promise<Cutout> {
+    try {
+      const r = await recognize(c.canvas);
+      return { ...c, label: r.label, guesses: r.guesses, emb: r.emb, naming: false };
+    } catch (err) {
+      console.warn("[name]", err);
+      return { ...c, naming: false };
+    }
+  }
+
+  /** Name the candidates one by one, in the background, while you look at them. */
+  async function nameAll(list: Cutout[], token: number) {
+    for (const c of list) {
+      if (run.current !== token) return;
+      const named = await nameOne(c);
+      if (run.current !== token) return;
+      setCutouts((cur) => cur.map((x) => (x.id === c.id && x.naming ? { ...named, blob: x.blob, url: x.url, canvas: x.canvas, point: x.point } : x)));
+    }
   }
 
   async function onPhoto(file: File | undefined) {
     if (!file) return;
+    const token = ++run.current;
     setError(null);
     setCutouts([]);
     setSticker(null);
@@ -144,18 +180,24 @@ function Visit() {
       setPhotoUrl(track(photo));
       const canvas = toCanvas(bitmap, 1024);
       work.current = canvas;
-      // The exact cutter gets ready in the background; it's only used for the one you choose.
       cutter.current = prepareCutter(canvas);
       cutter.current.catch(() => undefined);
-      // Quick look: what's in the photo, with names — soft cuts right away.
-      const seen = (await within(detectThings(canvas), 6000)) ?? [];
-      const aspect = canvas.width / canvas.height;
-      const middle = { box: MIDDLE_BOX, point: { x: 0.5, y: 0.5 }, label: null };
-      // Few things recognised → also offer "the thing in the middle".
-      const picks = [...seen.slice(0, MAX_CUTOUTS), ...(seen.length < 2 ? [middle] : [])];
-      const made = (await Promise.all(picks.map((s) => toCutout(boxMask(s.box, aspect), s.label, s.point)))).filter((c): c is Cutout => !!c);
+      // Study the photo once, then cut each thing along its shape.
+      const ready = await within(cutter.current, EXACT_CUT_MS);
+      let made: Cutout[] = [];
+      if (ready && ready.name === "sam") {
+        const found = await findThings(ready, MAX_CUTOUTS, FIND_MS);
+        made = (await Promise.all(found.map((f) => toCutout(f.mask, null)))).filter((c): c is Cutout => !!c);
+      }
+      if (made.length === 0) {
+        // The cutter isn't ready (slow network): a soft round cut, made exact when chosen.
+        const soft = await toCutout(boxMask(MIDDLE_BOX, canvas.width / canvas.height), { x: 0.5, y: 0.5 });
+        if (soft) made = [soft];
+      }
+      if (run.current !== token) return;
       setCutouts(made);
       setStep("pick");
+      void nameAll(made, token);
     } catch (err) {
       console.error("[photo]", err);
       setError("写真を読み込めなかった。別の写真でもう一回どうぞ。");
@@ -163,30 +205,35 @@ function Visit() {
     }
   }
 
-  async function choose(c: Cutout) {
-    setLabel(c.label === "見つけたもの" ? "" : c.label);
-    let chosen = c;
-    if (c.point && cutter.current) {
+  async function choose(picked: Cutout) {
+    let c = cutouts.find((x) => x.id === picked.id) ?? picked;
+    const needsCut = !!(c.point && cutter.current);
+    if (needsCut || c.naming) {
       setStep("making");
       await nextPaint();
+    }
+    if (needsCut) {
       try {
-        const ready = await within(cutter.current, EXACT_CUT_MS);
-        const mask = ready && ready.name === "mediapipe" ? await ready.maskAt(c.point) : null;
-        const exact = mask ? await toCutout(mask, c.label, null) : null;
-        if (exact) {
-          chosen = { ...exact, id: c.id, rotation: c.rotation };
-          setCutouts((list) => list.map((x) => (x.id === c.id ? chosen : x)));
-        }
+        const ready = await within(cutter.current!, EXACT_CUT_MS);
+        const mask = ready && ready.name === "sam" ? await ready.maskAt(c.point!) : null;
+        const exact = mask ? await toCutout(mask, null) : null;
+        if (exact) c = { ...exact, id: c.id, rotation: c.rotation };
       } catch (err) {
         console.warn("[cut]", err);
       }
     }
-    setSticker({ blob: chosen.blob, url: chosen.url, rotation: chosen.rotation });
+    if (c.naming || needsCut) c = await nameOne(c);
+    const done = c;
+    setCutouts((list) => list.map((x) => (x.id === done.id ? done : x)));
+    setLabel(done.label === UNNAMED ? "" : done.label);
+    setGuesses(done.guesses);
+    chosenEmb.current = done.emb;
+    setSticker({ blob: done.blob, url: done.url, rotation: done.rotation });
     setStep("make");
   }
 
   async function onPhotoTap(e: MouseEvent<HTMLImageElement>) {
-    if (!cutter.current || cutting || cutouts.length >= MAX_CUTOUTS) return;
+    if (!cutter.current || cutting || cutouts.length >= MAX_CUTOUTS + 2) return;
     const r = e.currentTarget.getBoundingClientRect();
     const point = { x: Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), y: Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)) };
     setCutting(true);
@@ -194,9 +241,10 @@ function Visit() {
     try {
       await nextPaint();
       const mask = await (await cutter.current).maskAt(point);
-      const c = mask ? await toCutout(mask, null, null) : null;
+      const c = mask ? await toCutout(mask, null) : null;
       if (!c) throw new Error("no mask");
       setCutouts((list) => [...list, c]);
+      void nameAll([c], run.current);
     } catch {
       setError("そこはうまく切り抜けなかった。もう少し真ん中をタップしてみて。");
     } finally {
@@ -213,9 +261,11 @@ function Visit() {
         spotId,
         memo: memo.trim(),
         photo: photoBlob,
-        items: [{ blob: sticker.blob, label: label.trim() || "見つけたもの", rotation: sticker.rotation }],
+        items: [{ blob: sticker.blob, label: label.trim() || UNNAMED, rotation: sticker.rotation }],
       });
       setSaved(items[0]);
+      // The name you settled on teaches the recogniser.
+      if (chosenEmb.current) void remember(items[0].id, label, chosenEmb.current);
       setStep("share");
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "保存できませんでした。もう一度どうぞ。");
@@ -355,7 +405,17 @@ function Visit() {
                 <li key={c.id} className="w-[27%] shrink-0">
                   <button type="button" onClick={() => choose(c)} className="flex w-full flex-col items-center text-center transition-transform active:translate-y-0.5">
                     <StickerView src={c.url} alt={c.label} rotation={c.rotation} className="h-[12dvh] w-auto" />
-                    <span className="mt-1 line-clamp-1 text-[13px]">{c.label}</span>
+                    <span className="mt-1 line-clamp-1 text-[13px]">
+                      {c.naming ? (
+                        <span className="wait-dots text-ink-mute" aria-label="名前を考え中">
+                          <i>.</i>
+                          <i>.</i>
+                          <i>.</i>
+                        </span>
+                      ) : (
+                        c.label
+                      )}
+                    </span>
                   </button>
                 </li>
               ))}
@@ -401,6 +461,21 @@ function Visit() {
             </div>
           </div>
           <div className="shrink-0 pt-3">
+            {guesses.length > 0 && (
+              <div className="mb-2 flex items-center gap-2 overflow-hidden">
+                <span className="shrink-0 text-[14px] text-ink-mute">これかな？</span>
+                {guesses.map((g) => (
+                  <button
+                    key={g.label}
+                    type="button"
+                    onClick={() => setLabel(g.label)}
+                    className={`shrink-0 rounded-[10px_13px_9px_12px] px-3 py-1 text-[15px] transition-colors ${label === g.label ? "bg-butter" : "bg-card"}`}
+                  >
+                    {g.label}
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="flex gap-2">
               <SketchInput aria-label="なまえ" className="w-[42%]" value={label} maxLength={12} placeholder="なまえ" onChange={(e) => setLabel(e.target.value)} />
               <SketchInput aria-label="ひとことメモ" className="flex-1" value={memo} maxLength={80} placeholder="ひとことメモ" onChange={(e) => setMemo(e.target.value)} />

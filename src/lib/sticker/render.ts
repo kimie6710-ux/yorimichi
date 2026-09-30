@@ -118,11 +118,8 @@ export function dieCut(transparent: HTMLCanvasElement): HTMLCanvasElement | null
   return out;
 }
 
-/**
- * Cut the object described by `mask` out of `source` and die-cut it.
- * Returns null when the mask is empty or unusable.
- */
-export function stickerFromMask(source: HTMLCanvasElement, mask: CutMask): HTMLCanvasElement | null {
+/** The object alone (transparent around it), at the source's size. */
+function maskedCanvas(source: HTMLCanvasElement, mask: CutMask): HTMLCanvasElement {
   // Alpha canvas at mask resolution → scaled (smoothly) to the source size.
   const m = document.createElement("canvas");
   m.width = mask.width;
@@ -143,7 +140,50 @@ export function stickerFromMask(source: HTMLCanvasElement, mask: CutMask): HTMLC
   cctx.filter = "none";
   cctx.globalCompositeOperation = "source-in";
   cctx.drawImage(source, 0, 0);
-  return dieCut(cut);
+  return cut;
+}
+
+/**
+ * Cut the object described by `mask` out of `source` and die-cut it.
+ * Returns null when the mask is empty or unusable.
+ */
+export function stickerFromMask(source: HTMLCanvasElement, mask: CutMask): HTMLCanvasElement | null {
+  return dieCut(maskedCanvas(source, mask));
+}
+
+/**
+ * The object as it really looks — no sticker border — cropped and set on
+ * white. This is what the recogniser looks at.
+ */
+export function plainFromMask(source: HTMLCanvasElement, mask: CutMask): HTMLCanvasElement | null {
+  let x0 = mask.width, y0 = mask.height, x1 = -1, y1 = -1;
+  for (let y = 0; y < mask.height; y++) {
+    for (let x = 0; x < mask.width; x++) {
+      if (mask.alpha[y * mask.width + x] < 128) continue;
+      if (x < x0) x0 = x;
+      if (x > x1) x1 = x;
+      if (y < y0) y0 = y;
+      if (y > y1) y1 = y;
+    }
+  }
+  if (x1 < 0) return null;
+  const kx = source.width / mask.width;
+  const ky = source.height / mask.height;
+  const pad = 0.06;
+  const bw = (x1 - x0 + 1) * kx;
+  const bh = (y1 - y0 + 1) * ky;
+  const sx = Math.max(0, x0 * kx - bw * pad);
+  const sy = Math.max(0, y0 * ky - bh * pad);
+  const sw = Math.min(source.width - sx, bw * (1 + 2 * pad));
+  const sh = Math.min(source.height - sy, bh * (1 + 2 * pad));
+  const out = document.createElement("canvas");
+  out.width = Math.max(1, Math.round(sw));
+  out.height = Math.max(1, Math.round(sh));
+  const ctx = out.getContext("2d")!;
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, out.width, out.height);
+  ctx.drawImage(maskedCanvas(source, mask), sx, sy, sw, sh, 0, 0, out.width, out.height);
+  return out;
 }
 
 export function randomRotation(): number {

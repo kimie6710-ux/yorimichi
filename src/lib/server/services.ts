@@ -613,3 +613,36 @@ export async function removeDeco(userId: string, id: string) {
   await ownDeco(userId, id);
   await getStore().remove("book_decos", id);
 }
+
+// ─────────────────────────────────────────────
+// Recognition memory: your own names for things you've cut out
+// ─────────────────────────────────────────────
+const MAX_MEMORY = 600;
+const GENERIC_LABEL = "見つけたもの";
+
+export async function listVisionMemory(userId: string) {
+  const store = getStore();
+  const rows = await store.find("vision_memory", { where: { user_id: userId }, order: { key: "created_at", asc: false }, limit: MAX_MEMORY });
+  // A renamed sticker teaches the new name.
+  const ids = rows.map((r) => r.sticker_id).filter((x): x is string => !!x);
+  const stickers = ids.length ? await store.find("stickers", { in: { id: ids } }) : [];
+  const current = new Map(stickers.map((s) => [s.id, s.label]));
+  return rows
+    .map((r) => ({ label: (r.sticker_id && current.get(r.sticker_id)) || r.label, emb: r.emb, scale: r.scale }))
+    .filter((r) => r.label && r.label !== GENERIC_LABEL);
+}
+
+export async function addVisionMemory(userId: string, input: { stickerId: string | null; label: string; emb: string; scale: number }) {
+  const label = input.label.trim().slice(0, 12);
+  if (!label || label === GENERIC_LABEL) return;
+  if (input.stickerId) {
+    const s = await getStore().get("stickers", input.stickerId);
+    if (!s || s.owner_id !== userId) throw new RuleError("見つかりません", 404);
+  }
+  const store = getStore();
+  await store.insert("vision_memory", [
+    { id: uuid(), user_id: userId, sticker_id: input.stickerId, label, emb: input.emb, scale: input.scale, created_at: now() },
+  ]);
+  const all = await store.find("vision_memory", { where: { user_id: userId }, order: { key: "created_at", asc: false } });
+  for (const old of all.slice(MAX_MEMORY)) await store.remove("vision_memory", old.id);
+}

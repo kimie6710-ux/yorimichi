@@ -1,10 +1,15 @@
 "use client";
 
-// Cutters turn "the thing the user tapped in the photo" into an alpha mask.
-// Default: MediaPipe Interactive Segmenter, running on-device (no API key).
+// Cutters turn "the thing in the photo" into an alpha mask that follows its shape.
+// Default: SlimSAM (a small Segment Anything), on-device — the photo is
+// studied once (~2–4s), then each cut takes a few hundredths of a second.
 // If it can't load, we try the server cutout API (remove.bg), and finally a
-// soft blob around the tap so the flow never dead-ends.
+// soft blob so the flow never dead-ends.
 // To plug in another model/service, implement StickerCutter and add it to CHAIN.
+
+import { devices, loadOn, loadTf, withTimeout } from "@/lib/vision/runtime";
+
+export { within } from "@/lib/vision/runtime";
 
 export interface CutPoint {
   /** 0–1, relative to the image. */
@@ -26,23 +31,7 @@ export interface StickerCutter {
   maskAt(point: CutPoint): Promise<CutMask | null>;
 }
 
-const MEDIAPIPE_VERSION = "1.0.1";
-const WASM_BASE = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MEDIAPIPE_VERSION}/wasm`;
-const MODEL_URL =
-  "https://storage.googleapis.com/mediapipe-models/interactive_segmenter_v2/magic_touch/int8/1/interactive_segmentation.task";
-
 // ── helpers ───────────────────────────────────────────────
-
-/** Give up on slow downloads (phones on weak signal) instead of hanging forever. */
-function withTimeout<T>(p: Promise<T>, ms: number, what: string): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const t = setTimeout(() => reject(new Error(`${what} timed out`)), ms);
-    p.then(
-      (v) => { clearTimeout(t); resolve(v); },
-      (e) => { clearTimeout(t); reject(e); },
-    );
-  });
-}
 
 /**
  * Normalise any mask to 0–255, make sure the tapped object is the "on" side,
@@ -87,76 +76,145 @@ function cleanMask(raw: ArrayLike<number>, width: number, height: number, point:
   return { width, height, alpha };
 }
 
-// ── MediaPipe (default, on-device) ────────────────────────
-
-type Segmenter = import("@mediapipe/tasks-vision").InteractiveSegmenter;
-type BrushMode = import("@mediapipe/tasks-vision").BrushMode;
-let segmenterPromise: Promise<Segmenter> | null = null;
-
-type Fileset = Awaited<ReturnType<typeof import("@mediapipe/tasks-vision").FilesetResolver.forVisionTasks>>;
-let filesetPromise: Promise<Fileset> | null = null;
-
-function loadFileset(): Promise<Fileset> {
-  filesetPromise ??= import("@mediapipe/tasks-vision")
-    .then(({ FilesetResolver }) => FilesetResolver.forVisionTasks(WASM_BASE))
-    .catch((err) => {
-      filesetPromise = null;
-      throw err;
-    });
-  return filesetPromise;
+/** Intersection-over-union of two masks (0 when their sizes differ). */
+function maskIoU(a: CutMask, b: CutMask): number {
+  if (a.width !== b.width || a.height !== b.height) return 0;
+  let inter = 0;
+  let union = 0;
+  for (let i = 0; i < a.alpha.length; i++) {
+    const x = a.alpha[i] > 127;
+    const y = b.alpha[i] > 127;
+    if (x && y) inter++;
+    if (x || y) union++;
+  }
+  return union === 0 ? 0 : inter / union;
 }
 
-async function loadSegmenter(): Promise<Segmenter> {
-  segmenterPromise ??= (async () => {
-    const { InteractiveSegmenter } = await import("@mediapipe/tasks-vision");
-    return InteractiveSegmenter.createFromOptions(await loadFileset(), {
-      baseOptions: { modelAssetPath: MODEL_URL, delegate: "CPU" },
-    });
+/** Reject masks that look like "the background" (too big, or touching 3+ edges). */
+function looksLikeObject(mask: CutMask): boolean {
+  const { width: w, height: h, alpha } = mask;
+  let area = 0;
+  let top = false, bottom = false, left = false, right = false;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (alpha[y * w + x] < 128) continue;
+      area++;
+      if (y === 0) top = true;
+      if (y === h - 1) bottom = true;
+      if (x === 0) left = true;
+      if (x === w - 1) right = true;
+    }
+  }
+  const edges = [top, bottom, left, right].filter(Boolean).length;
+  return area / (w * h) <= 0.6 && edges < 3;
+}
+
+// ── SlimSAM (default, on-device) ──────────────────────────
+
+const SAM_MODEL = "Xenova/slimsam-77-uniform";
+/** Studying the photo can take a while on older phones. */
+const PREPARE_MS = 20_000;
+
+type Tf = Awaited<ReturnType<typeof loadTf>>;
+type Tensor = { data: ArrayLike<number> };
+type SamModel = {
+  get_image_embeddings(inputs: Record<string, unknown>): Promise<Record<string, unknown>>;
+  (inputs: Record<string, unknown>): Promise<{ iou_scores: Tensor; pred_masks: Tensor }>;
+};
+type Sam = {
+  tf: Tf;
+  processor: Awaited<ReturnType<Tf["AutoProcessor"]["from_pretrained"]>>;
+  model: SamModel;
+};
+let samPromise: Promise<Sam> | null = null;
+
+function loadSam(): Promise<Sam> {
+  samPromise ??= (async () => {
+    const tf = await loadTf();
+    const [processor, model] = await Promise.all([
+      tf.AutoProcessor.from_pretrained(SAM_MODEL),
+      loadOn(devices("fp16", "q8"), (d) => tf.SamModel.from_pretrained(SAM_MODEL, d), "sam"),
+    ]);
+    return { tf, processor, model: model as unknown as SamModel };
   })().catch((err) => {
-    segmenterPromise = null;
+    samPromise = null;
     throw err;
   });
-  return segmenterPromise;
+  return samPromise;
 }
 
 /** Start downloading the model early (e.g. while the user is walking). */
 export function warmUpCutter(): void {
-  void loadSegmenter().catch(() => undefined);
-  void loadDetector().catch(() => undefined);
+  void loadSam().catch(() => undefined);
 }
 
-const SEGMENT_SIZE = 448;
+/** SAM's low-res masks are 256×256 over the photo scaled so its long side is 1024 (padded). */
+const LOW = 256;
 
-function shrink(image: HTMLCanvasElement, max: number): HTMLCanvasElement {
-  const k = max / Math.max(image.width, image.height);
-  if (k >= 1) return image;
-  const c = document.createElement("canvas");
-  c.width = Math.round(image.width * k);
-  c.height = Math.round(image.height * k);
-  c.getContext("2d")!.drawImage(image, 0, 0, c.width, c.height);
-  return c;
-}
-
-class MediaPipeCutter implements StickerCutter {
-  readonly name = "mediapipe";
-  private segmenter: Segmenter | null = null;
+class SamCutter implements StickerCutter {
+  readonly name = "sam";
+  private sam: Sam | null = null;
+  private embeddings: Record<string, unknown> | null = null;
+  /** Photo size as the model sees it (long side 1024). */
+  private rw = 0;
+  private rh = 0;
 
   async prepare(image: HTMLCanvasElement) {
-    this.segmenter = await withTimeout(loadSegmenter(), 20_000, "segmenter");
-    // Masks are scaled back up for the sticker, so a small copy is plenty — and much faster on phones.
-    this.segmenter.setImage(shrink(image, SEGMENT_SIZE));
+    this.sam = await withTimeout(loadSam(), PREPARE_MS, "sam");
+    const { tf, processor, model } = this.sam;
+    const inputs = await processor(tf.RawImage.fromCanvas(image));
+    [this.rh, this.rw] = inputs.reshaped_input_sizes[0] as [number, number];
+    this.embeddings = await withTimeout(model.get_image_embeddings(inputs), PREPARE_MS, "sam encode");
   }
 
   async maskAt(point: CutPoint) {
-    if (!this.segmenter) return null;
-    // BrushMode is a type-only enum in the bundle; POSITIVE === 1.
-    const mask = this.segmenter.segment([
-      { brushMode: 1 as BrushMode, point: [{ x: point.x, y: point.y }], isCompleted: true },
-    ]);
-    const data = mask.hasFloat32Array() ? mask.getAsFloat32Array() : mask.getAsUint8Array();
-    const cut = cleanMask(data, mask.width, mask.height, point);
-    mask.close();
-    return cut;
+    if (!this.sam || !this.embeddings) return null;
+    const { tf, model } = this.sam;
+    const out = await model({
+      ...this.embeddings,
+      input_points: new tf.Tensor("float32", Float32Array.from([point.x * this.rw, point.y * this.rh]), [1, 1, 1, 2]),
+      input_labels: new tf.Tensor("int64", BigInt64Array.from([BigInt(1)]), [1, 1, 1]),
+    });
+    const scores = out.iou_scores.data as Float32Array;
+    const logits = out.pred_masks.data as Float32Array; // [3, 256, 256]
+    const w = Math.max(1, Math.round((this.rw / 1024) * LOW));
+    const h = Math.max(1, Math.round((this.rh / 1024) * LOW));
+
+    // SAM offers 3 readings (a part → the whole thing). Take the biggest
+    // confident one that still looks like a thing, not the background.
+    let pick = -1;
+    let pickArea = 0;
+    let best = 0;
+    for (let k = 0; k < scores.length; k++) {
+      if (scores[k] > scores[best]) best = k;
+      let area = 0;
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (logits[k * LOW * LOW + y * LOW + x] > 0) area++;
+      const ratio = area / (w * h);
+      if (scores[k] >= 0.7 && ratio <= 0.6 && area > pickArea) {
+        pick = k;
+        pickArea = area;
+      }
+    }
+    const k = pick >= 0 ? pick : best;
+
+    // Smooth edges: upscale the logits 2× (bilinear) before cutting at 0.
+    const W = w * 2;
+    const H = h * 2;
+    const alpha = new Uint8ClampedArray(W * H);
+    const at = (x: number, y: number) => logits[k * LOW * LOW + Math.min(h - 1, y) * LOW + Math.min(w - 1, x)];
+    for (let Y = 0; Y < H; Y++) {
+      const fy = Math.max(0, (Y + 0.5) / 2 - 0.5);
+      const y0 = Math.floor(fy);
+      const ty = fy - y0;
+      for (let X = 0; X < W; X++) {
+        const fx = Math.max(0, (X + 0.5) / 2 - 0.5);
+        const x0 = Math.floor(fx);
+        const tx = fx - x0;
+        const v = (at(x0, y0) * (1 - tx) + at(x0 + 1, y0) * tx) * (1 - ty) + (at(x0, y0 + 1) * (1 - tx) + at(x0 + 1, y0 + 1) * tx) * ty;
+        alpha[Y * W + X] = v > 0 ? 255 : 0;
+      }
+    }
+    return cleanMask(alpha, W, H, point);
   }
 }
 
@@ -249,49 +307,6 @@ class BlobCutter implements StickerCutter {
   }
 }
 
-// ── Object detector (on-device, names things) ─────────────
-
-const DETECTOR_URL =
-  "https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/1/efficientdet_lite0.tflite";
-
-/** COCO categories → what the bird would call them. */
-const COCO_JA: Record<string, string> = {
-  person: "ひと", bicycle: "自転車", car: "車", motorcycle: "バイク", airplane: "飛行機", bus: "バス", train: "電車",
-  truck: "トラック", boat: "ボート", "traffic light": "信号", "fire hydrant": "消火栓", "stop sign": "止まれ",
-  "parking meter": "パーキングメーター", bench: "ベンチ", bird: "鳥", cat: "ねこ", dog: "いぬ", horse: "うま",
-  sheep: "ひつじ", cow: "うし", elephant: "ぞう", bear: "くま", zebra: "しまうま", giraffe: "きりん",
-  backpack: "リュック", umbrella: "傘", handbag: "かばん", tie: "ネクタイ", suitcase: "スーツケース",
-  frisbee: "フリスビー", skis: "スキー板", snowboard: "スノーボード", "sports ball": "ボール", kite: "たこ",
-  "baseball bat": "バット", "baseball glove": "グローブ", skateboard: "スケボー", surfboard: "サーフボード",
-  "tennis racket": "ラケット", bottle: "ボトル", "wine glass": "グラス", cup: "カップ", fork: "フォーク",
-  knife: "ナイフ", spoon: "スプーン", bowl: "うつわ", banana: "バナナ", apple: "りんご", sandwich: "サンド",
-  orange: "みかん", broccoli: "ブロッコリー", carrot: "にんじん", "hot dog": "ホットドッグ", pizza: "ピザ",
-  donut: "ドーナツ", cake: "ケーキ", chair: "いす", couch: "ソファ", "potted plant": "鉢植え", bed: "ベッド",
-  "dining table": "テーブル", toilet: "トイレ", tv: "テレビ", laptop: "パソコン", mouse: "マウス",
-  remote: "リモコン", keyboard: "キーボード", "cell phone": "スマホ", microwave: "レンジ", oven: "オーブン",
-  toaster: "トースター", sink: "流し", refrigerator: "冷蔵庫", book: "本", clock: "時計", vase: "花びん",
-  scissors: "はさみ", "teddy bear": "ぬいぐるみ", "hair drier": "ドライヤー", toothbrush: "歯ブラシ",
-};
-
-type Detector = import("@mediapipe/tasks-vision").ObjectDetector;
-let detectorPromise: Promise<Detector> | null = null;
-
-function loadDetector(): Promise<Detector> {
-  detectorPromise ??= (async () => {
-    const { ObjectDetector } = await import("@mediapipe/tasks-vision");
-    return ObjectDetector.createFromOptions(await loadFileset(), {
-      baseOptions: { modelAssetPath: DETECTOR_URL },
-      runningMode: "IMAGE",
-      scoreThreshold: 0.3,
-      maxResults: 6,
-    });
-  })().catch((err) => {
-    detectorPromise = null;
-    throw err;
-  });
-  return detectorPromise;
-}
-
 /** Box in 0–1 image coordinates. */
 export interface CutBox {
   x: number;
@@ -300,36 +315,10 @@ export interface CutBox {
   h: number;
 }
 
-export interface Seen {
-  point: CutPoint;
-  box: CutBox;
-  label: string;
-}
-
-/** What's in the photo, biggest first, with a Japanese name. Empty if the model can't run. */
-export async function detectThings(image: HTMLCanvasElement): Promise<Seen[]> {
-  try {
-    const detector = await withTimeout(loadDetector(), 15_000, "detector");
-    const { detections } = detector.detect(image);
-    return detections
-      .filter((d) => d.boundingBox && d.categories[0])
-      .map((d) => {
-        const b = d.boundingBox!;
-        const name = d.categories[0].categoryName;
-        const box = { x: b.originX / image.width, y: b.originY / image.height, w: b.width / image.width, h: b.height / image.height };
-        return { point: { x: box.x + box.w / 2, y: box.y + box.h / 2 }, box, label: COCO_JA[name] ?? "見つけたもの" };
-      })
-      .sort((a, b) => b.box.w * b.box.h - a.box.w * a.box.h);
-  } catch (err) {
-    console.warn("[detect]", err);
-    return [];
-  }
-}
-
 // ── chain ────────────────────────────────────────────────
 
 const CHAIN: (() => StickerCutter)[] = [
-  () => new MediaPipeCutter(),
+  () => new SamCutter(),
   () => new ApiCutter(),
   () => new BlobCutter(),
 ];
@@ -351,8 +340,7 @@ export async function prepareCutter(image: HTMLCanvasElement): Promise<StickerCu
 }
 
 /**
- * A quick, soft rounded cut around a box — instant, used for the first
- * candidates while the exact cut is made only for the one you choose.
+ * A soft rounded cut around a box — used only when the cutter couldn't load.
  */
 export function boxMask(box: CutBox, aspect: number): CutMask {
   const w = 256;
@@ -381,10 +369,35 @@ export function boxMask(box: CutBox, aspect: number): CutMask {
   return { width: w, height: h, alpha };
 }
 
+/** Where to look: middle first, then a 3×3 walk around the photo. */
+const LOOK_AROUND: CutPoint[] = [
+  { x: 0.5, y: 0.5 },
+  ...[0.25, 0.5, 0.75].flatMap((y) => [0.25, 0.5, 0.75].map((x) => ({ x, y }))).filter((p) => !(p.x === 0.5 && p.y === 0.5)),
+];
+
+/**
+ * Shape-following cuts of the distinct things in the photo.
+ * Stops at `max` things or when `budgetMs` runs out.
+ */
+export async function findThings(cutter: StickerCutter, max: number, budgetMs: number): Promise<{ mask: CutMask; point: CutPoint }[]> {
+  const t0 = performance.now();
+  const found: { mask: CutMask; point: CutPoint }[] = [];
+  for (const t of LOOK_AROUND.map((point, i) => ({ point, strict: i > 0 }))) {
+    if (found.length >= max || (found.length > 0 && performance.now() - t0 > budgetMs)) break;
+    try {
+      const m = await cutter.maskAt(t.point);
+      if (!m) continue;
+      if (t.strict && found.length > 0 && !looksLikeObject(m)) continue;
+      if (found.some((f) => maskIoU(f.mask, m) > 0.55)) continue;
+      found.push({ mask: m, point: t.point });
+    } catch (err) {
+      console.warn("[find] point failed", err);
+    }
+    // Let the waiting screen breathe between cuts.
+    await new Promise((r) => setTimeout(r, 0));
+  }
+  return found;
+}
+
 /** A middle box, for when nothing was recognised. */
 export const MIDDLE_BOX: CutBox = { x: 0.22, y: 0.2, w: 0.56, h: 0.6 };
-
-/** Wait on a promise, but not longer than `ms` (resolves null instead). */
-export function within<T>(p: Promise<T>, ms: number): Promise<T | null> {
-  return withTimeout(p, ms, "step").catch(() => null);
-}
