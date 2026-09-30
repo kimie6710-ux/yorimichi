@@ -77,7 +77,7 @@ export function GuideView({ spot, onArrive, onQuit }: { spot: MapSpot; onArrive:
               <path d="M15 5.2c-2.4 2.3-4.6 4.4-7 6.9 2.3 2.2 4.6 4.5 6.9 6.8" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </SketchIconButton>
-          <p className="min-w-0 flex-1 text-base leading-snug font-bold">{copy}</p>
+          <p className="min-w-0 flex-1 font-hand text-[17px] leading-snug">{copy}</p>
         </SketchCard>
       </div>
 

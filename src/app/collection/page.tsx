@@ -64,7 +64,7 @@ export default function NotebookPage() {
     <main className="paper min-h-[calc(100dvh-76px)] px-4 pt-[max(12px,env(safe-area-inset-top))] pb-8">
       <TopBar />
       <div className="mt-5 mb-3 flex items-end justify-between px-1">
-        <h1 className="text-2xl font-bold tracking-wide">手帳</h1>
+        <h1 className="font-hand text-[28px] tracking-wide">手帳</h1>
         {items && items.length > 0 && <span className="text-sm text-ink-mute">{items.length}枚</span>}
       </div>
 

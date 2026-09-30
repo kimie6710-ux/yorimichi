@@ -75,7 +75,7 @@ export default function MapHome() {
     return (
       <main className="paper flex min-h-[calc(100dvh-76px)] flex-col items-center justify-center px-8 text-center">
         <Michibi mood="front" size={150} animate="bob" />
-        <h1 className="mt-4 font-hand text-4xl font-bold tracking-[0.1em]">よるみち</h1>
+        <h1 className="mt-4 font-hand text-4xl tracking-[0.1em]">よるみち</h1>
         <p className="mt-3 text-lg font-bold">{APP_TAGLINE}</p>
         <SketchButton
           size="lg"
@@ -177,7 +177,7 @@ function SpotCard({ spot, index, active, onFocus, onGo }: { spot: MapSpot; index
   return (
     <SketchCard tone={active ? "white" : "paper"} pad="lg" seed={`card-${spot.place.placeId}`} tape={active ? "blue" : undefined} className="flex h-full flex-col" onClick={onFocus}>
       <span className="text-[12px] font-bold tracking-widest text-ink-mute tabular-nums">{String(index).padStart(2, "0")}</span>
-      <Link href={`/spot/${encodeURIComponent(spot.place.placeId)}`} className="mt-1 block text-xl leading-snug font-bold whitespace-pre-line">
+      <Link href={`/spot/${encodeURIComponent(spot.place.placeId)}`} className="mt-1 block font-hand text-[22px] leading-snug whitespace-pre-line">
         {spot.copy?.copy}
       </Link>
       <p className="mt-2 text-sm text-ink-mute">

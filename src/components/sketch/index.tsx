@@ -94,7 +94,7 @@ export function SketchSection({
       <SketchOutline tone={tone} seed={seed ?? (typeof title === "string" ? title : undefined)} radius={18} strokeWidth={0} double={false} />
       {(title || action) && (
         <div className="mb-3 flex items-center justify-between gap-2">
-          {title && <h2 className="text-base font-bold">{title}</h2>}
+          {title && <h2 className="font-hand text-lg">{title}</h2>}
           {action}
         </div>
       )}
@@ -273,7 +273,7 @@ export function SketchBubble({
         }}
       />
       <div
-        className="text-sm leading-snug"
+        className="font-hand text-[15px] leading-snug"
         style={{ padding: `${EDGE_PAD}px ${EDGE_PAD + 4}px ${Math.round(b.foot * BUBBLE_SCALE) + EDGE_PAD}px ${EDGE_PAD + 4}px` }}
       >
         {children}

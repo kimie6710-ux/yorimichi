@@ -27,7 +27,7 @@ export function YorumichiMarker({
       className={`relative flex flex-col items-center ${selected ? "z-20" : "z-10"}`}
     >
       {selected && bubble && marker.label && (
-        <span className="animate-peek mb-1.5 line-clamp-2 w-max max-w-[190px] rounded-[8px_12px_9px_11px] bg-card px-2.5 py-1.5 text-left text-[13px] leading-snug font-bold whitespace-pre-line shadow-[0_1px_0_rgb(60_50_30/0.08),0_6px_12px_-6px_rgb(60_50_30/0.3)]">
+        <span className="animate-peek mb-1.5 line-clamp-2 w-max max-w-[190px] rounded-[8px_12px_9px_11px] bg-card px-2.5 py-1.5 text-left font-hand text-[14px] leading-snug whitespace-pre-line shadow-[0_1px_0_rgb(60_50_30/0.08),0_6px_12px_-6px_rgb(60_50_30/0.3)]">
           {marker.label}
         </span>
       )}

@@ -267,7 +267,7 @@ export function Notebook({
                 lift={lifted}
                 className={`pointer-events-none mx-auto w-auto ${s.deco ? "max-h-[26cqw]" : "max-h-[36cqw]"} ${isSelected ? "rounded-xl outline-2 outline-sky-deep outline-offset-2 outline-dashed" : ""}`}
               />
-              {s.label && <span className="pointer-events-none mt-0.5 block truncate text-center text-[12px] text-ink-soft">{s.label}</span>}
+              {s.label && <span className="pointer-events-none mt-0.5 block truncate text-center font-hand text-[13px] text-ink-soft">{s.label}</span>}
               {isSelected && (
                 <button
                   type="button"

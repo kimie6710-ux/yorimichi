@@ -44,7 +44,7 @@ export function StickerDetail({ sticker, onChange, onClose }: { sticker: Sticker
       <div className="mx-auto w-[58%] pt-2">
         <StickerView src={sticker.imageUrl} alt={sticker.label} rotation={sticker.rotation} lift />
       </div>
-      <h2 className="mt-4 text-center text-xl font-bold">{sticker.label}</h2>
+      <h2 className="mt-4 text-center font-hand text-[24px]">{sticker.label}</h2>
       <p className="mt-1 text-center text-sm text-ink-soft">
         {date(sticker.createdAt)}・{mine ? "自分で見つけた" : "知らない誰かから届いた"}
       </p>

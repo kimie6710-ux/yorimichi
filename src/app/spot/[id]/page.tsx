@@ -75,7 +75,7 @@ export default function SpotPage() {
 
       {/* よるみちの層 */}
       <SketchCard tone="butter" pad="lg" seed={`copy-${id}`} className="mt-4">
-        <p className="text-2xl leading-snug font-bold">{spot.copy?.copy ?? "ここ、なんか気になる。"}</p>
+        <p className="font-hand text-[26px] leading-snug whitespace-pre-line">{spot.copy?.copy ?? "なんか気になる。"}</p>
         {currentLocation && <p className="mt-2 text-sm text-ink-soft">徒歩{spot.place.walkMinutes}分</p>}
       </SketchCard>
       {spot.copy?.birdLine && <Michibi mood="side" size={52} says={spot.copy.birdLine} className="mt-2" animate="none" />}

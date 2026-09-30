@@ -44,3 +44,6 @@ next-env.d.ts
 certificates
 # local data store (dev)
 /.data
+
+# Licensed fonts for personal use only: never commit or deploy
+/public/fonts/local

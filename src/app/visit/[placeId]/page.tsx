@@ -255,7 +255,7 @@ function Visit() {
       {fileInputs}
       <header className="flex items-center gap-3">
         <BackButton fallback={`/spot/${encodeURIComponent(spotId)}`} />
-        <p className="min-w-0 flex-1 truncate text-base font-bold">{spot.copy?.copy}</p>
+        <p className="min-w-0 flex-1 truncate font-hand text-[17px]">{spot.copy?.copy}</p>
       </header>
 
       {error && (

@@ -36,7 +36,7 @@ export default function MyPage() {
     <main className="paper min-h-[calc(100dvh-76px)] px-4 pt-[max(12px,env(safe-area-inset-top))] pb-10">
       <header className="flex items-center gap-3">
         <BackButton />
-        <h1 className="font-hand text-2xl font-bold">マイページ</h1>
+        <h1 className="font-hand text-[26px]">マイページ</h1>
       </header>
 
       {data && (

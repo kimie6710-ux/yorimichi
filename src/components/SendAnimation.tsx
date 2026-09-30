@@ -64,7 +64,7 @@ export function SendAnimation({ sticker, onClose }: { sticker: Sticker; onClose:
         {stage === "arrived" && (
           <div className="absolute top-[130px] left-1/2 w-[70%] -translate-x-1/2 animate-peek text-center">
             <img src="/ui/i-mail.png" alt="" className="mx-auto h-12 w-auto" />
-            <p className="mt-4 text-xl font-bold">どこかの誰かに届いたよ。</p>
+            <p className="mt-4 font-hand text-[24px]">どこかの誰かに届いたよ。</p>
             <p className="mt-2 text-sm text-ink-soft">「{sticker.label}」が、知らない街の誰かの手帳へ。</p>
           </div>
         )}
