@@ -60,10 +60,7 @@ export default function NotebookPage() {
         </div>
       )}
       {items && items.length > 0 && (
-        <>
-          <Notebook stickers={items} pages={pages} onOpen={setOpenId} onMove={move} onPagesChange={changePages} />
-          <p className="mt-3 text-center text-[12px] text-ink-mute">シールはドラッグで好きな場所へ。端で止めると隣のページへ。</p>
-        </>
+        <Notebook stickers={items} pages={pages} onOpen={setOpenId} onMove={move} onPagesChange={changePages} />
       )}
 
       <SketchSheet open={!!open} onClose={() => setOpenId(null)} label="シール">
