@@ -473,10 +473,10 @@ export function SketchRule({ seed = "rule", className = "" }: { seed?: string | 
 }
 
 const FRAMES = {
-  fold: { src: "/ui/card-fold.png", slice: [40, 44, 48, 40] },
+  fold: { src: "/ui/card-fold-plain.png", slice: [40, 44, 48, 40] },
   dash: { src: "/ui/card-dash.png", slice: [40, 40, 40, 40] },
   grid: { src: "/ui/card-grid.png", slice: [40, 40, 40, 40] },
-  tape: { src: "/ui/card-tape.png", slice: [64, 40, 40, 40] },
+  tape: { src: "/ui/card-tape-plain.png", slice: [40, 40, 40, 40] },
   stack: { src: "/ui/card-stack.png", slice: [40, 52, 52, 40] },
 } as const;
 export type FrameKind = keyof typeof FRAMES;
@@ -485,7 +485,18 @@ export type FrameKind = keyof typeof FRAMES;
  * A card drawn from the design sheet (hand-drawn outline, fold, tape…),
  * stretched 9-slice so the line stays the same weight at any size.
  */
-export function PaperFrame({ kind, className = "", children }: { kind: FrameKind; className?: string; children: ReactNode }) {
+export function PaperFrame({
+  kind,
+  tape,
+  className = "",
+  children,
+}: {
+  kind: FrameKind;
+  /** Tape holding the two top corners (seed picks the pattern). */
+  tape?: string;
+  className?: string;
+  children: ReactNode;
+}) {
   const f = FRAMES[kind];
   const [t, r, b, l] = f.slice.map((v) => Math.round(v / 2));
   return (
@@ -502,6 +513,12 @@ export function PaperFrame({ kind, className = "", children }: { kind: FrameKind
           borderImageRepeat: "stretch",
         }}
       />
+      {tape && (
+        <>
+          <Tape seed={`${tape}-l`} corner="left" />
+          <Tape seed={`${tape}-r`} corner="right" />
+        </>
+      )}
       <div className="relative" style={{ padding: `${t + 4}px ${r + 6}px ${b + 4}px ${l + 6}px` }}>
         {children}
       </div>

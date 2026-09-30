@@ -27,7 +27,7 @@ const PAGES: Page[] = [
   {
     icon: "/ui/n-compass.png",
     title: "着くまで、ひみつ",
-    lines: ["どんな場所かは、着いてのお楽しみ。", "線と矢印のとおりに歩くだけ。", "角が近づくと「40m先 右へ」。"],
+    lines: ["どんな場所かは、着いてのお楽しみ。", "線と矢印のとおりに歩くだけ。"],
     frame: "dash",
     bird: "walk",
   },
@@ -88,7 +88,7 @@ export default function GuidePage() {
         aria-live="polite"
       >
         <div key={i} className="animate-rise w-full max-w-[400px]">
-          <PaperFrame kind={page.frame} className="w-full">
+          <PaperFrame kind={page.frame} tape={page.frame === "fold" || page.frame === "tape" ? `guide-${i}` : undefined} className="w-full">
             <div className="flex flex-col items-center px-1 py-3 text-center">
               <img src={page.icon} alt="" className="h-12 w-auto" draggable={false} />
               <h2 className="relative isolate mt-3 px-1 text-[22px] leading-snug">
