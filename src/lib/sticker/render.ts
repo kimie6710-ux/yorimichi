@@ -135,7 +135,8 @@ function maskedCanvas(source: HTMLCanvasElement, mask: CutMask): HTMLCanvasEleme
   cut.width = source.width;
   cut.height = source.height;
   const cctx = cut.getContext("2d")!;
-  cctx.filter = "blur(1px)"; // soften stair-stepped mask edges
+  // Masks from the cutter are at photo size already; only low-res ones (fallbacks) need softening.
+  cctx.filter = mask.width >= source.width * 0.9 ? "blur(0.4px)" : "blur(1px)";
   cctx.drawImage(m, 0, 0, source.width, source.height);
   cctx.filter = "none";
   cctx.globalCompositeOperation = "source-in";

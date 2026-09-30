@@ -50,21 +50,58 @@ function cleanMask(raw: ArrayLike<number>, width: number, height: number, point:
 
   // Flood fill from the tap (4-neighbour) → keeps a single object.
   const keep = new Uint8Array(width * height);
-  const stack = [py * width + px];
-  if (!on(stack[0])) return null;
-  keep[stack[0]] = 1;
+  const stack = new Int32Array(width * height);
+  let top = 0;
+  const start = py * width + px;
+  if (!on(start)) return null;
+  keep[start] = 1;
+  stack[top++] = start;
   let area = 0;
-  while (stack.length) {
-    const i = stack.pop()!;
+  const visit = (n: number) => {
+    if (!keep[n] && on(n)) {
+      keep[n] = 1;
+      stack[top++] = n;
+    }
+  };
+  while (top > 0) {
+    const i = stack[--top];
     area++;
     const x = i % width;
-    const y = (i - x) / width;
-    const nb = [x > 0 ? i - 1 : -1, x < width - 1 ? i + 1 : -1, y > 0 ? i - width : -1, y < height - 1 ? i + width : -1];
-    for (const n of nb) {
-      if (n >= 0 && !keep[n] && on(n)) {
-        keep[n] = 1;
-        stack.push(n);
-      }
+    if (x > 0) visit(i - 1);
+    if (x < width - 1) visit(i + 1);
+    if (i >= width) visit(i - width);
+    if (i < width * (height - 1)) visit(i + width);
+  }
+
+  // Fill holes: anything the outside can't reach is inside the object.
+  const outside = new Uint8Array(width * height);
+  top = 0;
+  const seed = (n: number) => {
+    if (!keep[n] && !outside[n]) {
+      outside[n] = 1;
+      stack[top++] = n;
+    }
+  };
+  for (let x = 0; x < width; x++) {
+    seed(x);
+    seed((height - 1) * width + x);
+  }
+  for (let y = 0; y < height; y++) {
+    seed(y * width);
+    seed(y * width + width - 1);
+  }
+  while (top > 0) {
+    const i = stack[--top];
+    const x = i % width;
+    if (x > 0) seed(i - 1);
+    if (x < width - 1) seed(i + 1);
+    if (i >= width) seed(i - width);
+    if (i < width * (height - 1)) seed(i + width);
+  }
+  for (let i = 0; i < keep.length; i++) {
+    if (!keep[i] && !outside[i]) {
+      keep[i] = 1;
+      area++;
     }
   }
 
@@ -158,12 +195,17 @@ class SamCutter implements StickerCutter {
   /** Photo size as the model sees it (long side 1024). */
   private rw = 0;
   private rh = 0;
+  /** The photo's own size: masks are drawn at this size so edges stay crisp. */
+  private iw = 0;
+  private ih = 0;
 
   async prepare(image: HTMLCanvasElement) {
     this.sam = await withTimeout(loadSam(), PREPARE_MS, "sam");
     const { tf, processor, model } = this.sam;
     const inputs = await processor(tf.RawImage.fromCanvas(image));
     [this.rh, this.rw] = inputs.reshaped_input_sizes[0] as [number, number];
+    this.iw = image.width;
+    this.ih = image.height;
     this.embeddings = await withTimeout(model.get_image_embeddings(inputs), PREPARE_MS, "sam encode");
   }
 
@@ -197,20 +239,27 @@ class SamCutter implements StickerCutter {
     }
     const k = pick >= 0 ? pick : best;
 
-    // Smooth edges: upscale the logits 2× (bilinear) before cutting at 0.
-    const W = w * 2;
-    const H = h * 2;
+    // Crisp edges: stretch the low-res logits smoothly (bilinear) to the photo's
+    // own size and cut at 0 there, instead of enlarging a finished jagged mask.
+    const W = this.iw;
+    const H = this.ih;
     const alpha = new Uint8ClampedArray(W * H);
-    const at = (x: number, y: number) => logits[k * LOW * LOW + Math.min(h - 1, y) * LOW + Math.min(w - 1, x)];
+    const sx = this.rw / W / 4; // photo px → low-res px
+    const sy = this.rh / H / 4;
+    const base = k * LOW * LOW;
     for (let Y = 0; Y < H; Y++) {
-      const fy = Math.max(0, (Y + 0.5) / 2 - 0.5);
+      const fy = Math.min(h - 1, Math.max(0, (Y + 0.5) * sy - 0.5));
       const y0 = Math.floor(fy);
+      const y1 = Math.min(h - 1, y0 + 1);
       const ty = fy - y0;
+      const r0 = base + y0 * LOW;
+      const r1 = base + y1 * LOW;
       for (let X = 0; X < W; X++) {
-        const fx = Math.max(0, (X + 0.5) / 2 - 0.5);
+        const fx = Math.min(w - 1, Math.max(0, (X + 0.5) * sx - 0.5));
         const x0 = Math.floor(fx);
+        const x1 = Math.min(w - 1, x0 + 1);
         const tx = fx - x0;
-        const v = (at(x0, y0) * (1 - tx) + at(x0 + 1, y0) * tx) * (1 - ty) + (at(x0, y0 + 1) * (1 - tx) + at(x0 + 1, y0 + 1) * tx) * ty;
+        const v = (logits[r0 + x0] * (1 - tx) + logits[r0 + x1] * tx) * (1 - ty) + (logits[r1 + x0] * (1 - tx) + logits[r1 + x1] * tx) * ty;
         alpha[Y * W + X] = v > 0 ? 255 : 0;
       }
     }
