@@ -1,5 +1,6 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element -- hand-drawn UI sprites */
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -68,8 +69,9 @@ export default function SpotPage() {
     <main className="paper min-h-[calc(100dvh-76px)] px-4 pt-[max(12px,env(safe-area-inset-top))] pb-10">
       <header className="flex items-center justify-between">
         <BackButton />
-        <SketchButton variant="plain" size="sm" onClick={() => void toggleSave()} aria-pressed={spot.saved}>
-          {spot.saved ? "★ 気になる" : "☆ 気になる"}
+        <SketchButton variant={spot.saved ? "primary" : "plain"} size="sm" onClick={() => void toggleSave()} aria-pressed={spot.saved}>
+          <img src="/ui/i-star.png" alt="" className="h-4 w-auto" />
+          気になる
         </SketchButton>
       </header>
 

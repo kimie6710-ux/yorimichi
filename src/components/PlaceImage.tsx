@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-img-element -- Places photos are redirects to googleusercontent; next/image optimisation would re-fetch them */
 import { useState } from "react";
 import { photoUrl } from "@/lib/api-client";
-import { emojiForType } from "@/lib/place-emoji";
+import { michibiSrc } from "@/lib/character";
 import type { Place } from "@/lib/types";
 
 interface PlaceImageProps {
@@ -19,16 +19,11 @@ export function PlaceImage({ place, width = 600, className = "", showAttribution
   const photo = place.photos[0];
   const [failed, setFailed] = useState(false);
 
+  // No photo: the bird stands in for it.
   if (!photo || failed) {
     return (
-      <div
-        className={`flex items-center justify-center bg-paper-deep ${className}`}
-        role="img"
-        aria-label={place.name}
-      >
-        <span className="flex aspect-square h-[56%] max-h-24 items-center justify-center rounded-full bg-white text-[min(40px,9vw)] leading-none" aria-hidden>
-          {emojiForType(place.primaryType)}
-        </span>
+      <div className={`flex items-center justify-center bg-paper-deep ${className}`} role="img" aria-label={place.name}>
+        <img src={michibiSrc("side", "md")} alt="" className="h-[60%] max-h-32 w-auto" />
       </div>
     );
   }

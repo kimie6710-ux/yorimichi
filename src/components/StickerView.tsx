@@ -20,7 +20,8 @@ export function StickerView({
 }) {
   const shadow = lift ? "drop-shadow(0 3px 3px rgb(34 32 28 / 0.22))" : "drop-shadow(0 1.5px 1.5px rgb(34 32 28 / 0.18))";
   if (!src) {
-    return <span className={`block aspect-square rounded-[40%_46%_42%_48%] bg-paper-deep ${className}`} aria-label={alt} role="img" />;
+    // No image: the bird, as a sticker.
+    return <img src="/deco/bird-front.png" alt={alt} draggable={false} className={`block h-auto max-w-full select-none ${className}`} style={{ transform: `rotate(${rotation}deg)`, filter: shadow }} />;
   }
   return (
     <img

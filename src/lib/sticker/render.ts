@@ -146,19 +146,6 @@ export function stickerFromMask(source: HTMLCanvasElement, mask: CutMask): HTMLC
   return dieCut(cut);
 }
 
-/** A die-cut sticker made from an emoji (used when no photo was taken). */
-export function emojiSticker(emoji: string): HTMLCanvasElement | null {
-  const c = document.createElement("canvas");
-  c.width = 420;
-  c.height = 420;
-  const ctx = c.getContext("2d")!;
-  ctx.font = '320px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(emoji, 210, 225);
-  return dieCut(c);
-}
-
 export function randomRotation(): number {
   const r = (Math.random() * 7 + 2) * (Math.random() < 0.5 ? -1 : 1);
   return Math.round(r * 10) / 10;

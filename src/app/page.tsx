@@ -1,5 +1,6 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element -- hand-drawn UI sprites */
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -212,7 +213,8 @@ function SpotCard({ spot, index, active, onFocus, onGo }: { spot: MapSpot; index
           徒歩{spot.place.walkMinutes}分{spot.placedCount > 0 ? "・誰かの発見あり" : ""}
         </p>
         <SketchButton size="sm" onClick={onGo} className="shrink-0">
-          行ってみる →
+          行ってみる
+          <img src="/ui/i-back.png" alt="" className="h-3.5 w-auto -scale-x-100" />
         </SketchButton>
       </div>
     </SketchCard>
