@@ -175,7 +175,7 @@ export default function MapHome() {
 
 function SpotCard({ spot, index, active, onFocus, onGo }: { spot: MapSpot; index: number; active: boolean; onFocus: () => void; onGo: () => void }) {
   return (
-    <SketchCard tone={active ? "white" : "paper"} pad="lg" seed={`card-${spot.place.placeId}`} tape={active ? "blue" : undefined} className="flex h-full flex-col" onClick={onFocus}>
+    <SketchCard tone={active ? "white" : "paper"} pad="lg" seed={`card-${spot.place.placeId}`} tape={active ? "auto" : undefined} className="flex h-full flex-col" onClick={onFocus}>
       <span className="text-[12px] font-bold tracking-widest text-ink-mute tabular-nums">{String(index).padStart(2, "0")}</span>
       <Link href={`/spot/${encodeURIComponent(spot.place.placeId)}`} className="mt-1 block font-hand text-[22px] leading-snug whitespace-pre-line">
         {spot.copy?.copy}

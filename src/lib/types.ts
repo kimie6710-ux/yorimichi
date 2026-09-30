@@ -149,7 +149,18 @@ export const DECO_KINDS = [
   "bird-happy",
   "bird-surprise",
   "bird-sleepy",
+  "tape-yellow",
+  "tape-dots",
+  "tape-pink",
+  "tape-greencheck",
+  "tape-yellowdots",
+  "tape-bluegrid",
+  "tape-green",
+  "tape-stripe",
+  "tape-purple",
+  "tape-kraft",
 ] as const;
+export const TAPES = DECO_KINDS.filter((k) => k.startsWith("tape-")).map((k) => k.slice(5));
 export type DecoKind = (typeof DECO_KINDS)[number];
 
 export interface BookDeco {

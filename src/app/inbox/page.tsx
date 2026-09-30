@@ -51,7 +51,7 @@ export default function InboxPage() {
       <ul className="mt-5 flex flex-col gap-3">
         {items?.map((it) => (
           <li key={it.id}>
-            <SketchCard as="div" tone={it.openedAt ? "white" : "butter"} pad="md" seed={`inbox-${it.id}`}>
+            <SketchCard as="div" tone={it.openedAt ? "white" : "butter"} pad="md" seed={`inbox-${it.id}`} tape="auto">
               <button type="button" onClick={() => void open(it)} className="flex w-full items-center gap-4 text-left">
                 <span className="w-16 shrink-0">
                   {it.openedAt ? (

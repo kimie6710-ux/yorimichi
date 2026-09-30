@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { DECO_KINDS } from "./types";
+
 // ── Request validation (API routes) ─────────────────────────
 
 export const latLngSchema = z.object({
@@ -130,18 +132,7 @@ const bookPosSchema = z.object({
 });
 
 export const decoCreateSchema = z.object({
-  kind: z.enum([
-    "bird-front",
-    "bird-side",
-    "bird-back",
-    "bird-walk",
-    "bird-flap",
-    "bird-perch",
-    "bird-hop",
-    "bird-happy",
-    "bird-surprise",
-    "bird-sleepy",
-  ]),
+  kind: z.enum(DECO_KINDS),
   pos: bookPosSchema,
 });
 

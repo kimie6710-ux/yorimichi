@@ -3,7 +3,8 @@
 /* eslint-disable @next/next/no-img-element -- local UI sprites */
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 
-import { SketchButton, SketchSheet } from "@/components/sketch";
+import { SketchButton, SketchSheet, Tape } from "@/components/sketch";
+import { handFriendly } from "@/lib/kana";
 import { hashSeed, rng } from "@/components/sketch/path";
 import { StickerView } from "@/components/StickerView";
 import {
@@ -219,10 +220,10 @@ export function Notebook({
     if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(e.clientY - s.y)) go(dx < 0 ? 1 : -1);
   }
 
-  type Item = { id: string; src: string | null; label: string | null; deco: boolean };
+  type Item = { id: string; src: string | null; label: string | null; deco: boolean; tape?: boolean };
   const onPage: Item[] = [
     ...stickers.map((s) => ({ id: s.id, src: s.imageUrl, label: s.label, deco: false })),
-    ...decos.map((d) => ({ id: d.id, src: `/deco/${d.kind}.png`, label: null, deco: true })),
+    ...decos.map((d) => ({ id: d.id, src: `/deco/${d.kind}.png`, label: null, deco: true, tape: d.kind.startsWith("tape-") })),
   ]
     .filter((it) => pos(it.id).page === page)
     .sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
@@ -236,6 +237,8 @@ export function Notebook({
         className={`book-page book-${bgOf(page)} relative aspect-[3/4.1] w-full touch-pan-y overflow-hidden select-none [container-type:inline-size]`}
       >
         <span key={page} className={`pointer-events-none absolute inset-0 ${dir === 1 ? "animate-[page-turn-r_0.3s_ease-out]" : "animate-[page-turn-l_0.3s_ease-out]"}`} aria-hidden />
+        <Tape seed={`page-${page}-a`} className="!top-[-6px] !left-[14%] !w-20" />
+        <Tape seed={`page-${page}-b`} className="!top-[-6px] !left-[86%] !w-16" />
         <span className="pointer-events-none absolute top-3 right-4 text-[12px] text-ink-mute tabular-nums">
           {page + 1}
         </span>
@@ -253,7 +256,7 @@ export function Notebook({
               onPointerMove={onStickerMove}
               onPointerUp={onStickerUp}
               onPointerCancel={onStickerUp}
-              className={`absolute cursor-grab touch-none ${s.deco ? "w-[24%]" : "w-[31%]"} ${lifted ? "z-50 cursor-grabbing" : ""} ${isSelected ? "z-40" : ""}`}
+              className={`absolute cursor-grab touch-none ${s.tape ? "w-[42%]" : s.deco ? "w-[24%]" : "w-[31%]"} ${lifted ? "z-50 cursor-grabbing" : ""} ${isSelected ? "z-40" : ""}`}
               style={{
                 left: `${p.x * 100}%`,
                 top: `${p.y * 100}%`,
@@ -265,9 +268,9 @@ export function Notebook({
                 src={s.src}
                 alt={s.label ?? ""}
                 lift={lifted}
-                className={`pointer-events-none mx-auto w-auto ${s.deco ? "max-h-[26cqw]" : "max-h-[36cqw]"} ${isSelected ? "rounded-xl outline-2 outline-sky-deep outline-offset-2 outline-dashed" : ""}`}
+                className={`pointer-events-none mx-auto ${s.tape ? "w-full opacity-90" : "w-auto"} ${s.deco && !s.tape ? "max-h-[26cqw]" : s.tape ? "" : "max-h-[36cqw]"} ${isSelected ? "rounded-xl outline-2 outline-sky-deep outline-offset-2 outline-dashed" : ""}`}
               />
-              {s.label && <span className="pointer-events-none mt-0.5 block truncate text-center font-hand text-[13px] text-ink-soft">{s.label}</span>}
+              {s.label && <span className="pointer-events-none mt-0.5 block truncate text-center font-hand text-[13px] text-ink-soft">{handFriendly(s.label)}</span>}
               {isSelected && (
                 <button
                   type="button"
@@ -323,11 +326,22 @@ export function Notebook({
       </div>
 
       <SketchSheet open={trayOpen} onClose={() => setTrayOpen(false)} label="シールを貼る">
+        <p className="px-5 pt-1 font-hand text-lg">とり</p>
         <ul className="grid grid-cols-4 gap-3 px-5 pt-2 pb-4">
-          {DECO_KINDS.map((k) => (
+          {DECO_KINDS.filter((k) => k.startsWith("bird-")).map((k) => (
             <li key={k}>
               <button type="button" onClick={() => addDeco(k)} className="sketch-btn flex aspect-square w-full items-center justify-center" aria-label="このシールを貼る">
                 <img src={`/deco/${k}.png`} alt="" className="max-h-full w-auto" />
+              </button>
+            </li>
+          ))}
+        </ul>
+        <p className="px-5 pt-1 font-hand text-lg">マスキングテープ</p>
+        <ul className="grid grid-cols-2 gap-x-4 gap-y-3 px-5 pt-2 pb-6">
+          {DECO_KINDS.filter((k) => k.startsWith("tape-")).map((k) => (
+            <li key={k}>
+              <button type="button" onClick={() => addDeco(k)} className="sketch-btn block w-full" aria-label="このテープを貼る">
+                <img src={`/deco/${k}.png`} alt="" className="h-8 w-full object-cover opacity-90" />
               </button>
             </li>
           ))}

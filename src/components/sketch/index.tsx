@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type React from "react";
 import {
   forwardRef,
   useEffect,
@@ -43,7 +44,7 @@ export function SketchCard({
   seed?: string | number;
   radius?: number;
   outline?: boolean;
-  tape?: "blue" | "yellow";
+  tape?: (typeof WASHI)[number] | "blue" | "auto";
   as?: "div" | "article" | "section" | "li";
   className?: string;
   children: ReactNode;
@@ -51,25 +52,42 @@ export function SketchCard({
   return (
     <Tag className={`relative isolate ${PAD[pad]} ${className}`} {...(rest as object)}>
       <SketchOutline tone={tone} seed={seed} radius={radius} strokeWidth={outline ? 1.6 : 0} stroke="var(--color-ink-soft)" double={false} shadow={!outline} />
-      {tape && <Tape color={tape} seed={seed} />}
+      {tape && <Tape color={tape === "auto" ? undefined : tape} seed={seed} />}
       {children}
     </Tag>
   );
 }
 
-/** A small piece of masking tape stuck on the top edge. */
-export function Tape({ color = "blue", seed, className = "" }: { color?: "blue" | "yellow"; seed?: string | number; className?: string }) {
-  const s = hashSeed(seed ?? color);
+const WASHI = ["yellow", "dots", "pink", "greencheck", "yellowdots", "bluegrid", "green", "stripe", "purple", "kraft"] as const;
+
+/** A short piece of washi tape stuck on the top edge (pattern picked by seed unless given). */
+export function Tape({
+  color,
+  seed,
+  className = "",
+  style,
+}: {
+  color?: (typeof WASHI)[number] | "blue";
+  seed?: string | number;
+  className?: string;
+  style?: React.CSSProperties;
+}) {
+  const s = hashSeed(seed ?? color ?? "tape");
+  const name = color === "blue" ? "bluegrid" : (color ?? WASHI[s % WASHI.length]);
   const left = 30 + (s % 40);
-  const rot = ((s >> 3) % 9) - 4;
+  const rot = ((s >> 3) % 11) - 5;
   return (
-    // eslint-disable-next-line @next/next/no-img-element -- tiny UI sprite
-    <img
-      src={`/ui/tape-${color}.png`}
-      alt=""
+    <span
       aria-hidden
-      className={`pointer-events-none absolute -top-2.5 z-10 h-5 w-auto ${className}`}
-      style={{ left: `${left}%`, transform: `translateX(-50%) rotate(${rot}deg)` }}
+      className={`pointer-events-none absolute -top-2.5 z-10 block h-5 w-16 opacity-90 ${className}`}
+      style={{
+        left: `${left}%`,
+        transform: `translateX(-50%) rotate(${rot}deg)`,
+        backgroundImage: `url(/deco/tape-${name}.png)`,
+        backgroundSize: "cover",
+        backgroundPosition: `${(s >> 5) % 100}% 50%`,
+        ...style,
+      }}
     />
   );
 }
@@ -368,7 +386,7 @@ export function SketchModal({
       <button type="button" aria-label="閉じる" onClick={onClose} className="absolute inset-0 h-full w-full animate-[fade_0.2s_ease-out] bg-ink/25" />
       <div className="animate-peek relative isolate w-full p-5">
         <SketchOutline tone="paper" seed={seed ?? label} radius={22} strokeWidth={0} double={false} shadow />
-        <Tape color="yellow" seed={seed ?? label} />
+        <Tape seed={seed ?? label} />
         {children}
       </div>
     </div>

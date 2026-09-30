@@ -35,7 +35,7 @@ export function YorumichiMarker({
         <img src={`/ui/badge-${badge}.png`} alt="" className="absolute inset-0 h-full w-full" draggable={false} />
         <span className="relative text-[13px] font-bold tabular-nums">{marker.index ?? "?"}</span>
         {(marker.placed ?? 0) > 0 && (
-          <img src="/ui/tape-blue.png" alt={`誰かの発見が${marker.placed}枚`} className="absolute -right-2.5 -bottom-0.5 h-3 w-auto rotate-12" />
+          <img src="/deco/tape-stripe.png" alt={`誰かの発見が${marker.placed}枚`} className="absolute -right-3 -bottom-0.5 h-2.5 w-7 rotate-12 object-cover opacity-90" />
         )}
       </span>
     </button>
