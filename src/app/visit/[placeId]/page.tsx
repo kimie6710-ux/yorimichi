@@ -7,11 +7,10 @@ import { Suspense, useCallback, useEffect, useRef, useState, type MouseEvent } f
 import { BackButton } from "@/components/BackButton";
 import { GuideView } from "@/components/GuideView";
 import { Michibi } from "@/components/Michibi";
-import { SketchButton, SketchCard, SketchInput, SketchLinkButton, SketchSection, SketchTextarea } from "@/components/sketch";
+import { SketchButton, SketchInput, SketchLinkButton } from "@/components/sketch";
 import { MessageView } from "@/components/StateViews";
-import { StickerGrid } from "@/components/StickerGrid";
 import { StickerView } from "@/components/StickerView";
-import { SpotReveal } from "@/components/SpotReveal";
+import { PlaceImage } from "@/components/PlaceImage";
 import { api, ApiClientError } from "@/lib/api-client";
 import { MICHIBI_LINES } from "@/lib/character";
 import { findThings, prepareCutter, warmUpCutter, type CutMask, type StickerCutter } from "@/lib/sticker/cutter";
@@ -250,176 +249,205 @@ function Visit() {
     </>
   );
 
+  // Every step fits one screen: the main thing (photo / sticker) takes the free
+  // space, the actions sit at the bottom. No scrolling.
   return (
-    <main className="paper min-h-[calc(100dvh-76px)] px-4 pt-[max(12px,env(safe-area-inset-top))] pb-10">
+    <main className="paper flex h-[calc(100dvh-76px-env(safe-area-inset-bottom))] flex-col overflow-hidden px-4 pt-[max(10px,env(safe-area-inset-top))] pb-3">
       {fileInputs}
-      <header className="flex items-center gap-3">
+      <header className="flex shrink-0 items-center gap-3">
         <BackButton fallback={`/spot/${encodeURIComponent(spotId)}`} />
-        <p className="min-w-0 flex-1 truncate font-hand text-[17px]">{spot.copy?.copy}</p>
+        <p className="min-w-0 flex-1 truncate text-[17px]">{spot.copy?.copy}</p>
       </header>
 
       {error && (
-        <SketchCard tone="butter" pad="sm" seed="error" className="mt-3" role="alert">
-          <p className="text-sm font-bold">{error}</p>
-        </SketchCard>
+        <p role="alert" className="mt-2 shrink-0 rounded-[10px_14px_9px_13px] bg-butter-soft px-3 py-2 text-sm">
+          {error}
+        </p>
       )}
 
       {/* ───── 探索モード ───── */}
       {step === "explore" && (
-        <div className="animate-rise mt-4">
-          <p className="text-center font-hand text-xl font-bold">ここでした</p>
-          <SketchCard tone="white" pad="md" seed={`reveal-${spotId}`} className="mt-3">
-            <SpotReveal place={spot.place} />
-          </SketchCard>
-
-          {others.length > 0 && (
-            <SketchSection title="誰かが、ここに置いていったもの" className="mt-5" seed={`placed-${spotId}`}>
-              <StickerGrid items={others} caption={(sid) => {
-                const m = others.find((p) => p.id === sid)?.memo;
-                return m ? <span className="mt-0.5 line-clamp-2 font-hand text-sm text-ink-soft">「{m}」</span> : null;
-              }} />
-              <Michibi mood="side" size={48} animate="none" says={MICHIBI_LINES.somebodyWasHere} className="mt-4" />
-            </SketchSection>
-          )}
-          {detail.foundLabels.length > 0 && (
-            <p className="mt-3 px-1 text-sm text-ink-soft">ここで見つかったもの：{detail.foundLabels.join("・")}</p>
-          )}
-
-          <div className="mt-8 flex flex-col items-center text-center">
-            <button type="button" onClick={() => setNudge((v) => !v)} aria-label="ヒント">
-              <Michibi mood={nudge ? "surprise" : "front"} size={84} says={nudge ? MICHIBI_LINES.nudge : MICHIBI_LINES.explore} className="flex-col-reverse !items-center" animate="none" />
-            </button>
-            <p className="mt-3 text-lg font-bold">{others.length > 0 ? "あなたは、何を見つける？" : "気になったもの、ある？"}</p>
+        <section className="animate-rise mt-3 flex min-h-0 flex-1 flex-col">
+          <div className="flex shrink-0 items-center gap-3 rounded-[14px_18px_12px_20px] bg-card p-2.5 shadow-[0_1px_0_rgb(60_50_30/0.08),0_6px_12px_-8px_rgb(60_50_30/0.3)]">
+            <PlaceImage place={spot.place} width={200} className="h-16 w-16 shrink-0 rounded-[10px_12px_9px_13px]" />
+            <div className="min-w-0 flex-1">
+              <p className="text-[13px] text-ink-mute">ここでした</p>
+              <p className="truncate text-lg leading-tight">{spot.place.name}</p>
+              {spot.place.primaryTypeLabel && <p className="truncate text-[13px] text-ink-soft">{spot.place.primaryTypeLabel}</p>}
+            </div>
           </div>
-          <div className="mt-5 flex flex-col gap-3">
+
+          <div className="mt-3 flex min-h-0 flex-1 flex-col justify-center">
+            {others.length > 0 ? (
+              <>
+                <p className="text-[15px]">{MICHIBI_LINES.somebodyWasHere}</p>
+                <ul className="hide-scrollbar -mx-4 mt-2 flex gap-4 overflow-x-auto px-4 pb-1">
+                  {others.map((o) => (
+                    <li key={o.id} className="w-[34%] shrink-0 text-center">
+                      <StickerView src={o.imageUrl} alt={o.label} rotation={o.rotation} className="mx-auto max-h-[22dvh] w-auto" />
+                      <p className="mt-1 truncate text-[13px]">{o.label}</p>
+                      {o.memo && <p className="line-clamp-2 text-[12px] text-ink-soft">「{o.memo}」</p>}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : (
+              <button type="button" onClick={() => setNudge((v) => !v)} aria-label="ヒント" className="mx-auto">
+                <Michibi mood={nudge ? "surprise" : "front"} size={96} says={nudge ? MICHIBI_LINES.nudge : MICHIBI_LINES.explore} className="flex-col-reverse !items-center" animate="none" />
+              </button>
+            )}
+            {detail.foundLabels.length > 0 && (
+              <p className="mt-2 truncate text-[13px] text-ink-mute">ここで見つかったもの：{detail.foundLabels.join("・")}</p>
+            )}
+          </div>
+
+          <div className="shrink-0 pt-2">
+            <p className="mb-2 text-center text-[17px]">{others.length > 0 ? "あなたは、何を見つける？" : "気になったもの、ある？"}</p>
             <SketchButton size="lg" block onClick={() => cameraRef.current?.click()}>
               ここで撮る
             </SketchButton>
-            <SketchButton variant="sub" block onClick={() => libraryRef.current?.click()}>
-              アルバムから選ぶ
-            </SketchButton>
+            <div className="mt-1 flex justify-center">
+              <SketchButton variant="plain" size="sm" onClick={() => libraryRef.current?.click()}>
+                アルバムから選ぶ
+              </SketchButton>
+            </div>
           </div>
-        </div>
+        </section>
       )}
 
-      {/* ───── AIが写真の中を見ている ───── */}
+      {/* ───── 写真の中を見ている ───── */}
       {step === "looking" && (
-        <div className="mt-6 flex flex-col items-center text-center" role="status">
-          {photoUrl && (
-            <div className="relative w-full overflow-hidden rounded-[18px_22px_16px_24px] outline-2 outline-ink outline-solid">
-              <img src={photoUrl} alt="" className="block max-h-[52dvh] w-full object-contain opacity-70" />
-            </div>
-          )}
-          <Michibi mood="side" size={64} animate="bob" says="なにが写ってるかな。" className="mt-4" />
-        </div>
+        <section className="mt-3 flex min-h-0 flex-1 flex-col items-center" role="status">
+          {photoUrl && <img src={photoUrl} alt="" className="min-h-0 w-full flex-1 rounded-[18px_22px_16px_24px] object-contain opacity-70" />}
+          <div className="shrink-0 pt-3">
+            <Michibi mood="side" size={56} animate="bob" says="なにが写ってるかな。" />
+          </div>
+        </section>
       )}
 
       {/* ───── 候補から選ぶ ───── */}
       {step === "pick" && photoUrl && (
-        <div className="animate-rise mt-4">
-          <p className="text-lg font-bold">{MICHIBI_LINES.choose}</p>
-          {cutouts.length > 0 ? (
-            <ul className="mt-3 grid grid-cols-3 gap-x-3 gap-y-4">
+        <section className="animate-rise mt-3 flex min-h-0 flex-1 flex-col">
+          <p className="shrink-0 text-lg">{MICHIBI_LINES.choose}</p>
+          {cutouts.length > 0 && (
+            <ul className="hide-scrollbar -mx-4 mt-2 flex shrink-0 gap-3 overflow-x-auto px-4 pb-1">
               {cutouts.map((c) => (
-                <li key={c.id}>
+                <li key={c.id} className="w-[27%] shrink-0">
                   <button type="button" onClick={() => choose(c)} className="flex w-full flex-col items-center text-center transition-transform active:translate-y-0.5">
-                    <StickerView src={c.url} alt={c.label} rotation={c.rotation} className="w-[90%]" />
-                    <span className="mt-1 line-clamp-2 text-sm font-bold">{c.label}</span>
+                    <StickerView src={c.url} alt={c.label} rotation={c.rotation} className="h-[12dvh] w-auto" />
+                    <span className="mt-1 line-clamp-1 text-[13px]">{c.label}</span>
                   </button>
                 </li>
               ))}
             </ul>
-          ) : (
-            <p className="mt-1 text-sm text-ink-soft">シールにしたいところを、写真の中でタップ。</p>
           )}
-          <p className="mt-5 text-sm text-ink-soft">{cutouts.length > 0 ? "ほかのものは、写真の中をタップ。" : ""}</p>
-          <div className="relative mt-2 overflow-hidden rounded-[18px_22px_16px_24px] outline-2 outline-ink outline-solid">
-            <img src={photoUrl} alt="撮った写真。シールにしたいところをタップ" onClick={(e) => void onPhotoTap(e)} className={`block max-h-[46dvh] w-full object-contain ${cutting ? "cursor-progress" : "cursor-crosshair"}`} />
+          <p className="mt-2 shrink-0 text-[13px] text-ink-mute">{cutouts.length > 0 ? "ほかのものは、写真の中をタップ。" : "シールにしたいところを、写真の中でタップ。"}</p>
+          <div className="relative mt-1 flex min-h-0 flex-1 items-center justify-center">
+            <img
+              src={photoUrl}
+              alt="撮った写真。シールにしたいところをタップ"
+              onClick={(e) => void onPhotoTap(e)}
+              className={`max-h-full max-w-full rounded-[14px_18px_12px_20px] object-contain ${cutting ? "cursor-progress" : "cursor-crosshair"}`}
+            />
             {cutting && (
               <div className="absolute inset-0 flex items-center justify-center bg-card/40">
                 <Michibi mood="flap" size={64} animate="bob" />
               </div>
             )}
           </div>
-          <SketchButton variant="plain" size="sm" className="mt-5" onClick={() => setStep("explore")}>
-            撮り直す
-          </SketchButton>
-        </div>
+          <div className="flex shrink-0 justify-center pt-1">
+            <SketchButton variant="plain" size="sm" onClick={() => setStep("explore")}>
+              撮り直す
+            </SketchButton>
+          </div>
+        </section>
       )}
 
       {/* ───── シールができた ───── */}
       {step === "make" && sticker && (
-        <div className="animate-rise mt-4">
-          <div className="sticker-sheet relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-[22px_18px_24px_16px] outline-2 outline-ink outline-solid">
-            <div className="w-[68%] animate-[stick_0.45s_cubic-bezier(0.2,0.9,0.3,1.2)_both]" style={{ ["--r" as string]: `${sticker.rotation}deg` }}>
-              <StickerView src={sticker.url} alt="できたシール" lift />
+        <section className="animate-rise mt-3 flex min-h-0 flex-1 flex-col">
+          <div className="sticker-sheet relative flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-[22px_18px_24px_16px]">
+            <div className="h-[74%] animate-[stick_0.45s_cubic-bezier(0.2,0.9,0.3,1.2)_both]" style={{ ["--r" as string]: `${sticker.rotation}deg` }}>
+              <StickerView src={sticker.url} alt="できたシール" lift className="h-full w-auto" />
+            </div>
+            <div className="absolute bottom-2 left-2">
+              <Michibi mood="happy" size={44} says={MICHIBI_LINES.made} animate="none" />
             </div>
           </div>
-          <Michibi mood="happy" size={56} says={MICHIBI_LINES.made} className="mt-2" animate="none" />
-          <label className="mt-4 block text-sm font-bold" htmlFor="sticker-label">
-            なまえ
-          </label>
-          <SketchInput id="sticker-label" className="mt-1" value={label} maxLength={12} placeholder="例：古い照明" onChange={(e) => setLabel(e.target.value)} />
-          <label className="mt-4 block text-sm font-bold" htmlFor="sticker-memo">
-            ひとことメモ（なくてもいい）
-          </label>
-          <SketchTextarea id="sticker-memo" className="mt-1" rows={2} value={memo} maxLength={80} placeholder="気になったところ" onChange={(e) => setMemo(e.target.value)} />
-          <div className="mt-6 flex flex-col gap-3">
-            <SketchButton size="lg" block onClick={() => void makeSticker()} disabled={busy}>
-              {busy ? "貼ってる…" : "シールにする"}
-            </SketchButton>
-            <SketchButton variant="plain" size="sm" onClick={() => setStep("pick")} disabled={busy}>
-              ほかのにする
-            </SketchButton>
+          <div className="shrink-0 pt-3">
+            <div className="flex gap-2">
+              <SketchInput aria-label="なまえ" className="w-[42%]" value={label} maxLength={12} placeholder="なまえ" onChange={(e) => setLabel(e.target.value)} />
+              <SketchInput aria-label="ひとことメモ" className="flex-1" value={memo} maxLength={80} placeholder="ひとことメモ" onChange={(e) => setMemo(e.target.value)} />
+            </div>
+            <div className="mt-3 flex items-center gap-2">
+              <SketchButton variant="plain" size="sm" onClick={() => setStep("pick")} disabled={busy} className="shrink-0">
+                ほかのにする
+              </SketchButton>
+              <SketchButton size="lg" className="flex-1" onClick={() => void makeSticker()} disabled={busy}>
+                {busy ? "貼ってる…" : "シールにする"}
+              </SketchButton>
+            </div>
           </div>
-        </div>
+        </section>
       )}
 
       {/* ───── どうする？ ───── */}
       {step === "share" && saved && (
-        <div className="animate-rise mt-6 flex flex-col items-center text-center">
-          <div className="w-[56%]">
-            <StickerView src={saved.imageUrl} alt={saved.label} rotation={saved.rotation} lift />
+        <section className="animate-rise mt-3 flex min-h-0 flex-1 flex-col items-center text-center">
+          <div className="flex min-h-0 w-full flex-1 flex-col items-center justify-center">
+            <StickerView src={saved.imageUrl} alt={saved.label} rotation={saved.rotation} lift className="max-h-[80%] w-auto" />
+            <p className="mt-2 text-lg">{saved.label}</p>
           </div>
-          <p className="mt-3 text-lg font-bold">{saved.label}</p>
-          <Michibi mood="perch" size={56} says={MICHIBI_LINES.shareAsk} className="mt-3" animate="none" />
-          <div className="mt-6 flex w-full flex-col gap-3">
+          <div className="w-full shrink-0">
+            <div className="mb-2 flex justify-center">
+              <Michibi mood="perch" size={44} says={MICHIBI_LINES.shareAsk} animate="none" />
+            </div>
             <SketchButton size="lg" block onClick={() => void share("placed")} disabled={busy}>
               ここに置いていく
             </SketchButton>
-            <SketchButton variant="sub" block onClick={() => void share("sent")} disabled={busy}>
-              知らない誰かに送り出す
-            </SketchButton>
-            <SketchButton variant="plain" block onClick={() => void share("kept")} disabled={busy}>
-              手帳に残す
-            </SketchButton>
+            <div className="mt-2 flex gap-2">
+              <SketchButton variant="sub" className="flex-1" onClick={() => void share("sent")} disabled={busy}>
+                誰かに送る
+              </SketchButton>
+              <SketchButton variant="plain" className="flex-1" onClick={() => void share("kept")} disabled={busy}>
+                手帳に残す
+              </SketchButton>
+            </div>
           </div>
-          <p className="mt-4 text-sm text-ink-mute">どれを選んでも、手帳には残ります。</p>
-        </div>
+        </section>
       )}
 
       {/* ───── おしまい ───── */}
       {step === "done" && saved && (
-        <div className="animate-rise mt-8 flex flex-col items-center text-center">
-          <div className="w-[48%]">
-            <StickerView src={saved.imageUrl} alt={saved.label} rotation={saved.rotation} />
+        <section className="animate-rise mt-3 flex min-h-0 flex-1 flex-col items-center text-center">
+          <div className="flex min-h-0 w-full flex-1 flex-col items-center justify-center">
+            <StickerView src={saved.imageUrl} alt={saved.label} rotation={saved.rotation} className="max-h-[60%] w-auto" />
+            <Michibi
+              mood={outcome === "sent" ? "flap" : outcome === "placed" ? "perch" : "happy"}
+              size={72}
+              says={outcome === "sent" ? MICHIBI_LINES.sent : outcome === "placed" ? MICHIBI_LINES.placed : "手帳に貼っといた。"}
+              className="mt-3 flex-col-reverse !items-center"
+              animate="none"
+            />
           </div>
-          <Michibi
-            mood={outcome === "sent" ? "flap" : outcome === "placed" ? "perch" : "happy"}
-            size={80}
-            says={outcome === "sent" ? MICHIBI_LINES.sent : outcome === "placed" ? MICHIBI_LINES.placed : "手帳に貼っといた。"}
-            className="mt-4 flex-col-reverse !items-center"
-            animate="none"
-          />
-          <div className="mt-8 flex w-full flex-col gap-3">
-            <SketchButton size="lg" block onClick={() => { setStep("explore"); setSaved(null); setSticker(null); setMemo(""); void load(); }}>
-              もう少し探す
-            </SketchButton>
-            <SketchLinkButton href="/" variant="sub" block>
+          <div className="flex w-full shrink-0 gap-2">
+            <SketchLinkButton href="/" variant="sub" className="flex-1">
               ほかの場所へ
             </SketchLinkButton>
+            <SketchButton
+              className="flex-1"
+              onClick={() => {
+                setStep("explore");
+                setSaved(null);
+                setSticker(null);
+                setMemo("");
+                void load();
+              }}
+            >
+              もう少し探す
+            </SketchButton>
           </div>
-        </div>
+        </section>
       )}
     </main>
   );
