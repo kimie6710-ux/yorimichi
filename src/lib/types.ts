@@ -204,6 +204,8 @@ export interface InboxItem {
 }
 
 export interface MyHistory {
+  /** Spots you marked 気になる. `name` only once you've been (the place stays a surprise until then). */
+  saved: { spotId: string; name: string | null; copy: string | null; at: string }[];
   visited: { spotId: string; name: string; copy: string | null; at: string }[];
   placed: Sticker[];
   sent: Sticker[];

@@ -11,6 +11,7 @@ import { Michibi } from "@/components/Michibi";
 import { SketchButton, SketchCard } from "@/components/sketch";
 import { StartScreen } from "@/components/StartScreen";
 import { TopBar } from "@/components/TopBar";
+import { api } from "@/lib/api-client";
 import { MICHIBI_LINES } from "@/lib/character";
 import { useSearch } from "@/lib/store/search-context";
 import { distanceMeters } from "@/lib/geo";
@@ -191,7 +192,13 @@ export default function MapHome() {
           <ul ref={rail} className="hide-scrollbar flex snap-x snap-mandatory gap-4 overflow-x-auto px-[9%] pt-4 pb-1" aria-label="近くのスポット">
             {spots.map((s, i) => (
               <li key={s.place.placeId} data-id={s.place.placeId} className="w-[84%] shrink-0 snap-center">
-                <SpotCard spot={s} index={i + 1} active={selected?.place.placeId === s.place.placeId} onFocus={() => select(s.place.placeId, false)} onGo={() => router.push(`/visit/${encodeURIComponent(s.place.placeId)}`)} />
+                <SpotCard spot={s} index={i + 1} active={selected?.place.placeId === s.place.placeId} onFocus={() => select(s.place.placeId, false)} onGo={() => router.push(`/visit/${encodeURIComponent(s.place.placeId)}`)}
+                  onSave={() => {
+                    const next = !s.saved;
+                    town.patchSpot(s.place.placeId, { saved: next });
+                    void api.save(s.place.placeId, next).catch(() => town.patchSpot(s.place.placeId, { saved: !next }));
+                  }}
+                />
               </li>
             ))}
           </ul>
@@ -201,10 +208,38 @@ export default function MapHome() {
   );
 }
 
-function SpotCard({ spot, index, active, onFocus, onGo }: { spot: MapSpot; index: number; active: boolean; onFocus: () => void; onGo: () => void }) {
+function SpotCard({
+  spot,
+  index,
+  active,
+  onFocus,
+  onGo,
+  onSave,
+}: {
+  spot: MapSpot;
+  index: number;
+  active: boolean;
+  onFocus: () => void;
+  onGo: () => void;
+  onSave: () => void;
+}) {
   return (
     <SketchCard tone={active ? "white" : "paper"} pad="md" seed={`card-${spot.place.placeId}`} tape={active ? "auto" : undefined} onClick={onFocus}>
-      <span className="text-[12px] tracking-widest text-ink-mute tabular-nums">{String(index).padStart(2, "0")}</span>
+      <div className="flex items-start justify-between">
+        <span className="text-[12px] tracking-widest text-ink-mute tabular-nums">{String(index).padStart(2, "0")}</span>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onSave();
+          }}
+          aria-pressed={spot.saved}
+          aria-label={spot.saved ? "気になるから外す" : "気になる"}
+          className={`-mt-1 -mr-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-transform active:translate-y-0.5 ${spot.saved ? "bg-butter" : "bg-card"}`}
+        >
+          <img src="/ui/i-star.png" alt="" className={`h-5 w-auto ${spot.saved ? "" : "opacity-50"}`} draggable={false} />
+        </button>
+      </div>
       <Link href={`/spot/${encodeURIComponent(spot.place.placeId)}`} className="mt-0.5 line-clamp-2 block text-[20px] leading-snug whitespace-pre-line">
         {spot.copy?.copy}
       </Link>

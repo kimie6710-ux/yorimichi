@@ -11,9 +11,10 @@ import { StickerGrid } from "@/components/StickerGrid";
 import { api, ApiClientError } from "@/lib/api-client";
 import type { MyHistory } from "@/lib/types";
 
-type Tab = "visited" | "placed" | "sent" | "received";
+type Tab = "saved" | "visited" | "placed" | "sent" | "received";
 const TABS: { value: Tab; label: string }[] = [
-  { value: "visited", label: "行った場所" },
+  { value: "saved", label: "気になる" },
+  { value: "visited", label: "行った" },
   { value: "placed", label: "残した" },
   { value: "sent", label: "送った" },
   { value: "received", label: "届いた" },
@@ -22,7 +23,7 @@ const TABS: { value: Tab; label: string }[] = [
 export default function MyPage() {
   const [data, setData] = useState<MyHistory | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<Tab>("visited");
+  const [tab, setTab] = useState<Tab>("saved");
 
   useEffect(() => {
     api
@@ -31,7 +32,7 @@ export default function MyPage() {
       .catch((e) => setError(e instanceof ApiClientError ? e.message : "読み込めませんでした"));
   }, []);
 
-  const list = data && tab !== "visited" ? data[tab] : [];
+  const list = data && tab !== "visited" && tab !== "saved" ? data[tab] : [];
 
   return (
     <main className="paper min-h-[calc(100dvh-76px)] px-4 pt-[max(12px,env(safe-area-inset-top))] pb-10">
@@ -47,12 +48,7 @@ export default function MyPage() {
         </Link>
       </header>
 
-      {data && (
-        <p className="mt-4 text-sm text-ink-soft">
-          行った場所 {data.visited.length}・残した {data.placed.length}・送った {data.sent.length}・届いた {data.received.length}
-        </p>
-      )}
-      <SketchTabs className="mt-3 flex-wrap" value={tab} onChange={setTab} items={TABS} />
+      <SketchTabs className="mt-4 flex-nowrap" value={tab} onChange={setTab} items={TABS} />
 
       {error && <p className="mt-6 text-sm font-bold">{error}</p>}
       {!data && !error && (
@@ -76,7 +72,27 @@ export default function MyPage() {
           ))}
         </ul>
       )}
-      {data && tab !== "visited" && (
+      {data && tab === "saved" && (
+        <ul className="mt-4 flex flex-col gap-3">
+          {data.saved.length === 0 && <p className="text-sm text-ink-soft">スポットの星を押すと、ここに集まります。</p>}
+          {data.saved.map((v) => (
+            <li key={v.spotId}>
+              <Link href={`/spot/${encodeURIComponent(v.spotId)}`} className="block">
+                <SketchSection tone="white" seed={`saved-${v.spotId}`}>
+                  <div className="flex items-center gap-3">
+                    <img src="/ui/i-star.png" alt="" className="h-5 w-auto shrink-0" draggable={false} />
+                    <div className="min-w-0">
+                      <p className="font-bold">{v.copy ?? "なんか気になる。"}</p>
+                      <p className="mt-0.5 text-sm text-ink-soft">{v.name ?? "まだ行っていない場所"}</p>
+                    </div>
+                  </div>
+                </SketchSection>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+      {data && tab !== "visited" && tab !== "saved" && (
         <div className="mt-6">
           {list.length === 0 ? <p className="text-sm text-ink-soft">まだありません。</p> : <StickerGrid items={list} />}
         </div>

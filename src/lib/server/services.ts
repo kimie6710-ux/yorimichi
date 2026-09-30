@@ -562,16 +562,26 @@ export async function unreadCount(userId: string): Promise<number> {
 
 export async function history(userId: string): Promise<MyHistory> {
   const store = getStore();
-  const [visits, mine] = await Promise.all([
+  const [visits, saves, mine] = await Promise.all([
     store.find("visits", { where: { user_id: userId }, order: { key: "created_at" }, limit: 200 }),
+    store.find("spot_saves", { where: { user_id: userId }, order: { key: "created_at" }, limit: 200 }),
     listMyStickers(userId),
   ]);
-  const spots = new Map((await store.find("spots", { in: { id: [...new Set(visits.map((v) => v.spot_id))] } })).map((s) => [s.id, s]));
+  const ids = [...new Set([...visits.map((v) => v.spot_id), ...saves.map((s) => s.spot_id)])];
+  const spots = new Map((await store.find("spots", { in: { id: ids } })).map((s) => [s.id, s]));
+  const been = new Set(visits.map((v) => v.spot_id));
   const seen = new Set<string>();
   const visited = visits
     .filter((v) => (seen.has(v.spot_id) ? false : (seen.add(v.spot_id), true)))
     .map((v) => ({ spotId: v.spot_id, name: spots.get(v.spot_id)?.name ?? "", copy: spots.get(v.spot_id)?.ai_copy ?? null, at: v.created_at }));
+  const saved = saves.map((s) => ({
+    spotId: s.spot_id,
+    name: been.has(s.spot_id) ? (spots.get(s.spot_id)?.name ?? null) : null,
+    copy: spots.get(s.spot_id)?.ai_copy ?? null,
+    at: s.created_at,
+  }));
   return {
+    saved,
     visited,
     placed: mine.filter((s) => s.status === "placed"),
     sent: mine.filter((s) => s.status === "sent"),

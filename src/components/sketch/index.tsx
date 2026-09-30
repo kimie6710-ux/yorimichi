@@ -418,7 +418,7 @@ export function SketchTabs<T extends string>({
   className?: string;
 }) {
   return (
-    <div role="tablist" className={`flex gap-1 ${className}`}>
+    <div role="tablist" className={`hide-scrollbar flex gap-1 overflow-x-auto ${className}`}>
       {items.map((it) => {
         const active = it.value === value;
         return (
@@ -428,7 +428,7 @@ export function SketchTabs<T extends string>({
             type="button"
             aria-selected={active}
             onClick={() => onChange(it.value)}
-            className={`relative isolate h-10 px-3 text-sm ${active ? "font-bold text-ink" : "text-ink-mute"}`}
+            className={`relative isolate h-10 shrink-0 px-2.5 text-sm whitespace-nowrap ${active ? "font-bold text-ink" : "text-ink-mute"}`}
           >
             {active && (
               // eslint-disable-next-line @next/next/no-img-element -- UI sprite
