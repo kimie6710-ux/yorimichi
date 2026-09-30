@@ -1,7 +1,7 @@
 import "server-only";
 
 import { getAIProvider } from "@/lib/ai";
-import { findCopyProblems, leaksName, usesCrutch } from "@/lib/ai/title-lint";
+import { copyIsUsable, pickVaried } from "@/lib/ai/title-lint";
 import { distanceMeters, walkMinutes } from "@/lib/geo";
 import type {
   InboxItem,
@@ -80,6 +80,7 @@ function baseRow(p: Place, prev?: SpotRow): SpotRow {
     address: p.address,
     ai_copy: prev?.ai_copy ?? null,
     ai_copy_form: prev?.ai_copy_form ?? null,
+    ai_copy_alts: prev?.ai_copy_alts ?? [],
     ai_bird_line: prev?.ai_bird_line ?? null,
     ai_model: prev?.ai_model ?? null,
     ai_generated_at: prev?.ai_generated_at ?? null,
@@ -135,26 +136,31 @@ export async function seedCopies(places: Place[]): Promise<Map<string, SpotCopy>
   const ai = getAIProvider();
   const result = await ai.seedCopies({ places: todo, avoid });
   const byPlace = new Map(todo.map((p) => [p.placeId, p]));
-  const problems = findCopyProblems(result.spots.map((s) => s.copy));
-  if (problems.length) console.info("[seed] copy set is repetitive:", problems.join(" / "));
+  const valid = result.spots.filter((s) => byPlace.has(s.placeId) && !out.has(s.placeId));
+  const usable = valid.map((s) =>
+    s.candidates
+      .map((c) => ({ form: c.form, copy: c.copy.replace(/\\n/g, "\n").replace(/[ \t]+/g, " ").trim() }))
+      .filter((c) => copyIsUsable(c.copy, byPlace.get(s.placeId)!.name)),
+  );
+  const picks = pickVaried(usable, avoid);
 
   const rows: SpotRow[] = [];
-  for (const s of result.spots) {
-    const place = byPlace.get(s.placeId);
-    if (!place || out.has(place.placeId)) continue;
-    const copy = s.copy.replace(/\s+/g, " ").trim().slice(0, 32);
-    if (!copy || leaksName(copy, place.name) || usesCrutch(copy)) continue;
+  valid.forEach((s, k) => {
+    const place = byPlace.get(s.placeId)!;
+    const pick = picks[k];
+    if (!pick) return;
     const bird = s.birdLine.trim().slice(0, 18);
-    out.set(place.placeId, { copy, form: s.form, birdLine: bird });
+    out.set(place.placeId, { copy: pick.copy, form: pick.form, birdLine: bird });
     rows.push({
       ...baseRow(place, existing.get(place.placeId)),
-      ai_copy: copy,
-      ai_copy_form: s.form,
+      ai_copy: pick.copy,
+      ai_copy_form: pick.form,
+      ai_copy_alts: usable[k].map((c) => c.copy),
       ai_bird_line: bird,
       ai_model: ai.model,
       ai_generated_at: now(),
     });
-  }
+  });
   await store.upsert("spots", rows);
   return out;
 }

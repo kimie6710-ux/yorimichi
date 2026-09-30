@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Klee_One, Noto_Sans_JP } from "next/font/google";
+import { Noto_Sans_JP } from "next/font/google";
 
 import { BottomNav } from "@/components/BottomNav";
 import { APP_NAME, APP_TAGLINE } from "@/lib/config";
@@ -8,19 +8,13 @@ import "./globals.css";
 
 const noto = Noto_Sans_JP({
   variable: "--font-noto",
-  weight: ["500", "700"],
+  weight: ["400", "500", "700"],
   subsets: ["latin"],
   display: "swap",
   preload: false,
 });
 
-const klee = Klee_One({
-  variable: "--font-klee",
-  weight: ["600"],
-  subsets: ["latin"],
-  display: "swap",
-  preload: false,
-});
+
 
 export const metadata: Metadata = {
   title: APP_NAME,
@@ -39,7 +33,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="ja" className={`${noto.variable} ${klee.variable} h-full antialiased`}>
+    <html lang="ja" className={`${noto.variable} h-full antialiased`}>
       <body className="min-h-dvh bg-paper-deep">
         <SearchProvider>
           {/* Phone-first: on wider screens the app sits in a phone-width column. */}

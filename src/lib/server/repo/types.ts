@@ -20,6 +20,8 @@ export interface SpotRow {
   address: string | null;
   ai_copy: string | null;
   ai_copy_form: string | null;
+  /** All usable candidates the AI wrote (the chosen one is ai_copy). */
+  ai_copy_alts: string[];
   ai_bird_line: string | null;
   ai_model: string | null;
   ai_generated_at: string | null;

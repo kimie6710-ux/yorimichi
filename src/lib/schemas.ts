@@ -74,14 +74,21 @@ export const memoSchema = z.object({ memo: z.string().max(80) });
 
 // ── AI output schemas (structured output) ───────────────────
 
+export const COPY_FORMS = ["名詞止め", "短い断定", "擬人化", "用途のずらし", "情景", "違和感", "詩的", "対比"] as const;
+
 export const seedOutputSchema = z.object({
   spots: z.array(
     z.object({
       placeId: z.string().describe("入力の placeId をそのままコピー。変更禁止"),
       reading: z.string().describe("内部用：本来なにをする場所か（短く）"),
-      angle: z.string().describe("内部用：どの角度でずらしたか（短く）"),
-      form: z.enum(["断定", "うわさ", "条件", "じゃなく", "用途名", "未満以上", "疑問", "名詞句"]),
-      copy: z.string().describe("8〜28文字の一文。店名を書かない"),
+      candidates: z
+        .array(
+          z.object({
+            form: z.enum(COPY_FORMS),
+            copy: z.string().describe("8〜20文字。必要なら改行1回で2行まで。店名を書かない"),
+          }),
+        )
+        .describe("文型の違う5案"),
       birdLine: z.string().describe("小鳥のひとこと。15文字以内"),
     }),
   ),

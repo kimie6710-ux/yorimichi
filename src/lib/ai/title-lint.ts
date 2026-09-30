@@ -4,7 +4,10 @@ import "server-only";
 // (spoilers), no crutch words, and not all the same shape.
 
 const TRAILING = /[？?！!。…、\s]+$/u;
-const CRUTCH = /余白|記憶|物語|呼吸|心|光|そっと|静かに|癒|秘密|エモ|穴場|隠れ家|おしゃれ/;
+const CRUTCH = /余白|記憶|物語|呼吸|心|光|そっと|静かに|癒|エモ|穴場|隠れ家|おしゃれ/;
+/** Openings / endings the copy must avoid (explanatory tone). */
+const BAD_OPENING = /^(ここ|この|その|そこ|あの)/;
+const BAD_TONE = /(かもしれません|でしょう|です。?$|ます。?$|おすすめ)/;
 
 /** True if the copy leaks the place's real name. */
 export function leaksName(copy: string, name: string): boolean {
@@ -22,14 +25,45 @@ export function usesCrutch(copy: string): boolean {
   return CRUTCH.test(copy);
 }
 
-export function findCopyProblems(copies: string[]): string[] {
-  const clean = copies.map((t) => t.replace(TRAILING, ""));
-  const problems: string[] = [];
-  const endings = new Map<string, number>();
-  for (const t of clean) endings.set(t.slice(-2), (endings.get(t.slice(-2)) ?? 0) + 1);
-  for (const [e, n] of endings) if (n >= 3) problems.push(`語尾「${e}」が${n}件`);
-  const openings = new Map<string, number>();
-  for (const t of clean) if (t.length >= 4) openings.set(t.slice(0, 3), (openings.get(t.slice(0, 3)) ?? 0) + 1);
-  for (const [o, n] of openings) if (n >= 3) problems.push(`書き出し「${o}」が${n}件`);
-  return problems;
+/** A single copy is usable: short, not explanatory, no name, no crutch words. */
+export function copyIsUsable(copy: string, name: string): boolean {
+  const flat = copy.replace(/\n/g, "");
+  if (flat.length < 4 || flat.length > 24) return false;
+  if (BAD_OPENING.test(flat) || BAD_TONE.test(flat)) return false;
+  return !leaksName(flat, name) && !usesCrutch(flat);
+}
+
+/**
+ * Pick one copy per spot from its candidates so the set reads varied:
+ * avoid repeating an opening, an ending or a form already used nearby.
+ */
+export function pickVaried<T extends { copy: string; form: string }>(
+  options: T[][],
+  already: string[] = [],
+): (T | null)[] {
+  const openings = new Set(already.map((c) => c.slice(0, 2)));
+  const endings = new Set(already.map((c) => c.replace(TRAILING, "").slice(-2)));
+  const forms = new Map<string, number>();
+  return options.map((list) => {
+    let best: T | null = null;
+    let bestScore = -Infinity;
+    for (const [i, o] of list.entries()) {
+      const flat = o.copy.replace(/\n/g, "");
+      let score = -i * 0.3; // the model's own order is a weak hint
+      if (openings.has(flat.slice(0, 2))) score -= 2;
+      if (endings.has(flat.replace(TRAILING, "").slice(-2))) score -= 2;
+      score -= (forms.get(o.form) ?? 0) * 1.5;
+      if (score > bestScore) {
+        best = o;
+        bestScore = score;
+      }
+    }
+    if (best) {
+      const flat = best.copy.replace(/\n/g, "");
+      openings.add(flat.slice(0, 2));
+      endings.add(flat.replace(TRAILING, "").slice(-2));
+      forms.set(best.form, (forms.get(best.form) ?? 0) + 1);
+    }
+    return best;
+  });
 }

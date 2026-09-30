@@ -56,6 +56,7 @@ create table if not exists public.spots (
   address text,
   ai_copy text,
   ai_copy_form text,
+  ai_copy_alts text[] not null default '{}',
   ai_bird_line text,
   ai_model text,
   ai_generated_at timestamptz,
