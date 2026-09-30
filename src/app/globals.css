@@ -245,25 +245,22 @@
   background: linear-gradient(90deg, rgb(60 50 30 / 0.1), transparent);
   pointer-events: none;
 }
-.book-cream {
-  background-color: #fbf6e9;
-  background-image:
-    radial-gradient(rgb(120 100 60 / 0.05) 1px, transparent 1.4px),
-    radial-gradient(rgb(120 100 60 / 0.035) 1px, transparent 1.2px);
-  background-size: 7px 9px, 13px 11px;
+/* Page papers (着せ替え) */
+.book-cream,
+.book-kraft,
+.book-pink,
+.book-grid,
+.book-dots,
+.book-lined {
+  background-size: 100% auto;
+  background-repeat: repeat-y;
 }
-.book-grid {
-  background-color: #fdfdfb;
-  background-image:
-    linear-gradient(rgb(90 160 200 / 0.18) 1px, transparent 1px),
-    linear-gradient(90deg, rgb(90 160 200 / 0.18) 1px, transparent 1px);
-  background-size: 18px 18px;
-}
-.book-dots {
-  background-color: #f6f3ec;
-  background-image: radial-gradient(rgb(60 55 45 / 0.22) 1.1px, transparent 1.4px);
-  background-size: 16px 16px;
-}
+.book-cream { background-color: #f6ecd8; background-image: url("/paper/cream.jpg"); }
+.book-grid { background-color: #e8f0f5; background-image: url("/paper/grid.jpg"); }
+.book-kraft { background-color: #c49e74; background-image: url("/paper/kraft.jpg"); }
+.book-pink { background-color: #f3c3c8; background-image: url("/paper/pink.jpg"); }
+.book-dots { background-color: #f8f0dc; background-image: url("/paper/dots.jpg"); }
+.book-lined { background-color: #f7ecd7; background-image: url("/paper/lined.jpg"); }
 @keyframes page-turn-r {
   from { background: linear-gradient(270deg, rgb(60 50 30 / 0.18), transparent 40%); opacity: 1; }
   to { opacity: 0; }

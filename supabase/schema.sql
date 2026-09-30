@@ -166,7 +166,7 @@ create table if not exists public.book_pages (
   id text primary key,                         -- "{user_id}:{idx}"
   user_id uuid not null references public.users (id) on delete cascade,
   idx int not null,
-  bg text not null check (bg in ('cream', 'grid', 'dots'))
+  bg text not null check (bg in ('cream', 'grid', 'kraft', 'pink', 'dots', 'lined'))
 );
 alter table public.book_pages enable row level security;
 

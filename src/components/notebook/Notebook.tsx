@@ -31,7 +31,7 @@ const EDGE = 0.1;
 const EDGE_HOLD_MS = 650;
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
 
-export const PAGE_BG_LABEL: Record<PageBackground, string> = { cream: "生成り", grid: "方眼", dots: "ドット" };
+export const PAGE_BG_LABEL: Record<PageBackground, string> = { cream: "生成り", grid: "方眼", kraft: "クラフト", pink: "ピンク", dots: "ドット", lined: "罫線" };
 
 /**
  * Where every sticker sits. Saved positions win; the rest keep a stable
@@ -299,22 +299,9 @@ export function Notebook({
         <button type="button" onClick={() => go(-1)} disabled={page === 0} aria-label="前のページ" className="sketch-btn flex h-11 w-11 items-center justify-center disabled:opacity-30">
           <img src="/ui/i-back.png" alt="" className="h-5 w-auto" />
         </button>
-        <div className="flex items-center gap-2" role="radiogroup" aria-label="ページの背景">
-          {PAGE_BACKGROUNDS.map((bg) => (
-            <button
-              key={bg}
-              type="button"
-              role="radio"
-              aria-checked={bgOf(page) === bg}
-              aria-label={PAGE_BG_LABEL[bg]}
-              onClick={() => setBg(bg)}
-              className={`book-${bg} relative h-8 w-8 rounded-[7px_9px_6px_10px] ${bgOf(page) === bg ? "outline-2 outline-ink outline-solid" : "outline-1 outline-line outline-solid"}`}
-            />
-          ))}
-          <span className="ml-1 text-[12px] text-ink-mute tabular-nums">
-            {page + 1} / {pageCount}
-          </span>
-        </div>
+        <span className="text-[13px] text-ink-mute tabular-nums">
+          {page + 1} / {pageCount}
+        </span>
         <SketchButton variant="sub" size="sm" onClick={() => setTrayOpen(true)} className="!px-2.5" aria-label="シールを貼る">
           <img src="/deco/bird-front.png" alt="" className="h-6 w-auto" />
           貼る
@@ -322,6 +309,20 @@ export function Notebook({
         <button type="button" onClick={() => go(1)} aria-label={page === pageCount - 1 ? "新しいページ" : "次のページ"} className="sketch-btn flex h-11 w-11 items-center justify-center">
           <img src="/ui/i-back.png" alt="" className="h-5 w-auto -scale-x-100" />
         </button>
+      </div>
+
+      <div className="mt-2 flex items-center justify-center gap-2.5" role="radiogroup" aria-label="ページの紙">
+        {PAGE_BACKGROUNDS.map((bg) => (
+          <button
+            key={bg}
+            type="button"
+            role="radio"
+            aria-checked={bgOf(page) === bg}
+            aria-label={PAGE_BG_LABEL[bg]}
+            onClick={() => setBg(bg)}
+            className={`book-${bg} sketch-btn h-9 w-9 rounded-[7px_10px_6px_11px] shadow-[0_1px_2px_rgb(60_50_30/0.2)] ${bgOf(page) === bg ? "outline-2 outline-ink outline-offset-2 outline-solid" : ""}`}
+          />
+        ))}
       </div>
 
       <SketchSheet open={trayOpen} onClose={() => setTrayOpen(false)} label="シールを貼る">

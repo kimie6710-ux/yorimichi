@@ -87,7 +87,7 @@ export const stickerPatchSchema = z.object({
 });
 
 export const bookPagesSchema = z.object({
-  pages: z.array(z.object({ idx: z.number().int().min(0).max(199), bg: z.enum(["cream", "grid", "dots"]) })).max(200),
+  pages: z.array(z.object({ idx: z.number().int().min(0).max(199), bg: z.enum(["cream", "grid", "kraft", "pink", "dots", "lined"]) })).max(200),
 });
 
 // ── AI output schemas (structured output) ───────────────────

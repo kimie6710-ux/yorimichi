@@ -134,7 +134,7 @@ export interface BookPos {
   rot: number;
 }
 
-export const PAGE_BACKGROUNDS = ["cream", "grid", "dots"] as const;
+export const PAGE_BACKGROUNDS = ["cream", "grid", "kraft", "pink", "dots", "lined"] as const;
 export type PageBackground = (typeof PAGE_BACKGROUNDS)[number];
 
 /** Character stickers you can decorate the notebook with. */
