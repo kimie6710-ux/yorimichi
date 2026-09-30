@@ -227,6 +227,22 @@ export function SketchTextarea({ seed, className = "", ...rest }: { seed?: strin
 
 /* ───────── Speech bubble ───────── */
 
+/**
+ * Hand-drawn bubbles (public/ui/bubbles). Drawn as 9-slice border images so
+ * the corners and the tail keep their shape while the middle stretches; the
+ * text sits inside the line. slice = top right bottom left (source px),
+ * foot = source px from the body's bottom line to the tail tip.
+ */
+const BUBBLES = [
+  { src: "/ui/bubbles/b1.png", slice: [95, 115, 110, 175], foot: 50 },
+  { src: "/ui/bubbles/b2.png", slice: [100, 130, 105, 150], foot: 40 },
+  { src: "/ui/bubbles/b3.png", slice: [80, 100, 100, 150], foot: 62 },
+  { src: "/ui/bubbles/b4.png", slice: [60, 60, 85, 110], foot: 53 },
+  { src: "/ui/bubbles/b6.png", slice: [60, 70, 110, 160], foot: 70 },
+] as const;
+const BUBBLE_SCALE = 1 / 3.4;
+const EDGE_PAD = 26 * BUBBLE_SCALE + 8;
+
 export function SketchBubble({
   side = "left",
   seed,
@@ -239,21 +255,29 @@ export function SketchBubble({
   className?: string;
   children: ReactNode;
 }) {
+  const b = BUBBLES[hashSeed(seed ?? (typeof children === "string" ? children : "bubble")) % BUBBLES.length];
+  const [t, r, bt, l] = b.slice.map((v) => Math.round(v * BUBBLE_SCALE));
   return (
-    <div className={`relative isolate px-3.5 py-2 ${className}`}>
-      <SketchOutline tone="sky" seed={`${seed ?? children}-wash`} radius={18} strokeWidth={0} double={false} className="translate-x-[3px] translate-y-[4px] opacity-70" />
-      <SketchOutline tone="white" seed={seed ?? (typeof children === "string" ? children : undefined)} radius={18} double={false} strokeWidth={1.6} stroke="var(--color-ink-soft)" />
-      <svg
+    <div className={`relative isolate w-fit ${className}`} style={{ minHeight: t + bt, minWidth: l + r + 12 }}>
+      <span
         aria-hidden
-        width="18"
-        height="16"
-        viewBox="0 0 18 16"
-        className={`pointer-events-none absolute -bottom-[11px] -z-[5] ${side === "left" ? "left-4" : "right-4 -scale-x-100"}`}
+        className="pointer-events-none absolute inset-0 -z-10 box-border"
+        style={{
+          borderStyle: "solid",
+          borderColor: "transparent",
+          borderWidth: `${t}px ${r}px ${bt}px ${l}px`,
+          borderImageSource: `url(${b.src})`,
+          borderImageSlice: `${b.slice.join(" ")} fill`,
+          borderImageRepeat: "stretch",
+          transform: side === "right" ? "scaleX(-1)" : undefined,
+        }}
+      />
+      <div
+        className="text-sm leading-snug"
+        style={{ padding: `${EDGE_PAD}px ${EDGE_PAD + 4}px ${Math.round(b.foot * BUBBLE_SCALE) + EDGE_PAD}px ${EDGE_PAD + 4}px` }}
       >
-        <path d="M3 0.5 C4 6 2.5 10 0.8 14.6 C6 12 11 8 15 0.5" fill="var(--color-card)" />
-        <path d="M3.2 1.8 C4 6 2.5 10 0.8 14.6 C6 12 11 8 15 1.8" fill="none" stroke="var(--color-ink-soft)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-      <div className="text-sm leading-snug">{children}</div>
+        {children}
+      </div>
     </div>
   );
 }
