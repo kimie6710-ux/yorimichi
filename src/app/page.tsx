@@ -160,7 +160,7 @@ export default function MapHome() {
               <Michibi mood="walk" size={44} animate="wander" says={MICHIBI_LINES.loading[1]} />
             </div>
           )}
-          <ul ref={rail} className="hide-scrollbar flex snap-x snap-mandatory gap-3 overflow-x-auto px-[9%] pt-2 pb-1" aria-label="近くのスポット">
+          <ul ref={rail} className="hide-scrollbar flex snap-x snap-mandatory gap-4 overflow-x-auto px-[9%] pt-4 pb-1" aria-label="近くのスポット">
             {spots.map((s, i) => (
               <li key={s.place.placeId} data-id={s.place.placeId} className="w-[82%] shrink-0 snap-center">
                 <SpotCard spot={s} index={i + 1} active={selected?.place.placeId === s.place.placeId} onFocus={() => select(s.place.placeId, false)} onGo={() => router.push(`/visit/${encodeURIComponent(s.place.placeId)}`)} />
@@ -175,21 +175,19 @@ export default function MapHome() {
 
 function SpotCard({ spot, index, active, onFocus, onGo }: { spot: MapSpot; index: number; active: boolean; onFocus: () => void; onGo: () => void }) {
   return (
-    <SketchCard tone={active ? "white" : "paper"} pad="md" seed={`card-${spot.place.placeId}`} className="flex h-full flex-col" onClick={onFocus}>
-      <div className="flex items-start gap-2">
-        <span className="mt-0.5 font-hand text-lg leading-none font-bold text-ink-mute">{index}</span>
-        <Link href={`/spot/${encodeURIComponent(spot.place.placeId)}`} className="min-w-0 flex-1 text-lg leading-snug font-bold">
-          {spot.copy?.copy}
-        </Link>
-      </div>
-      <p className="mt-2 flex flex-wrap gap-x-3 text-sm text-ink-soft">
-        <span>徒歩{spot.place.walkMinutes}分</span>
-        {spot.placedCount > 0 && <span>✦ 誰かが置いたもの {spot.placedCount}</span>}
-        {spot.visited && <span>行ったことある</span>}
+    <SketchCard tone={active ? "white" : "paper"} pad="lg" seed={`card-${spot.place.placeId}`} tape={active ? "blue" : undefined} className="flex h-full flex-col" onClick={onFocus}>
+      <span className="text-[12px] font-bold tracking-widest text-ink-mute tabular-nums">{String(index).padStart(2, "0")}</span>
+      <Link href={`/spot/${encodeURIComponent(spot.place.placeId)}`} className="mt-1 block text-xl leading-snug font-bold whitespace-pre-line">
+        {spot.copy?.copy}
+      </Link>
+      <p className="mt-2 text-sm text-ink-mute">
+        徒歩{spot.place.walkMinutes}分{spot.placedCount > 0 ? "・誰かの発見あり" : ""}
       </p>
-      <SketchButton size="sm" block className="mt-3" onClick={onGo}>
-        行ってみる
-      </SketchButton>
+      <div className="mt-auto flex justify-end pt-3">
+        <SketchButton size="sm" onClick={onGo}>
+          行ってみる →
+        </SketchButton>
+      </div>
     </SketchCard>
   );
 }

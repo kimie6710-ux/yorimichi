@@ -11,6 +11,8 @@ import type {
   Place,
   SpotDetail,
   Sticker,
+  BookPage,
+  BookPos,
   CutoutName,
 } from "@/lib/types";
 
@@ -99,6 +101,11 @@ export const api = {
   myStickers: () => request<{ items: Sticker[] }>("/api/stickers"),
   memo: (id: string, memo: string) =>
     request<{ sticker: Sticker }>(`/api/stickers/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ memo }) }),
+  moveInBook: (id: string, book: BookPos) =>
+    request<{ sticker: Sticker }>(`/api/stickers/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ book }) }),
+  bookPages: () => request<{ pages: BookPage[] }>("/api/book/pages"),
+  saveBookPages: (pages: BookPage[]) =>
+    request<{ ok: true }>("/api/book/pages", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pages }) }),
   place: (id: string, at: LatLng | null) => request<{ sticker: Sticker }>(`/api/stickers/${id}/place`, post(at)),
   send: (id: string) => request<{ delivered: boolean; sticker: Sticker }>(`/api/stickers/${id}/send`, { method: "POST" }),
 

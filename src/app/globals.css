@@ -14,14 +14,16 @@
   --color-paper-deep: #f3ecdc;   /* 濃い生成り */
   --color-line: #e6dfcf;
   --color-gray-300: #cfc8b8;
-  --color-ink: #22201c;          /* 黒（手描き線・本文） */
-  --color-ink-soft: #4a463f;
+  --color-ink: #34302a;          /* やわらかい黒（線・本文） */
+  --color-ink-soft: #57524a;
   --color-ink-mute: #7c766b;
   --color-sky: #dcedf6;          /* 淡い水色 */
   --color-sky-deep: #3f86ad;     /* 水色の文字・アイコン */
   --color-butter: #ffd95c;       /* 黄色い紙シール */
   --color-butter-soft: #fff3c4;
   --color-orange: #f2a33a;
+  --color-leaf: #e3ecd6;         /* 淡い緑 */
+  --color-leaf-deep: #6f8f5a;
   /* legacy aliases (older screens) */
   --color-mint: #dcedf6;
   --color-mint-deep: #3f86ad;
@@ -191,7 +193,7 @@
     background-size: 22px 22px;
     background-position: 0 0, 0 11px, 11px -11px, -11px 0;
   }
-  /* シール帳の台紙: warm paper with a faint dotted grid. */
+  /* 手帳の台紙: warm paper with a faint dotted grid. */
   .sticker-sheet {
     background-color: var(--color-paper);
     background-image: radial-gradient(rgb(120 100 60 / 0.12) 1px, transparent 1.3px);
@@ -215,6 +217,48 @@
   .hide-scrollbar::-webkit-scrollbar {
     display: none;
   }
+}
+
+/* Notebook pages */
+.book-page {
+  border-radius: 6px 14px 12px 5px;
+  box-shadow: 0 1px 0 rgb(60 50 30 / 0.08), 0 8px 18px -12px rgb(60 50 30 / 0.35);
+}
+.book-page::before {
+  /* binding shadow along the left edge */
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 18px;
+  background: linear-gradient(90deg, rgb(60 50 30 / 0.1), transparent);
+  pointer-events: none;
+}
+.book-cream {
+  background-color: #fbf6e9;
+  background-image:
+    radial-gradient(rgb(120 100 60 / 0.05) 1px, transparent 1.4px),
+    radial-gradient(rgb(120 100 60 / 0.035) 1px, transparent 1.2px);
+  background-size: 7px 9px, 13px 11px;
+}
+.book-grid {
+  background-color: #fdfdfb;
+  background-image:
+    linear-gradient(rgb(90 160 200 / 0.18) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(90 160 200 / 0.18) 1px, transparent 1px);
+  background-size: 18px 18px;
+}
+.book-dots {
+  background-color: #f6f3ec;
+  background-image: radial-gradient(rgb(60 55 45 / 0.22) 1.1px, transparent 1.4px);
+  background-size: 16px 16px;
+}
+@keyframes page-turn-r {
+  from { background: linear-gradient(270deg, rgb(60 50 30 / 0.18), transparent 40%); opacity: 1; }
+  to { opacity: 0; }
+}
+@keyframes page-turn-l {
+  from { background: linear-gradient(90deg, rgb(60 50 30 / 0.18), transparent 40%); opacity: 1; }
+  to { opacity: 0; }
 }
 
 @keyframes sheet {

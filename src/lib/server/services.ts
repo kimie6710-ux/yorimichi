@@ -305,6 +305,10 @@ async function toStickers(rows: StickerRow[], viewerId: string): Promise<Sticker
       status: r.status,
       placedAt: r.placed_at,
       seenCount: views.filter((v) => v.sticker_id === r.id).length,
+      book:
+        r.book_page != null && r.book_x != null && r.book_y != null
+          ? { page: r.book_page, x: r.book_x, y: r.book_y, rot: r.book_rot ?? r.rotation }
+          : null,
       createdAt: r.created_at,
     };
   });
@@ -367,11 +371,40 @@ async function ownSticker(userId: string, id: string): Promise<StickerRow> {
   return row;
 }
 
-export async function updateMemo(userId: string, id: string, memo: string): Promise<Sticker> {
+export async function updateSticker(
+  userId: string,
+  id: string,
+  patch: { memo?: string; book?: { page: number; x: number; y: number; rot: number } },
+): Promise<Sticker> {
   const row = await ownSticker(userId, id);
-  if (row.creator_id !== userId) throw new RuleError("届いたシールのメモは変えられません", 403);
-  await getStore().update("stickers", id, { memo });
-  return (await toStickers([{ ...row, memo }], userId))[0];
+  const next: Partial<StickerRow> = {};
+  if (patch.memo !== undefined) {
+    if (row.creator_id !== userId) throw new RuleError("届いたシールのメモは変えられません", 403);
+    next.memo = patch.memo;
+  }
+  if (patch.book) {
+    next.book_page = patch.book.page;
+    next.book_x = patch.book.x;
+    next.book_y = patch.book.y;
+    next.book_rot = patch.book.rot;
+  }
+  await getStore().update("stickers", id, next);
+  return (await toStickers([{ ...row, ...next }], userId))[0];
+}
+
+// ─────────────────────────────────────────────
+// Notebook pages
+// ─────────────────────────────────────────────
+export async function bookPages(userId: string): Promise<{ idx: number; bg: string }[]> {
+  const rows = await getStore().find("book_pages", { where: { user_id: userId } });
+  return rows.map((r) => ({ idx: r.idx, bg: r.bg })).sort((a, b) => a.idx - b.idx);
+}
+
+export async function saveBookPages(userId: string, pages: { idx: number; bg: string }[]): Promise<void> {
+  await getStore().upsert(
+    "book_pages",
+    pages.map((p) => ({ id: `${userId}:${p.idx}`, user_id: userId, idx: p.idx, bg: p.bg })),
+  );
 }
 
 /** Leave your own sticker at the spot where you made it. */

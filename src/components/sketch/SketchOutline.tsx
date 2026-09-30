@@ -26,6 +26,8 @@ export interface SketchOutlineProps extends SketchOpts {
   stroke?: string;
   /** Extend the frame past the box (e.g. a sheet whose bottom edge is off-screen). */
   bleed?: { top?: number; right?: number; bottom?: number; left?: number };
+  /** Soft paper shadow under the shape. */
+  shadow?: boolean;
   className?: string;
 }
 
@@ -40,6 +42,7 @@ export function SketchOutline({
   strokeWidth = 2.2,
   stroke = "var(--color-ink)",
   bleed,
+  shadow = false,
   radius,
   wobble,
   className = "",
@@ -52,10 +55,10 @@ export function SketchOutline({
   const paths = useMemo(() => {
     if (!size) return null;
     const w = size.w, h = size.h;
-    const inset = strokeWidth + 0.5;
+    const inset = Math.max(strokeWidth, 1) + 0.5;
     return {
       main: sketchPath(w, h, s, { radius, wobble, inset }),
-      echo: double ? sketchPath(w, h, s + 7, { radius, wobble: (wobble ?? 1.6) * 1.2, inset: inset + 0.4 }) : "",
+      echo: double && strokeWidth > 0 ? sketchPath(w, h, s + 7, { radius, wobble: (wobble ?? 1.6) * 1.2, inset: inset + 0.4 }) : "",
     };
   }, [size, s, radius, wobble, strokeWidth, double]);
 
@@ -64,12 +67,12 @@ export function SketchOutline({
       ref={ref}
       aria-hidden
       className={`pointer-events-none absolute -z-10 overflow-visible ${className}`}
-      style={{ top: -b.top, right: -b.right, bottom: -b.bottom, left: -b.left, width: `calc(100% + ${b.left + b.right}px)`, height: `calc(100% + ${b.top + b.bottom}px)` }}
+      style={{ filter: shadow ? "drop-shadow(0 1px 0 rgb(60 50 30 / 0.07)) drop-shadow(0 6px 10px rgb(60 50 30 / 0.08))" : undefined, top: -b.top, right: -b.right, bottom: -b.bottom, left: -b.left, width: `calc(100% + ${b.left + b.right}px)`, height: `calc(100% + ${b.top + b.bottom}px)` }}
     >
       {paths && (
         <>
-          <path d={paths.main} fill={TONE_FILL[tone]} stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
-          {double && (
+          <path d={paths.main} fill={TONE_FILL[tone]} stroke={strokeWidth > 0 ? stroke : "none"} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+          {double && strokeWidth > 0 && (
             <path
               d={paths.echo}
               fill="none"

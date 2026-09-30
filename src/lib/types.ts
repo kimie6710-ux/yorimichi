@@ -121,7 +121,25 @@ export interface Sticker {
   placedAt: string | null;
   /** How many people saw it where it was placed. */
   seenCount: number;
+  /** Position in my notebook (null = not arranged yet). */
+  book: BookPos | null;
   createdAt: string;
+}
+
+export interface BookPos {
+  page: number;
+  /** Centre of the sticker, 0..1 of the page. */
+  x: number;
+  y: number;
+  rot: number;
+}
+
+export const PAGE_BACKGROUNDS = ["cream", "grid", "dots"] as const;
+export type PageBackground = (typeof PAGE_BACKGROUNDS)[number];
+
+export interface BookPage {
+  idx: number;
+  bg: PageBackground;
 }
 
 /** A sticker somebody left at a spot. The image only comes with you on site. */

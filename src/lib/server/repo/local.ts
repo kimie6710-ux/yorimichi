@@ -24,6 +24,7 @@ const EMPTY: Db = {
   stickers: [],
   sticker_transfers: [],
   sticker_views: [],
+  book_pages: [],
 };
 
 const g = globalThis as unknown as { __yorumichiDb?: Promise<Db>; __yorumichiWrite?: Promise<void> };
@@ -32,7 +33,11 @@ function load(): Promise<Db> {
   g.__yorumichiDb ??= readFile(DB_FILE, "utf8")
     .then((raw) => ({ ...EMPTY, ...(JSON.parse(raw) as Partial<Db>) }))
     .catch(() => structuredClone(EMPTY));
-  return g.__yorumichiDb;
+  // Tables added after the file was first loaded (dev hot reload).
+  return g.__yorumichiDb.then((db) => {
+    for (const k of Object.keys(EMPTY) as TableName[]) (db as Record<string, unknown[]>)[k] ??= [];
+    return db;
+  });
 }
 
 function persist(db: Db): Promise<void> {

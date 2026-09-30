@@ -1,11 +1,11 @@
-import { memoSchema } from "@/lib/schemas";
+import { stickerPatchSchema } from "@/lib/schemas";
 import { asUser, parseJsonBody } from "@/lib/server/http";
-import { updateMemo } from "@/lib/server/services";
+import { updateSticker } from "@/lib/server/services";
 
-/** PATCH /api/stickers/:id — edit my memo. */
+/** PATCH /api/stickers/:id — my memo, or where it sits in my notebook. */
 export async function PATCH(req: Request, ctx: RouteContext<"/api/stickers/[id]">) {
   const { id } = await ctx.params;
-  const parsed = await parseJsonBody(req, memoSchema);
+  const parsed = await parseJsonBody(req, stickerPatchSchema);
   if (!parsed.ok) return parsed.response;
-  return asUser(req, async (userId) => Response.json({ sticker: await updateMemo(userId, id, parsed.data.memo) }));
+  return asUser(req, async (userId) => Response.json({ sticker: await updateSticker(userId, id, parsed.data) }));
 }

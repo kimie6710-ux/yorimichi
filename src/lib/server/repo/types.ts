@@ -68,7 +68,19 @@ export interface StickerRow {
   status: "kept" | "placed" | "sent";
   placed_at: string | null;
   source_sticker_id: string | null;
+  /** Where it sits in the owner's notebook (null = not arranged yet). */
+  book_page?: number | null;
+  book_x?: number | null;
+  book_y?: number | null;
+  book_rot?: number | null;
   created_at: string;
+}
+
+export interface BookPageRow {
+  id: string; // `${user_id}:${idx}`
+  user_id: string;
+  idx: number;
+  bg: string;
 }
 
 export interface TransferRow {
@@ -100,6 +112,7 @@ export interface Tables {
   stickers: StickerRow;
   sticker_transfers: TransferRow;
   sticker_views: StickerViewRow;
+  book_pages: BookPageRow;
 }
 export type TableName = keyof Tables;
 

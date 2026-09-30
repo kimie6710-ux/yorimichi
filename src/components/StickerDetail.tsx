@@ -9,8 +9,6 @@ import type { Sticker } from "@/lib/types";
 import { SketchButton, SketchLinkButton, SketchTextarea } from "./sketch";
 import { StickerView } from "./StickerView";
 
-const STATUS: Record<Sticker["status"], string> = { kept: "手もと", placed: "置いてきた", sent: "送り出した" };
-
 function date(iso: string) {
   const d = new Date(iso);
   return `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}`;
@@ -46,8 +44,7 @@ export function StickerDetail({ sticker, onChange }: { sticker: Sticker; onChang
       </div>
       <h2 className="mt-4 text-center text-xl font-bold">{sticker.label}</h2>
       <p className="mt-1 text-center text-sm text-ink-soft">
-        {date(sticker.createdAt)}・{mine ? "自分で見つけた" : "知らない誰かから届いた"}・{STATUS[sticker.status]}
-        {sticker.status === "placed" && sticker.seenCount > 0 && `（${sticker.seenCount}人が見た）`}
+        {date(sticker.createdAt)}・{mine ? "自分で見つけた" : "知らない誰かから届いた"}
       </p>
 
       <dl className="mt-5 space-y-3 text-sm">

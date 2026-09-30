@@ -72,6 +72,22 @@ export const stickerMetaSchema = z.object({
 
 export const memoSchema = z.object({ memo: z.string().max(80) });
 
+export const stickerPatchSchema = z.object({
+  memo: z.string().max(80).optional(),
+  book: z
+    .object({
+      page: z.number().int().min(0).max(199),
+      x: z.number().min(0).max(1),
+      y: z.number().min(0).max(1),
+      rot: z.number().min(-30).max(30),
+    })
+    .optional(),
+});
+
+export const bookPagesSchema = z.object({
+  pages: z.array(z.object({ idx: z.number().int().min(0).max(199), bg: z.enum(["cream", "grid", "dots"]) })).max(200),
+});
+
 // ── AI output schemas (structured output) ───────────────────
 
 export const COPY_FORMS = ["名詞止め", "短い断定", "擬人化", "用途のずらし", "情景", "違和感", "詩的", "対比"] as const;

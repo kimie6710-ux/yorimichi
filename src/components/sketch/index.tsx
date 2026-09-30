@@ -25,11 +25,14 @@ export { SketchOutline, type SketchTone } from "./SketchOutline";
 type Pad = "none" | "sm" | "md" | "lg";
 const PAD: Record<Pad, string> = { none: "", sm: "p-3", md: "p-4", lg: "p-5" };
 
+/** A loose piece of paper: organic shape, no black frame (outline only when asked), optional tape. */
 export function SketchCard({
   tone = "white",
   pad = "md",
   seed,
   radius = 16,
+  outline = false,
+  tape,
   className = "",
   children,
   as: Tag = "div",
@@ -39,15 +42,35 @@ export function SketchCard({
   pad?: Pad;
   seed?: string | number;
   radius?: number;
+  outline?: boolean;
+  tape?: "blue" | "yellow";
   as?: "div" | "article" | "section" | "li";
   className?: string;
   children: ReactNode;
 } & Omit<ComponentProps<"div">, "children">) {
   return (
     <Tag className={`relative isolate ${PAD[pad]} ${className}`} {...(rest as object)}>
-      <SketchOutline tone={tone} seed={seed} radius={radius} />
+      <SketchOutline tone={tone} seed={seed} radius={radius} strokeWidth={outline ? 1.6 : 0} stroke="var(--color-ink-soft)" double={false} shadow={!outline} />
+      {tape && <Tape color={tape} seed={seed} />}
       {children}
     </Tag>
+  );
+}
+
+/** A small piece of masking tape stuck on the top edge. */
+export function Tape({ color = "blue", seed, className = "" }: { color?: "blue" | "yellow"; seed?: string | number; className?: string }) {
+  const s = hashSeed(seed ?? color);
+  const left = 30 + (s % 40);
+  const rot = ((s >> 3) % 9) - 4;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element -- tiny UI sprite
+    <img
+      src={`/ui/tape-${color}.png`}
+      alt=""
+      aria-hidden
+      className={`pointer-events-none absolute -top-2.5 z-10 h-5 w-auto ${className}`}
+      style={{ left: `${left}%`, transform: `translateX(-50%) rotate(${rot}deg)` }}
+    />
   );
 }
 
@@ -68,7 +91,7 @@ export function SketchSection({
 }) {
   return (
     <section className={`relative isolate p-4 ${className}`}>
-      <SketchOutline tone={tone} seed={seed ?? (typeof title === "string" ? title : undefined)} radius={18} />
+      <SketchOutline tone={tone} seed={seed ?? (typeof title === "string" ? title : undefined)} radius={18} strokeWidth={0} double={false} />
       {(title || action) && (
         <div className="mb-3 flex items-center justify-between gap-2">
           {title && <h2 className="text-base font-bold">{title}</h2>}
@@ -83,17 +106,36 @@ export function SketchSection({
 /* ───────── Button ───────── */
 
 export type SketchVariant = "primary" | "sub" | "plain";
-const VARIANT_TONE: Record<SketchVariant, SketchTone> = { primary: "sticker", sub: "sky", plain: "white" };
 const SIZE = { sm: "min-h-10 px-4 text-sm", md: "min-h-12 px-5 text-base", lg: "min-h-14 px-6 text-lg" } as const;
 
 function tiltFor(seed: number) {
   const r = (seed % 1000) / 1000;
-  return `${(r < 0.5 ? -1 : 1) * (0.5 + (r % 0.5))}deg`;
+  return `${(r < 0.5 ? -1 : 1) * (0.4 + (r % 0.5) * 0.3)}deg`;
 }
 
 function buttonSeed(explicit: string | number | undefined, label: ReactNode, fallback: string) {
   return hashSeed(explicit ?? (typeof label === "string" ? label : fallback));
 }
+
+/**
+ * primary = a stroke of yellow marker behind the words
+ * sub     = a pale blue scrap of paper
+ * plain   = words with a hand-drawn underline
+ */
+function ButtonFace({ variant, seed }: { variant: SketchVariant; seed: number }) {
+  if (variant === "primary") {
+    // eslint-disable-next-line @next/next/no-img-element -- UI sprite
+    return <img src="/ui/marker-yellow.png" alt="" aria-hidden className="pointer-events-none absolute inset-0 -z-10 h-full w-full" style={{ transform: `scaleX(${seed % 2 ? 1 : -1})` }} />;
+  }
+  if (variant === "sub") return <SketchOutline tone="sky" seed={seed} radius={18} wobble={1.6} strokeWidth={0} double={false} />;
+  return null;
+}
+
+const FACE: Record<SketchVariant, string> = {
+  primary: "font-bold",
+  sub: "font-bold",
+  plain: "font-medium text-ink-soft underline decoration-sky-deep/60 decoration-wavy decoration-[1.5px] underline-offset-[6px]",
+};
 
 type ButtonBase = { variant?: SketchVariant; size?: keyof typeof SIZE; seed?: string | number; block?: boolean };
 
@@ -105,11 +147,11 @@ export const SketchButton = forwardRef<HTMLButtonElement, ButtonBase & ButtonHTM
       <button
         ref={ref}
         type={type}
-        className={`sketch-btn relative isolate inline-flex items-center justify-center gap-2 font-bold text-ink ${SIZE[size]} ${block ? "w-full" : ""} ${className}`}
+        className={`sketch-btn relative isolate inline-flex items-center justify-center gap-2 text-ink ${SIZE[size]} ${FACE[variant]} ${block ? "w-full" : ""} ${className}`}
         style={{ ["--tilt" as string]: tiltFor(s), ...style }}
         {...rest}
       >
-        <SketchOutline tone={VARIANT_TONE[variant]} seed={s} radius={variant === "primary" ? 10 : 18} wobble={1.8} double={variant !== "plain"} />
+        <ButtonFace variant={variant} seed={s} />
         {children}
       </button>
     );
@@ -130,10 +172,10 @@ export function SketchLinkButton({
   return (
     <Link
       href={href}
-      className={`sketch-btn relative isolate inline-flex items-center justify-center gap-2 font-bold text-ink ${SIZE[size]} ${block ? "w-full" : ""} ${className}`}
+      className={`sketch-btn relative isolate inline-flex items-center justify-center gap-2 text-ink ${SIZE[size]} ${FACE[variant]} ${block ? "w-full" : ""} ${className}`}
       style={{ ["--tilt" as string]: tiltFor(s) }}
     >
-      <SketchOutline tone={VARIANT_TONE[variant]} seed={s} radius={variant === "primary" ? 10 : 18} wobble={1.8} double={variant !== "plain"} />
+      <ButtonFace variant={variant} seed={s} />
       {children}
     </Link>
   );
@@ -157,7 +199,7 @@ export function SketchIconButton({
       style={{ ["--tilt" as string]: tiltFor(s) }}
       {...rest}
     >
-      <SketchOutline tone={tone} seed={s} radius={22} wobble={1.2} double={false} />
+      <SketchOutline tone={tone} seed={s} radius={22} wobble={1.2} strokeWidth={0} double={false} shadow />
       {children}
     </button>
   );
@@ -168,7 +210,7 @@ export function SketchIconButton({
 export function SketchInput({ seed, className = "", ...rest }: { seed?: string | number } & InputHTMLAttributes<HTMLInputElement>) {
   return (
     <div className={`sketch-field relative isolate ${className}`}>
-      <SketchOutline tone="white" seed={seed ?? rest.name ?? rest.placeholder} radius={12} double={false} />
+      <SketchOutline tone="white" seed={seed ?? rest.name ?? rest.placeholder} radius={12} double={false} strokeWidth={1.4} stroke="var(--color-ink-mute)" />
       <input className="h-12 w-full bg-transparent px-4 text-base outline-none placeholder:text-ink-mute" {...rest} />
     </div>
   );
@@ -177,7 +219,7 @@ export function SketchInput({ seed, className = "", ...rest }: { seed?: string |
 export function SketchTextarea({ seed, className = "", ...rest }: { seed?: string | number } & TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
     <div className={`sketch-field relative isolate ${className}`}>
-      <SketchOutline tone="white" seed={seed ?? rest.name ?? rest.placeholder} radius={12} double={false} />
+      <SketchOutline tone="white" seed={seed ?? rest.name ?? rest.placeholder} radius={12} double={false} strokeWidth={1.4} stroke="var(--color-ink-mute)" />
       <textarea className="block w-full resize-none bg-transparent px-4 py-3 text-base leading-relaxed outline-none placeholder:text-ink-mute" {...rest} />
     </div>
   );
@@ -198,8 +240,9 @@ export function SketchBubble({
   children: ReactNode;
 }) {
   return (
-    <div className={`relative isolate px-4 py-2.5 ${className}`}>
-      <SketchOutline tone="white" seed={seed ?? (typeof children === "string" ? children : undefined)} radius={18} double={false} />
+    <div className={`relative isolate px-3.5 py-2 ${className}`}>
+      <SketchOutline tone="sky" seed={`${seed ?? children}-wash`} radius={18} strokeWidth={0} double={false} className="translate-x-[3px] translate-y-[4px] opacity-70" />
+      <SketchOutline tone="white" seed={seed ?? (typeof children === "string" ? children : undefined)} radius={18} double={false} strokeWidth={1.6} stroke="var(--color-ink-soft)" />
       <svg
         aria-hidden
         width="18"
@@ -208,9 +251,9 @@ export function SketchBubble({
         className={`pointer-events-none absolute -bottom-[11px] -z-[5] ${side === "left" ? "left-4" : "right-4 -scale-x-100"}`}
       >
         <path d="M3 0.5 C4 6 2.5 10 0.8 14.6 C6 12 11 8 15 0.5" fill="var(--color-card)" />
-        <path d="M3.2 1.8 C4 6 2.5 10 0.8 14.6 C6 12 11 8 15 1.8" fill="none" stroke="var(--color-ink)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M3.2 1.8 C4 6 2.5 10 0.8 14.6 C6 12 11 8 15 1.8" fill="none" stroke="var(--color-ink-soft)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
-      <div className="font-hand text-base leading-snug">{children}</div>
+      <div className="text-sm leading-snug">{children}</div>
     </div>
   );
 }
@@ -251,7 +294,7 @@ export function SketchSheet({
         style={{ transform: dragY ? `translateY(${dragY}px)` : undefined }}
       >
         <div ref={panel} tabIndex={-1} className="relative isolate outline-none">
-          <SketchOutline tone="paper" seed={seed ?? label} radius={26} bleed={{ bottom: 40 }} />
+          <SketchOutline tone="paper" seed={seed ?? label} radius={26} bleed={{ bottom: 40 }} strokeWidth={0} double={false} shadow />
           <div
             className="flex cursor-grab touch-none justify-center pt-3 pb-1"
             onPointerDown={(e) => {
@@ -300,7 +343,8 @@ export function SketchModal({
     <div className="fixed inset-0 z-50 mx-auto flex max-w-[480px] items-center justify-center p-5" role="dialog" aria-modal="true" aria-label={label}>
       <button type="button" aria-label="閉じる" onClick={onClose} className="absolute inset-0 h-full w-full animate-[fade_0.2s_ease-out] bg-ink/25" />
       <div className="animate-peek relative isolate w-full p-5">
-        <SketchOutline tone="paper" seed={seed ?? label} radius={22} />
+        <SketchOutline tone="paper" seed={seed ?? label} radius={22} strokeWidth={0} double={false} shadow />
+        <Tape color="yellow" seed={seed ?? label} />
         {children}
       </div>
     </div>
@@ -331,9 +375,12 @@ export function SketchTabs<T extends string>({
             type="button"
             aria-selected={active}
             onClick={() => onChange(it.value)}
-            className={`relative isolate h-10 px-4 text-sm ${active ? "font-bold text-ink" : "text-ink-mute"}`}
+            className={`relative isolate h-10 px-3 text-sm ${active ? "font-bold text-ink" : "text-ink-mute"}`}
           >
-            {active && <SketchOutline tone="butter" seed={`tab-${it.value}`} radius={18} wobble={1.4} double={false} />}
+            {active && (
+              // eslint-disable-next-line @next/next/no-img-element -- UI sprite
+              <img src="/ui/marker-yellow.png" alt="" aria-hidden className="pointer-events-none absolute inset-x-1 bottom-1.5 -z-10 h-3 w-[calc(100%-8px)]" />
+            )}
             {it.label}
           </button>
         );

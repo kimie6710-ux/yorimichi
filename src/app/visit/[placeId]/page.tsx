@@ -391,10 +391,10 @@ function Visit() {
               知らない誰かに送り出す
             </SketchButton>
             <SketchButton variant="plain" block onClick={() => void share("kept")} disabled={busy}>
-              シール帳に残す
+              手帳に残す
             </SketchButton>
           </div>
-          <p className="mt-4 text-sm text-ink-mute">どれを選んでも、シール帳には残ります。</p>
+          <p className="mt-4 text-sm text-ink-mute">どれを選んでも、手帳には残ります。</p>
         </div>
       )}
 
@@ -407,7 +407,7 @@ function Visit() {
           <Michibi
             mood={outcome === "sent" ? "flap" : outcome === "placed" ? "perch" : "happy"}
             size={80}
-            says={outcome === "sent" ? MICHIBI_LINES.sent : outcome === "placed" ? MICHIBI_LINES.placed : "シール帳に貼っといた。"}
+            says={outcome === "sent" ? MICHIBI_LINES.sent : outcome === "placed" ? MICHIBI_LINES.placed : "手帳に貼っといた。"}
             className="mt-4 flex-col-reverse !items-center"
             animate="none"
           />

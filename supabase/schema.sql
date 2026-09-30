@@ -121,6 +121,10 @@ create table public.stickers (
   status text not null default 'kept' check (status in ('kept', 'placed', 'sent')),
   placed_at timestamptz,
   source_sticker_id uuid references public.stickers (id) on delete set null,
+  book_page int,                               -- where it sits in the owner's notebook
+  book_x real,
+  book_y real,
+  book_rot real,
   created_at timestamptz not null default now()
 );
 create index stickers_owner_idx on public.stickers (owner_id, created_at desc);
@@ -154,6 +158,19 @@ create table if not exists public.sticker_views (
   created_at timestamptz not null default now(),
   unique (sticker_id, viewer_id)
 );
+
+-- ─────────────────────────────────────────────
+-- book_pages: notebook page backgrounds
+-- ─────────────────────────────────────────────
+create table if not exists public.book_pages (
+  id text primary key,                         -- "{user_id}:{idx}"
+  user_id uuid not null references public.users (id) on delete cascade,
+  idx int not null,
+  bg text not null check (bg in ('cream', 'grid', 'dots'))
+);
+alter table public.book_pages enable row level security;
+drop policy if exists "book_pages: own" on public.book_pages;
+create policy "book_pages: own" on public.book_pages for select using (user_id = auth.uid());
 
 -- ─────────────────────────────────────────────
 -- Row Level Security (direct reads only; all writes go through the API)
