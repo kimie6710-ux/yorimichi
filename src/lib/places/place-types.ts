@@ -1,3 +1,5 @@
+import type { SpotKind } from "@/lib/types";
+
 // Google place type groups used for the broad "whole town" nearby fetch.
 // We intentionally do NOT narrow by the user's query: the AI filter is applied
 // to the whole neighbourhood afterwards.
@@ -68,6 +70,20 @@ export const SPOT_TYPES = [
   "museum",
   "library",
 ];
+
+export const SPOT_KIND_LABEL: Record<SpotKind, string> = { eat: "食べる・飲む", shop: "買う", walk: "歩く・見る", other: "そのほか" };
+
+const EAT = /restaurant|cafe|coffee|bakery|bar$|bar_|pub|ice_cream|dessert|meal_|food|confectionery|tea_house|izakaya|ramen|sushi|diner|buffet/;
+const SHOP = /store|shop|mall|market|supermarket|florist|pharmacy|book_store|department/;
+const WALK = /park|garden|plaza|playground|shrine|temple|church|landmark|historical|tourist|bridge|observation|museum|art_gallery|library|zoo|aquarium|beach|hiking|monument|sculpture|cultural/;
+
+export function spotKind(types: readonly string[]): SpotKind {
+  const t = types.join(" ");
+  if (EAT.test(t)) return "eat";
+  if (WALK.test(t)) return "walk";
+  if (SHOP.test(t)) return "shop";
+  return "other";
+}
 
 /** Short Japanese fallback labels when primaryTypeDisplayName is missing. */
 const TYPE_LABELS: Record<string, string> = {

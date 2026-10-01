@@ -2,6 +2,9 @@
 // Shared domain types (client + server)
 // ─────────────────────────────────────────────
 
+/** A rough kind of place, for sorting stickers in the box. */
+export type SpotKind = "eat" | "shop" | "walk" | "other";
+
 export interface LatLng {
   latitude: number;
   longitude: number;
@@ -118,6 +121,8 @@ export interface Sticker {
   spotName: string;
   spotCopy: string | null;
   spotLocation: LatLng;
+  /** Rough kind of the place it was found (for the box). */
+  spotKind: SpotKind;
   label: string;
   memo: string;
   imageUrl: string;

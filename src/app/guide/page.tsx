@@ -20,8 +20,13 @@ interface Page {
 const PAGES: Page[] = [
   {
     icon: "michibi",
-    title: "みちびです",
-    lines: ["よりみちを案内する、小さな鳥。", "地図の一言も、シールの名前も", "みちびが考えています。", "ほうっておくと、ひとりで散歩へ。"],
+    title: "ぼく、みちび！",
+    lines: [
+      "よりみちを見つける、小さな鳥だよ。",
+      "地図のひとことも、\nシールの名前も、ぼくが考えたよ。",
+      "気になるものを見つけると、\nついふらっと寄り道しちゃう。",
+      "ほうっておくと、\nひとりでどっか散歩してるかも。",
+    ],
     frame: "dash",
     bird: "happy",
   },
@@ -107,9 +112,11 @@ export default function GuidePage() {
                 <img src="/ui/marker-yellow.png" alt="" aria-hidden className="absolute inset-x-0 bottom-0.5 -z-10 h-3 w-full" />
                 {page.title}
               </h2>
-              <div className="mt-3 flex flex-col gap-1 text-[16px] leading-relaxed">
+              <div className={`mt-3 flex flex-col text-[16px] leading-relaxed ${page.icon === "michibi" ? "gap-3" : "gap-1"}`}>
                 {page.lines.map((l) => (
-                  <p key={l}>{l}</p>
+                  <p key={l} className="whitespace-pre-line">
+                    {l}
+                  </p>
                 ))}
               </div>
             </div>

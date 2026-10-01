@@ -3,6 +3,7 @@ import "server-only";
 import { getAIProvider } from "@/lib/ai";
 import { copyIsUsable, pickVaried } from "@/lib/ai/title-lint";
 import { distanceMeters, walkMinutes } from "@/lib/geo";
+import { spotKind } from "@/lib/places/place-types";
 import type {
   InboxItem,
   LatLng,
@@ -303,6 +304,7 @@ async function toStickers(rows: StickerRow[], viewerId: string): Promise<Sticker
       spotName: r.creator_id === viewerId || been.has(r.spot_id) ? (spot?.name ?? "") : "",
       spotCopy: spot?.ai_copy ?? null,
       spotLocation: { latitude: spot?.lat ?? 0, longitude: spot?.lng ?? 0 },
+      spotKind: spotKind(spot?.types ?? []),
       label: r.label,
       memo: r.memo,
       imageUrl: urls.get(r.image_path) ?? "",

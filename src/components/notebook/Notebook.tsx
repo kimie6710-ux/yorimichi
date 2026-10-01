@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointer
 import { SketchButton, SketchSheet, Tape } from "@/components/sketch";
 import { hashSeed, rng } from "@/components/sketch/path";
 import { StickerView } from "@/components/StickerView";
+import { StickerBox } from "./StickerBox";
 import {
   DECO_KINDS,
   PAGE_BACKGROUNDS,
@@ -333,30 +334,7 @@ export function Notebook({
       </div>
 
       <SketchSheet open={boxOpen} onClose={() => setBoxOpen(false)} label="ボックス">
-        <div className="px-5 pt-1">
-          <p className="font-hand text-lg">ボックス</p>
-          <p className="text-[13px] text-ink-mute">選ぶと、このページに貼ります。同じシールを何回でも。</p>
-        </div>
-        {stickers.length === 0 ? (
-          <p className="px-5 pt-4 pb-8 text-sm text-ink-soft">撮ったシールが、ここに入ります。</p>
-        ) : (
-          <ul className="grid grid-cols-3 gap-x-3 gap-y-4 px-5 pt-3 pb-6">
-            {[...stickers]
-              .sort((a, b) => (stuck.has(a.id) ? 1 : 0) - (stuck.has(b.id) ? 1 : 0) || b.createdAt.localeCompare(a.createdAt))
-              .map((st) => {
-                return (
-                  <li key={st.id}>
-                    <button type="button" onClick={() => addDeco(`sticker:${st.id}`, st.rotation)} className="relative flex w-full flex-col items-center text-center transition-transform active:translate-y-0.5">
-                      <span className="flex h-24 w-full items-center justify-center">
-                        <StickerView src={st.imageUrl} alt={st.label} rotation={st.rotation} className="max-h-24 w-auto" />
-                      </span>
-                      <span className="mt-1 line-clamp-1 w-full text-[12px]">{st.label}</span>
-                    </button>
-                  </li>
-                );
-              })}
-          </ul>
-        )}
+        <StickerBox stickers={stickers} stuck={stuck} onPick={(st) => addDeco(`sticker:${st.id}`, st.rotation)} />
       </SketchSheet>
 
       <SketchSheet open={trayOpen} onClose={() => setTrayOpen(false)} label="飾る">
