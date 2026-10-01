@@ -7,7 +7,7 @@ import { Suspense, useCallback, useEffect, useRef, useState, type MouseEvent } f
 import { BackButton } from "@/components/BackButton";
 import { GuideView } from "@/components/GuideView";
 import { Michibi } from "@/components/Michibi";
-import { SketchButton, SketchInput, SketchLinkButton } from "@/components/sketch";
+import { SketchButton, SketchInput, SketchLinkButton, SketchSheet } from "@/components/sketch";
 import { MessageView } from "@/components/StateViews";
 import { StickerView } from "@/components/StickerView";
 import { PlaceImage } from "@/components/PlaceImage";
@@ -70,6 +70,8 @@ function Visit() {
   /** From the 撮る tab: shoot anything here; the sticker ties to a place nearby (changeable). */
   const free = params.get("free") === "1";
   const [linkId, setLinkId] = useState(spotId);
+  const [placeOpen, setPlaceOpen] = useState(false);
+  const [memoOpen, setMemoOpen] = useState(false);
   const [delivered, setDelivered] = useState(true);
 
   const [detail, setDetail] = useState<SpotDetail | null>(null);
@@ -381,9 +383,9 @@ function Visit() {
           <div className="flex shrink-0 items-center gap-3 rounded-[14px_18px_12px_20px] bg-card p-2.5 shadow-[0_1px_0_rgb(60_50_30/0.08),0_6px_12px_-8px_rgb(60_50_30/0.3)]">
             <PlaceImage place={spot.place} width={200} className="h-16 w-16 shrink-0 rounded-[10px_12px_9px_13px]" />
             <div className="min-w-0 flex-1">
-              <p className="text-[13px] text-ink-mute">ここでした</p>
+              <p className="text-[14px] text-ink-mute">ここでした</p>
               <p className="truncate text-lg leading-tight">{spot.place.name}</p>
-              {spot.place.primaryTypeLabel && <p className="truncate text-[13px] text-ink-soft">{spot.place.primaryTypeLabel}</p>}
+              {spot.place.primaryTypeLabel && <p className="truncate text-[14px] text-ink-soft">{spot.place.primaryTypeLabel}</p>}
             </div>
           </div>
 
@@ -395,8 +397,8 @@ function Visit() {
                   {others.map((o) => (
                     <li key={o.id} className="w-[34%] shrink-0 text-center">
                       <StickerView src={o.imageUrl} alt={o.label} rotation={o.rotation} className="mx-auto max-h-[22dvh] w-auto" />
-                      <p className="mt-1 truncate text-[13px]">{o.label}</p>
-                      {o.memo && <p className="line-clamp-2 text-[12px] text-ink-soft">「{o.memo}」</p>}
+                      <p className="mt-1 truncate text-[14px]">{o.label}</p>
+                      {o.memo && <p className="line-clamp-2 text-[14px] text-ink-soft">「{o.memo}」</p>}
                     </li>
                   ))}
                 </ul>
@@ -407,7 +409,7 @@ function Visit() {
               </button>
             )}
             {detail.foundLabels.length > 0 && (
-              <p className="mt-2 truncate text-[13px] text-ink-mute">ここで見つかったもの：{detail.foundLabels.join("・")}</p>
+              <p className="mt-2 truncate text-[14px] text-ink-mute">ここで見つかったもの：{detail.foundLabels.join("・")}</p>
             )}
           </div>
 
@@ -440,7 +442,7 @@ function Visit() {
                 <li key={c.id} className="w-[27%] shrink-0">
                   <button type="button" onClick={() => choose(c)} className="flex w-full flex-col items-center text-center transition-transform active:translate-y-0.5">
                     <StickerView src={c.url} alt={c.label} rotation={c.rotation} className="h-[12dvh] w-auto" />
-                    <span className="mt-1 line-clamp-1 text-[13px]">
+                    <span className="mt-1 line-clamp-1 text-[14px]">
                       {c.naming ? (
                         <span className="wait-dots text-ink-mute" aria-label="名前を考え中">
                           <i>.</i>
@@ -456,7 +458,7 @@ function Visit() {
               ))}
             </ul>
           )}
-          <p className="mt-2 shrink-0 text-[13px] text-ink-mute">{cutouts.length > 0 ? "ほかのものは、写真の中をタップ。" : "シールにしたいところを、写真の中でタップ。"}</p>
+          <p className="mt-2 shrink-0 text-[14px] text-ink-mute">{cutouts.length > 0 ? "ほかのものは、写真の中をタップ。" : "シールにしたいところを、写真の中でタップ。"}</p>
           <div className="relative mt-1 flex min-h-0 flex-1 items-center justify-center">
             <img
               src={photoUrl}
@@ -496,25 +498,16 @@ function Visit() {
             </div>
           </div>
           <div className="shrink-0 pt-3">
-            {free && places.length > 0 && (
-              <div className="hide-scrollbar mb-2 flex items-center gap-2 overflow-x-auto">
-                <span className="shrink-0 text-[14px] text-ink-mute">どこで？</span>
-                {places.map((p) => (
-                  <button
-                    key={p.placeId}
-                    type="button"
-                    onClick={() => setLinkId(p.placeId)}
-                    aria-pressed={linkId === p.placeId}
-                    className={`max-w-[11rem] shrink-0 truncate rounded-[10px_13px_9px_12px] px-3 py-1 text-[14px] transition-colors ${linkId === p.placeId ? "bg-butter" : "bg-card"}`}
-                  >
-                    {p.name}
-                  </button>
-                ))}
-              </div>
-            )}
+            <SketchInput
+              aria-label="なまえ"
+              className="w-full !text-[20px]"
+              value={label}
+              maxLength={12}
+              placeholder="なんて呼ぶ？"
+              onChange={(e) => setLabel(e.target.value)}
+            />
             {guesses.length > 0 && (
-              <div className="mb-2 flex items-center gap-2 overflow-hidden">
-                <span className="shrink-0 text-[14px] text-ink-mute">これかな？</span>
+              <div className="hide-scrollbar mt-2 flex gap-2 overflow-x-auto" aria-label="名前の候補">
                 {guesses.map((g) => (
                   <button
                     key={g.label}
@@ -527,10 +520,21 @@ function Visit() {
                 ))}
               </div>
             )}
-            <div className="flex gap-2">
-              <SketchInput aria-label="なまえ" className="w-[42%]" value={label} maxLength={12} placeholder="なまえ" onChange={(e) => setLabel(e.target.value)} />
-              <SketchInput aria-label="ひとことメモ" className="flex-1" value={memo} maxLength={80} placeholder="ひとことメモ" onChange={(e) => setMemo(e.target.value)} />
+            <div className="mt-2 flex items-center gap-3 text-[14px] text-ink-soft">
+              {free && places.length > 0 && (
+                <button type="button" onClick={() => setPlaceOpen(true)} className="min-w-0 truncate underline decoration-butter decoration-4 underline-offset-2">
+                  場所：{places.find((p) => p.placeId === linkId)?.name ?? "近く"}
+                </button>
+              )}
+              {!memoOpen && (
+                <button type="button" onClick={() => setMemoOpen(true)} className="ml-auto shrink-0 underline decoration-sky decoration-4 underline-offset-2">
+                  ＋ メモ
+                </button>
+              )}
             </div>
+            {memoOpen && (
+              <SketchInput aria-label="ひとことメモ" className="mt-2 w-full" value={memo} maxLength={80} placeholder="気になったところ" autoFocus onChange={(e) => setMemo(e.target.value)} />
+            )}
             <div className="mt-3 flex items-center gap-2">
               <SketchButton variant="plain" size="sm" onClick={() => setStep("pick")} disabled={busy} className="shrink-0">
                 ほかのにする
@@ -605,6 +609,25 @@ function Visit() {
           </div>
         </section>
       )}
+      <SketchSheet open={placeOpen} onClose={() => setPlaceOpen(false)} label="どこで見つけた？">
+        <p className="px-5 pt-1 font-hand text-lg">どこで見つけた？</p>
+        <ul className="flex flex-col gap-2 px-5 pt-2 pb-6">
+          {places.map((p) => (
+            <li key={p.placeId}>
+              <button
+                type="button"
+                onClick={() => {
+                  setLinkId(p.placeId);
+                  setPlaceOpen(false);
+                }}
+                className={`w-full truncate rounded-[12px_15px_11px_14px] px-4 py-3 text-left text-[16px] ${linkId === p.placeId ? "bg-butter font-bold" : "bg-card"}`}
+              >
+                {p.name}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </SketchSheet>
     </main>
   );
 }

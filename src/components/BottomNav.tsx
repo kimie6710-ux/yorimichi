@@ -31,7 +31,7 @@ export function BottomNav() {
                 <Link
                   href={href}
                   aria-current={active ? "page" : undefined}
-                  className={`relative flex h-[68px] flex-col items-center justify-center gap-0.5 text-[12px] transition-opacity ${active ? "font-bold text-ink" : "text-ink-mute opacity-60"}`}
+                  className={`relative flex h-[68px] flex-col items-center justify-center gap-0.5 text-[14px] transition-opacity ${active ? "font-bold text-ink" : "text-ink-mute opacity-60"}`}
                 >
                   <img src={icon} alt="" className="h-8 w-auto" draggable={false} />
                   <span className="relative isolate px-1">

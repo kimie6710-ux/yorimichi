@@ -19,6 +19,8 @@ export default function NotebookPage() {
   const [decos, setDecos] = useState<BookDeco[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
+  /** Which copy on the page was tapped (so it can be peeled off from the detail). */
+  const [openDeco, setOpenDeco] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([api.myStickers(), api.bookPages(), api.decos()])
@@ -82,7 +84,10 @@ export default function NotebookPage() {
           stickers={items}
           decos={decos}
           pages={pages}
-          onOpen={setOpenId}
+          onOpen={(sid, did) => {
+            setOpenId(sid);
+            setOpenDeco(did);
+          }}
           onPagesChange={changePages}
           onAddDeco={addDeco}
           onMoveDeco={moveDeco}
@@ -92,7 +97,22 @@ export default function NotebookPage() {
       )}
 
       <SketchSheet open={!!open} onClose={() => setOpenId(null)} label="シール">
-        {open && <StickerDetail key={open.id} sticker={open} onClose={() => setOpenId(null)} onChange={(s) => setItems((list) => list?.map((x) => (x.id === s.id ? s : x)) ?? null)} />}
+        {open && (
+          <StickerDetail
+            key={open.id}
+            sticker={open}
+            onClose={() => setOpenId(null)}
+            onChange={(s) => setItems((list) => list?.map((x) => (x.id === s.id ? s : x)) ?? null)}
+            onPeel={
+              openDeco
+                ? () => {
+                    removeDeco(openDeco);
+                    setOpenId(null);
+                  }
+                : undefined
+            }
+          />
+        )}
       </SketchSheet>
     </main>
   );

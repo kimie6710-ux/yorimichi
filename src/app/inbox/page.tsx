@@ -37,7 +37,7 @@ export default function InboxPage() {
     <main className="paper min-h-[calc(100dvh-76px)] px-4 pt-[max(12px,env(safe-area-inset-top))] pb-10">
       <header className="flex items-center gap-3">
         <BackButton />
-        <h1 className="font-hand text-[26px]">届いたもの</h1>
+        <h1 className="font-hand text-[26px]">届いた</h1>
       </header>
 
       {error && <p className="mt-6 text-sm font-bold">{error}</p>}

@@ -140,7 +140,7 @@ function insideOf(a: CutMask, b: CutMask): number {
   return area === 0 ? 0 : inside / area;
 }
 
-/** Reject masks that look like "the background" (too big, or touching 3+ edges). */
+/** Reject masks that look like "the background" (too big or too small, or running off 2+ edges). */
 function looksLikeObject(mask: CutMask): boolean {
   const { width: w, height: h, alpha } = mask;
   let area = 0;
@@ -156,7 +156,9 @@ function looksLikeObject(mask: CutMask): boolean {
     }
   }
   const edges = [top, bottom, left, right].filter(Boolean).length;
-  return area / (w * h) <= 0.6 && edges < 3;
+  const ratio = area / (w * h);
+  // A thing, not a slice of wall or sky: not huge, not a speck, not running off two sides.
+  return ratio <= 0.45 && ratio >= 0.012 && edges < 2;
 }
 
 // ── SlimSAM (default, on-device) ──────────────────────────

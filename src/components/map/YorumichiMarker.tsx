@@ -33,7 +33,7 @@ export function YorumichiMarker({
       )}
       <span className={`relative flex items-center justify-center transition-transform ${selected ? "h-11 w-11 scale-105" : "h-9 w-9"}`}>
         <img src={`/ui/badge-${badge}.png`} alt="" className="absolute inset-0 h-full w-full" draggable={false} />
-        <span className="relative text-[13px] font-bold tabular-nums">{marker.index ?? "?"}</span>
+        <span className="relative text-[14px] font-bold tabular-nums">{marker.index ?? "?"}</span>
         {(marker.placed ?? 0) > 0 && (
           <img src="/deco/tape-stripe.png" alt={`誰かの発見が${marker.placed}枚`} className="absolute -right-3 -bottom-0.5 h-2.5 w-7 rotate-12 object-cover opacity-90" />
         )}

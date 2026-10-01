@@ -24,7 +24,7 @@ const STARTED_KEY = "yorumichi:started";
  * Spots in the same building or a few doors apart would stack into an unreadable
  * pile: keep the nearest one of each cluster (~45m), at most 10 on the map.
  */
-function spread(spots: MapSpot[], minMeters = 45, max = 10): MapSpot[] {
+function spread(spots: MapSpot[], minMeters = 70, max = 10): MapSpot[] {
   const kept: MapSpot[] = [];
   for (const s of [...spots].sort((a, b) => a.place.distanceMeters - b.place.distanceMeters)) {
     if (kept.length >= max) break;
@@ -131,12 +131,27 @@ export default function MapHome() {
           selectedId={selected?.place.placeId ?? null}
           onSelect={(id) => select(id)}
           bottomInset={170}
+          bubbles={false}
           mascotAt={bird.pos}
           mascot={bird.node}
           className="yorumichi-map h-full w-full"
         />
       ) : (
         <div className="paper-grid h-full w-full" />
+      )}
+
+      {/* What the colours mean */}
+      {markers.length > 0 && (
+        <div className="pointer-events-none absolute bottom-[184px] left-3 flex items-center gap-2.5 rounded-full bg-card/90 px-3 py-1 text-[14px] text-ink-soft shadow-[0_2px_6px_-3px_rgb(60_50_30/0.4)]">
+          <span className="flex items-center gap-1">
+            <span className="h-3 w-3 rounded-full bg-butter ring-1 ring-ink/40" aria-hidden />
+            まだ
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="h-3 w-3 rounded-full bg-sky ring-1 ring-ink/40" aria-hidden />
+            行った
+          </span>
+        </div>
       )}
 
       <div className="pointer-events-none absolute inset-x-0 top-0 p-3 pt-[max(12px,env(safe-area-inset-top))]">
@@ -224,9 +239,9 @@ function SpotCard({
   onSave: () => void;
 }) {
   return (
-    <SketchCard tone={active ? "white" : "paper"} pad="md" seed={`card-${spot.place.placeId}`} tape={active ? "auto" : undefined} onClick={onFocus}>
+    <SketchCard tone={active ? "white" : "paper"} pad="md" seed={`card-${spot.place.placeId}`} onClick={onFocus}>
       <div className="flex items-start justify-between">
-        <span className="text-[12px] tracking-widest text-ink-mute tabular-nums">{String(index).padStart(2, "0")}</span>
+        <span className="text-[14px] tracking-widest text-ink-mute tabular-nums">{String(index).padStart(2, "0")}</span>
         <button
           type="button"
           onClick={(e) => {

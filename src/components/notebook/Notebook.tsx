@@ -56,7 +56,8 @@ export function Notebook({
   stickers: Sticker[];
   decos: BookDeco[];
   pages: BookPage[];
-  onOpen: (id: string) => void;
+  /** Open a stuck sticker (and which copy on the page it was, so it can be peeled off). */
+  onOpen: (stickerId: string, decoId: string) => void;
   onPagesChange: (pages: BookPage[]) => void;
   onAddDeco: (kind: BookDecoKind, pos: BookPos) => void;
   onMoveDeco: (id: string, pos: BookPos) => void;
@@ -168,7 +169,10 @@ export function Notebook({
     setDragId(null);
     if (!d || d.pointerId !== e.pointerId) return;
     if (!d.moved) {
-      setSelected((cur) => (cur === d.id ? null : d.id));
+      // Your stickers open straight away; birds and tape show "はがす".
+      const sid = stickerOfDeco(decos.find((x) => x.id === d.id)?.kind ?? "");
+      if (sid) onOpen(sid, d.id);
+      else setSelected((cur) => (cur === d.id ? null : d.id));
       return;
     }
     const p = local.get(d.id);
@@ -217,7 +221,7 @@ export function Notebook({
         <span key={page} className={`pointer-events-none absolute inset-0 ${dir === 1 ? "animate-[page-turn-r_0.3s_ease-out]" : "animate-[page-turn-l_0.3s_ease-out]"}`} aria-hidden />
         <Tape seed={`page-${page}-a`} corner="left" className="!-top-1 !w-16" />
         <Tape seed={`page-${page}-b`} corner="right" className="!-top-1 !w-16" />
-        <span className="pointer-events-none absolute top-3 right-4 text-[12px] text-ink-mute tabular-nums">
+        <span className="pointer-events-none absolute top-3 right-4 text-[14px] text-ink-mute tabular-nums">
           {page + 1}
         </span>
         {onPage.length === 0 && (
@@ -248,32 +252,20 @@ export function Notebook({
                 lift={lifted}
                 className={`pointer-events-none mx-auto ${s.tape ? "w-full opacity-90" : "w-auto"} ${s.deco && !s.tape ? "max-h-[26cqw]" : s.tape ? "" : "max-h-[36cqw]"} ${isSelected ? "rounded-xl outline-2 outline-sky-deep outline-offset-2 outline-dashed" : ""}`}
               />
-              {s.label && <span className="pointer-events-none mt-0.5 block truncate text-center font-hand text-[13px] text-ink-soft">{s.label}</span>}
+              {s.label && <span className="pointer-events-none mt-0.5 block truncate text-center font-hand text-[14px] text-ink-soft">{s.label}</span>}
               {isSelected && (
                 <div
                   className="absolute -top-10 left-1/2 flex -translate-x-1/2 gap-1.5"
                   style={{ rotate: `${-p.rot}deg` }}
                   onPointerDown={(e) => e.stopPropagation()}
                 >
-                  {s.sticker && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onOpen(s.sticker!);
-                        setSelected(null);
-                      }}
-                      className="rounded-[8px_11px_9px_10px] bg-card px-3 py-1 text-[13px] font-bold whitespace-nowrap shadow-[0_2px_8px_-2px_rgb(60_50_30/0.35)]"
-                    >
-                      見る
-                    </button>
-                  )}
                   <button
                     type="button"
                     onClick={() => {
                       onRemoveDeco(s.id);
                       setSelected(null);
                     }}
-                    className="rounded-[8px_11px_9px_10px] bg-card px-3 py-1 text-[13px] font-bold whitespace-nowrap shadow-[0_2px_8px_-2px_rgb(60_50_30/0.35)]"
+                    className="rounded-[8px_11px_9px_10px] bg-card px-3 py-1 text-[14px] font-bold whitespace-nowrap shadow-[0_2px_8px_-2px_rgb(60_50_30/0.35)]"
                   >
                     はがす
                   </button>
@@ -310,23 +302,23 @@ export function Notebook({
         <button type="button" onClick={() => go(-1)} disabled={page === 0} aria-label="前のページ" className="sketch-btn flex h-10 w-8 shrink-0 items-center justify-center disabled:opacity-30">
           <img src="/ui/i-back.png" alt="" className="h-5 w-auto" />
         </button>
-        <span className="w-11 shrink-0 text-center text-[13px] whitespace-nowrap text-ink-mute tabular-nums">
+        <span className="w-11 shrink-0 text-center text-[14px] whitespace-nowrap text-ink-mute tabular-nums">
           {page + 1} / {pageCount}
         </span>
         <SketchButton variant="plain" size="sm" onClick={() => setPaperOpen((v) => !v)} aria-expanded={paperOpen} className="!min-h-10 !gap-1 !px-1.5 whitespace-nowrap">
           <span className={`book-${bgOf(page)} inline-block h-5 w-5 rounded-[4px_6px_4px_5px] shadow-[0_1px_2px_rgb(60_50_30/0.25)]`} aria-hidden />
           紙
         </SketchButton>
-        <SketchButton variant="primary" size="sm" onClick={() => setBoxOpen(true)} className="relative !min-h-10 !gap-1 !px-2 whitespace-nowrap" aria-label={`ボックス（まだ貼っていないシール${unstuck}枚）`}>
+        <SketchButton variant="primary" size="sm" onClick={() => setBoxOpen(true)} className="relative !min-h-10 !gap-1 !px-2 whitespace-nowrap" aria-label={`シールを貼る（まだ貼っていないシール${unstuck}枚）`}>
           <img src="/ui/n-cards.png" alt="" className="h-5 w-auto" />
-          ボックス
+          シール
           {unstuck > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 min-w-5 rounded-full bg-ink px-1 text-center text-[11px] leading-5 font-bold text-white tabular-nums">{unstuck}</span>
+            <span className="absolute -top-1.5 -right-1.5 min-w-5 rounded-full bg-ink px-1 text-center text-[14px] leading-5 font-bold text-white tabular-nums">{unstuck}</span>
           )}
         </SketchButton>
-        <SketchButton variant="sub" size="sm" onClick={() => setTrayOpen(true)} className="!min-h-10 !gap-1 !px-2 whitespace-nowrap" aria-label="みちびやテープを貼る">
+        <SketchButton variant="sub" size="sm" onClick={() => setTrayOpen(true)} className="!min-h-10 !gap-1 !px-2 whitespace-nowrap" aria-label="みちびやテープで飾る">
           <img src="/deco/bird-front.png" alt="" className="h-5 w-auto" />
-          飾る
+          かざり
         </SketchButton>
         <button type="button" onClick={() => go(1)} aria-label={page === pageCount - 1 ? "新しいページ" : "次のページ"} className="sketch-btn flex h-10 w-8 shrink-0 items-center justify-center">
           <img src="/ui/i-back.png" alt="" className="h-5 w-auto -scale-x-100" />
@@ -337,7 +329,7 @@ export function Notebook({
         <StickerBox stickers={stickers} stuck={stuck} onPick={(st) => addDeco(`sticker:${st.id}`, st.rotation)} />
       </SketchSheet>
 
-      <SketchSheet open={trayOpen} onClose={() => setTrayOpen(false)} label="飾る">
+      <SketchSheet open={trayOpen} onClose={() => setTrayOpen(false)} label="かざり">
         <p className="px-5 pt-1 font-hand text-lg">みちび</p>
         <ul className="grid grid-cols-4 gap-3 px-5 pt-2 pb-4">
           {DECO_KINDS.filter((k) => k.startsWith("bird-")).map((k) => (

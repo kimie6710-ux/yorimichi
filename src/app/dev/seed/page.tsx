@@ -84,7 +84,7 @@ export default function SeedPage() {
       <p id="count">{log.length}</p>
       <ul className="mt-4 grid grid-cols-4 gap-3">
         {log.map((l) => (
-          <li key={l.key} className="text-[10px]">
+          <li key={l.key} className="text-[14px]">
             {l.url ? <img src={l.url} alt="" className="w-full" /> : <span className="text-red-600">{l.err}</span>}
             {l.key.split(":")[0]}
           </li>

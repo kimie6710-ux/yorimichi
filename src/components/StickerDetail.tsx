@@ -16,7 +16,18 @@ function date(iso: string) {
 }
 
 /** Everything about one sticker, plus what you can do with it. */
-export function StickerDetail({ sticker, onChange, onClose }: { sticker: Sticker; onChange: (s: Sticker) => void; onClose?: () => void }) {
+export function StickerDetail({
+  sticker,
+  onChange,
+  onClose,
+  onPeel,
+}: {
+  sticker: Sticker;
+  onChange: (s: Sticker) => void;
+  onClose?: () => void;
+  /** Opened from a page of the notebook: peel this copy off (it stays in the box). */
+  onPeel?: () => void;
+}) {
   const { currentLocation, refreshUnread } = useSearch();
   const [memo, setMemo] = useState(sticker.memo);
   const [busy, setBusy] = useState(false);
@@ -122,6 +133,11 @@ export function StickerDetail({ sticker, onChange, onClose }: { sticker: Sticker
           <SketchButton size="lg" block disabled={busy} onClick={() => void send()}>
             誰かに送る
             <img src="/ui/i-send.png" alt="" className="h-5 w-auto" />
+          </SketchButton>
+        )}
+        {onPeel && (
+          <SketchButton variant="sub" block onClick={onPeel}>
+            このページからはがす
           </SketchButton>
         )}
         <SketchLinkButton href={`/spot/${encodeURIComponent(sticker.spotId)}`} variant={mine ? "sub" : "primary"} block>

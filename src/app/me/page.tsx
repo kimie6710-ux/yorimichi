@@ -10,13 +10,12 @@ import { StickerGrid } from "@/components/StickerGrid";
 import { api, ApiClientError } from "@/lib/api-client";
 import type { MyHistory } from "@/lib/types";
 
-type Tab = "saved" | "visited" | "placed" | "sent" | "received";
+type Tab = "saved" | "visited" | "placed" | "sent";
 const TABS: { value: Tab; label: string; icon: string; note: string }[] = [
   { value: "saved", label: "気になる", icon: "/ui/i-star.png", note: "星をつけたスポット" },
   { value: "visited", label: "行った", icon: "/ui/n-map.png", note: "着いたスポット" },
   { value: "placed", label: "置いた", icon: "/ui/i-bookmark.png", note: "スポットに置いてきたシール" },
   { value: "sent", label: "送った", icon: "/ui/i-send.png", note: "誰かに送ったシール" },
-  { value: "received", label: "届いた", icon: "/ui/i-mail.png", note: "誰かから届いたシール" },
 ];
 
 export default function MyPage() {
@@ -37,7 +36,7 @@ export default function MyPage() {
     <main className="paper min-h-[calc(100dvh-76px)] px-4 pt-[max(12px,env(safe-area-inset-top))] pb-10">
       <header className="flex items-center gap-3">
         <h1 className="font-hand text-[26px]">マイページ</h1>
-        <Link href="/guide" className="ml-auto flex flex-col items-center gap-0.5 text-[12px] transition-transform active:translate-y-0.5">
+        <Link href="/guide" className="ml-auto flex flex-col items-center gap-0.5 text-[14px] transition-transform active:translate-y-0.5">
           <img src="/ui/n-compass.png" alt="" className="h-9 w-auto" draggable={false} />
           <span className="relative isolate px-1">
             <img src="/ui/marker-yellow.png" alt="" aria-hidden className="absolute inset-x-0 bottom-0 -z-10 h-2 w-full" />
@@ -46,7 +45,7 @@ export default function MyPage() {
         </Link>
       </header>
 
-      <div role="tablist" aria-label="マイページの一覧" className="mt-4 grid grid-cols-5 gap-1.5">
+      <div role="tablist" aria-label="マイページの一覧" className="mt-4 grid grid-cols-4 gap-2">
         {TABS.map((t) => {
           const active = tab === t.value;
           const count = data ? data[t.value].length : null;
