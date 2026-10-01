@@ -1,5 +1,6 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element -- local bird sprites */
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { MICHIBI_LINES, michibiSrc } from "@/lib/character";
