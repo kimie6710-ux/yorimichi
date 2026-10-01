@@ -74,6 +74,13 @@ function copyOf(row: SpotRow | undefined): SpotCopy | null {
   return { copy: row.ai_copy, form: row.ai_copy_form ?? "", birdLine: row.ai_bird_line ?? "" };
 }
 
+/** The line every screen shows for these spots: the stored copy, else a placed sticker's name. */
+async function spotLines(spots: SpotRow[]): Promise<Map<string, string | null>> {
+  const bare = spots.filter((s) => !s.ai_copy).map((s) => s.id);
+  const found = bare.length ? await getStore().find("stickers", { in: { spot_id: bare }, where: { status: "placed" } }) : [];
+  return new Map(spots.map((s) => [s.id, s.ai_copy ?? nicknameFromStickers(found.filter((f) => f.spot_id === s.id))?.copy ?? null]));
+}
+
 /** A spot without a line, named after the newest thing someone found there. */
 function nicknameFromStickers(found: StickerRow[]): SpotCopy | null {
   // Only from stickers someone left there for others to see.
@@ -293,6 +300,7 @@ async function toStickers(rows: StickerRow[], viewerId: string): Promise<Sticker
   // The real name stays hidden until you've been there yourself.
   const been = new Set(visits.map((v) => v.spot_id));
   const spotBy = new Map(spots.map((s) => [s.id, s]));
+  const lines = await spotLines(spots);
   const obsBy = new Map(observations.map((o) => [o.id, o]));
   const photoPaths = rows
     .map((r) => (r.observation_id && r.creator_id === viewerId ? obsBy.get(r.observation_id)?.photo_path : null))
@@ -305,7 +313,7 @@ async function toStickers(rows: StickerRow[], viewerId: string): Promise<Sticker
       id: r.id,
       spotId: r.spot_id,
       spotName: r.creator_id === viewerId || been.has(r.spot_id) ? (spot?.name ?? "") : "",
-      spotCopy: spot?.ai_copy ?? null,
+      spotCopy: lines.get(r.spot_id) ?? null,
       spotLocation: { latitude: spot?.lat ?? 0, longitude: spot?.lng ?? 0 },
       spotKind: spotKind(spot?.types ?? []),
       label: r.label,
@@ -596,16 +604,18 @@ export async function history(userId: string): Promise<MyHistory> {
     listMyStickers(userId),
   ]);
   const ids = [...new Set([...visits.map((v) => v.spot_id), ...saves.map((s) => s.spot_id)])];
-  const spots = new Map((await store.find("spots", { in: { id: ids } })).map((s) => [s.id, s]));
+  const spotRows = await store.find("spots", { in: { id: ids } });
+  const spots = new Map(spotRows.map((s) => [s.id, s]));
+  const lines = await spotLines(spotRows);
   const been = new Set(visits.map((v) => v.spot_id));
   const seen = new Set<string>();
   const visited = visits
     .filter((v) => (seen.has(v.spot_id) ? false : (seen.add(v.spot_id), true)))
-    .map((v) => ({ spotId: v.spot_id, name: spots.get(v.spot_id)?.name ?? "", copy: spots.get(v.spot_id)?.ai_copy ?? null, at: v.created_at }));
+    .map((v) => ({ spotId: v.spot_id, name: spots.get(v.spot_id)?.name ?? "", copy: lines.get(v.spot_id) ?? null, at: v.created_at }));
   const saved = saves.map((s) => ({
     spotId: s.spot_id,
     name: been.has(s.spot_id) ? (spots.get(s.spot_id)?.name ?? null) : null,
-    copy: spots.get(s.spot_id)?.ai_copy ?? null,
+    copy: lines.get(s.spot_id) ?? null,
     at: s.created_at,
   }));
   return {
