@@ -27,6 +27,7 @@ const MAX_PLACED_PER_SPOT = 3;
 const MAX_SENDS_PER_DAY = 3;
 const ACTIVE_WITHIN_MS = 14 * 24 * 60 * 60 * 1000;
 const TOUCH_EVERY_MS = 10 * 60 * 1000;
+const MAX_STICKERS_PER_DAY = 300;
 const RECEIVE_GAP_MS = 6 * 60 * 60 * 1000;
 
 const now = () => new Date().toISOString();
@@ -359,6 +360,8 @@ export async function createStickers(input: {
   const store = getStore();
   const spot = await store.get("spots", input.spotId);
   if (!spot) throw new RuleError("スポットが見つかりません", 404);
+  const today = await store.count("stickers", { where: { creator_id: input.userId }, gte: { created_at: ago(24 * 60 * 60 * 1000) } });
+  if (today + input.items.length > MAX_STICKERS_PER_DAY) throw new RuleError(`シールにできるのは1日${MAX_STICKERS_PER_DAY}枚までです`, 429);
   const obsId = uuid();
   const dir = `${input.userId}/${obsId}`;
   let photoPath: string | null = null;

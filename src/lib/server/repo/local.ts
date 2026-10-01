@@ -29,7 +29,8 @@ const EMPTY: Db = {
   vision_memory: [],
 };
 
-const g = globalThis as unknown as { __yorumichiDb?: Promise<Db>; __yorumichiWrite?: Promise<void> };
+const g = globalThis as unknown as { __yorumichiDb?: Promise<Db>; __yorumichiWrite?: Promise<void>; __yorumichiSave?: Promise<void> };
+const SAVE_DELAY_MS = 300;
 
 function load(): Promise<Db> {
   g.__yorumichiDb ??= readFile(DB_FILE, "utf8")
@@ -42,15 +43,26 @@ function load(): Promise<Db> {
   });
 }
 
+/**
+ * Save to disk. Writes that come in quick succession (dragging in the notebook,
+ * several rows in one request) are folded into one; the in-memory copy is the
+ * source of truth meanwhile. Write-then-rename so a crash never leaves half a file.
+ */
 function persist(db: Db): Promise<void> {
-  // Serialise writes; write-then-rename so a crash never leaves half a file.
-  g.__yorumichiWrite = (g.__yorumichiWrite ?? Promise.resolve()).then(async () => {
-    await mkdir(ROOT, { recursive: true });
-    const tmp = `${DB_FILE}.tmp`;
-    await writeFile(tmp, JSON.stringify(db));
-    await rename(tmp, DB_FILE);
+  g.__yorumichiSave ??= new Promise<void>((resolve, reject) => {
+    setTimeout(() => {
+      g.__yorumichiSave = undefined;
+      g.__yorumichiWrite = (g.__yorumichiWrite ?? Promise.resolve())
+        .then(async () => {
+          await mkdir(ROOT, { recursive: true });
+          const tmp = `${DB_FILE}.tmp`;
+          await writeFile(tmp, JSON.stringify(db));
+          await rename(tmp, DB_FILE);
+        })
+        .then(resolve, reject);
+    }, SAVE_DELAY_MS);
   });
-  return g.__yorumichiWrite;
+  return g.__yorumichiSave;
 }
 
 function matches<T>(row: T, q: Query<T> = {}): boolean {
