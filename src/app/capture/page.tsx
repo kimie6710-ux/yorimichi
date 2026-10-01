@@ -27,7 +27,7 @@ export default function CapturePage() {
     <main className="paper flex h-[calc(100dvh-76px-env(safe-area-inset-bottom))] flex-col items-center justify-center gap-4 px-4">
       {stuck ? (
         <>
-          <Michibi mood="sleepy" size={80} says="いまどこにいるか、わからなかった。" className="flex-col-reverse !items-center" animate="none" />
+          <Michibi mood="sleepy" size={80} says="いまどこにいるか、わからなかった。" above animate="none" />
           <SketchButton size="md" onClick={locate}>
             もう一回さがす
           </SketchButton>

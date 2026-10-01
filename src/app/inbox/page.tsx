@@ -43,7 +43,7 @@ export default function InboxPage() {
       {error && <p className="mt-6 text-sm font-bold">{error}</p>}
       {items && items.length === 0 && (
         <div className="mt-16 flex flex-col items-center text-center">
-          <Michibi mood="sleepy" size={96} says={MICHIBI_LINES.inboxEmpty} className="flex-col-reverse !items-center" animate="none" />
+          <Michibi mood="sleepy" size={96} says={MICHIBI_LINES.inboxEmpty} above animate="none" />
           <p className="mt-4 max-w-[260px] text-sm text-ink-soft">シールを送り出すと、誰かの発見がひとつ返ってきます。</p>
         </div>
       )}

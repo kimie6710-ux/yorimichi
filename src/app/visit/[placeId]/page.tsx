@@ -9,6 +9,7 @@ import { GuideView } from "@/components/GuideView";
 import { Michibi } from "@/components/Michibi";
 import { SketchButton, SketchInput, SketchLinkButton, SketchSheet } from "@/components/sketch";
 import { MessageView } from "@/components/StateViews";
+import { FindsRow } from "@/components/FindsRow";
 import { StickerView } from "@/components/StickerView";
 import { PlaceImage } from "@/components/PlaceImage";
 import { api, ApiClientError } from "@/lib/api-client";
@@ -363,7 +364,7 @@ function Visit() {
       {step === "explore" && free && (
         <section className="animate-rise mt-3 flex min-h-0 flex-1 flex-col">
           <div className="flex min-h-0 flex-1 flex-col items-center justify-center">
-            <Michibi mood="front" size={96} says="なにか見つけた？" className="flex-col-reverse !items-center" animate="none" />
+            <Michibi mood="front" size={96} says="なにか見つけた？" above animate="none" />
           </div>
           <div className="shrink-0 pt-2">
             <p className="mb-2 text-center text-[17px]">気になったもの、ある？</p>
@@ -394,23 +395,12 @@ function Visit() {
             {others.length > 0 ? (
               <>
                 <p className="text-[15px]">{MICHIBI_LINES.somebodyWasHere}</p>
-                <ul className="hide-scrollbar -mx-4 mt-2 flex gap-4 overflow-x-auto px-4 pb-1">
-                  {others.map((o) => (
-                    <li key={o.id} className="w-[34%] shrink-0 text-center">
-                      <StickerView src={o.imageUrl} alt={o.label} rotation={o.rotation} className="mx-auto max-h-[22dvh] w-auto" />
-                      <p className="mt-1 truncate text-[14px]">{o.label}</p>
-                      {o.memo && <p className="line-clamp-2 text-[14px] text-ink-soft">「{o.memo}」</p>}
-                    </li>
-                  ))}
-                </ul>
+                <FindsRow items={others} className="mt-2" size="max-h-[22dvh]" />
               </>
             ) : (
               <button type="button" onClick={() => setNudge((v) => !v)} aria-label="ヒント" className="mx-auto">
-                <Michibi mood={nudge ? "surprise" : "front"} size={96} says={nudge ? MICHIBI_LINES.nudge : MICHIBI_LINES.explore} className="flex-col-reverse !items-center" animate="none" />
+                <Michibi mood={nudge ? "surprise" : "front"} size={96} says={nudge ? MICHIBI_LINES.nudge : MICHIBI_LINES.explore} above animate="none" />
               </button>
-            )}
-            {detail.foundLabels.length > 0 && (
-              <p className="mt-2 truncate text-[14px] text-ink-mute">ここで見つかったもの：{detail.foundLabels.join("・")}</p>
             )}
           </div>
 
@@ -587,7 +577,8 @@ function Visit() {
               mood={outcome === "sent" ? "flap" : outcome === "placed" ? "perch" : "happy"}
               size={72}
               says={outcome === "sent" ? (delivered ? MICHIBI_LINES.sent : "届け先、探してるところ。") : outcome === "placed" ? MICHIBI_LINES.placed : "ボックスに入れといた。"}
-              className="mt-3 flex-col-reverse !items-center"
+              above
+              className="mt-3"
               animate="none"
             />
           </div>

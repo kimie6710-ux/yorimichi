@@ -8,9 +8,10 @@ import { BackButton } from "@/components/BackButton";
 import { Michibi } from "@/components/Michibi";
 import { SketchButton, SketchCard } from "@/components/sketch";
 import { MessageView } from "@/components/StateViews";
-import { StickerView } from "@/components/StickerView";
+import { FindsRow } from "@/components/FindsRow";
 import { SpotReveal } from "@/components/SpotReveal";
 import { api, ApiClientError } from "@/lib/api-client";
+import { MICHIBI_LINES } from "@/lib/character";
 import { bearingDegrees, compassWord, distanceMeters } from "@/lib/geo";
 import { useSearch } from "@/lib/store/search-context";
 import type { SpotDetail } from "@/lib/types";
@@ -100,17 +101,13 @@ export default function SpotPage() {
             <SpotReveal place={spot.place} compact />
           </div>
         )}
-        <p className="shrink-0 text-[15px] font-bold">ここで見つかったもの</p>
         {finds.length > 0 ? (
-          <ul className="hide-scrollbar -mx-4 mt-2 flex min-h-0 flex-1 items-center gap-4 overflow-x-auto px-4">
-            {finds.map((f) => (
-              <li key={f.id} className="w-[34%] shrink-0 text-center">
-                <StickerView src={f.imageUrl} alt={f.label} rotation={f.rotation} className="mx-auto max-h-[18dvh] w-auto" />
-                <p className="mt-1 truncate text-[14px]">{f.label}</p>
-                <p className="truncate text-[14px] text-ink-mute">{f.mine ? "自分" : f.memo ? `「${f.memo}」` : "誰かの発見"}</p>
-              </li>
-            ))}
-          </ul>
+          <>
+            <p className="shrink-0 text-[15px]">{others.length > 0 && onSite ? MICHIBI_LINES.somebodyWasHere : "あなたは、ここでこれを見つけた。"}</p>
+            <div className="flex min-h-0 flex-1 items-center">
+              <FindsRow items={finds} className="w-full" />
+            </div>
+          </>
         ) : !onSite && spot.placedCount > 0 ? (
           <div className="mt-2 flex min-h-0 flex-1 flex-col justify-center">
             <div className="flex gap-3" aria-hidden>
