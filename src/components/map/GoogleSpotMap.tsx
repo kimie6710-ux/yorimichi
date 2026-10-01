@@ -36,10 +36,29 @@ function FitBounds({ origin, markers, bottomInset = 0 }: Pick<MapViewProps, "ori
   return null;
 }
 
+/** Round off sharp little zigzags (Chaikin), keeping the ends where they are. */
+function smooth(pts: google.maps.Point[], rounds = 2): google.maps.Point[] {
+  let out = pts;
+  for (let r = 0; r < rounds; r++) {
+    if (out.length < 3) break;
+    const next = [out[0]];
+    for (let i = 0; i < out.length - 1; i++) {
+      const a = out[i];
+      const b = out[i + 1];
+      next.push(new google.maps.Point(a.x * 0.75 + b.x * 0.25, a.y * 0.75 + b.y * 0.25));
+      next.push(new google.maps.Point(a.x * 0.25 + b.x * 0.75, a.y * 0.25 + b.y * 0.75));
+    }
+    next.push(out[out.length - 1]);
+    out = next;
+  }
+  return out;
+}
+
 /**
- * The walking route, drawn as SVG on its own layer: map tiles are toned down
- * with a CSS filter, and a route drawn on the map canvas would be greyed out too.
- * Looks like a map app's route: deep-blue edge, bright-blue line, round joins.
+ * The walking route, drawn as SVG on its own layer (map tiles are toned down
+ * with a CSS filter; a route on the map canvas would be greyed out too).
+ * A walking route like map apps draw it: a soft band with a row of dots,
+ * in よりみち's sky blue on paper white.
  */
 function RouteLine({ route }: { route: LatLng[] }) {
   const map = useMap();
@@ -50,25 +69,20 @@ function RouteLine({ route }: { route: LatLng[] }) {
 
     class RouteOverlay extends google.maps.OverlayView {
       private svg = document.createElementNS(NS, "svg");
-      private edge = document.createElementNS(NS, "path");
-      private line = document.createElementNS(NS, "path");
+      private band = document.createElementNS(NS, "path");
+      private dots = document.createElementNS(NS, "path");
 
       constructor() {
         super();
         this.svg.style.position = "absolute";
         this.svg.style.overflow = "visible";
         this.svg.style.pointerEvents = "none";
-        for (const [p, color, width] of [
-          [this.edge, "#2c6a99", 10],
-          [this.line, "#4fa3e3", 6],
-        ] as const) {
-          p.setAttribute("fill", "none");
-          p.setAttribute("stroke", color);
-          p.setAttribute("stroke-width", String(width));
-          p.setAttribute("stroke-linecap", "round");
-          p.setAttribute("stroke-linejoin", "round");
+        const style = (p: SVGPathElement, attrs: Record<string, string>) => {
+          for (const [k, v] of Object.entries({ fill: "none", "stroke-linecap": "round", "stroke-linejoin": "round", ...attrs })) p.setAttribute(k, v);
           this.svg.appendChild(p);
-        }
+        };
+        style(this.band, { stroke: "#fffefb", "stroke-width": "14", "stroke-opacity": "0.95" });
+        style(this.dots, { stroke: "#3f86ad", "stroke-width": "8", "stroke-dasharray": "0 13" });
       }
 
       onAdd() {
@@ -78,8 +92,9 @@ function RouteLine({ route }: { route: LatLng[] }) {
       draw() {
         const proj = this.getProjection();
         if (!proj) return;
-        const pts = route.map((p) => proj.fromLatLngToDivPixel(toGoogle(p))).filter((p): p is google.maps.Point => !!p);
-        if (pts.length < 2) return;
+        const raw = route.map((p) => proj.fromLatLngToDivPixel(toGoogle(p))).filter((p): p is google.maps.Point => !!p);
+        if (raw.length < 2) return;
+        const pts = smooth(raw);
         const minX = Math.min(...pts.map((p) => p.x)) - PAD;
         const minY = Math.min(...pts.map((p) => p.y)) - PAD;
         const maxX = Math.max(...pts.map((p) => p.x)) + PAD;
@@ -89,8 +104,8 @@ function RouteLine({ route }: { route: LatLng[] }) {
         this.svg.setAttribute("width", String(maxX - minX));
         this.svg.setAttribute("height", String(maxY - minY));
         const d = pts.map((p, i) => `${i ? "L" : "M"}${(p.x - minX).toFixed(1)} ${(p.y - minY).toFixed(1)}`).join(" ");
-        this.edge.setAttribute("d", d);
-        this.line.setAttribute("d", d);
+        this.band.setAttribute("d", d);
+        this.dots.setAttribute("d", d);
       }
 
       onRemove() {
@@ -105,18 +120,33 @@ function RouteLine({ route }: { route: LatLng[] }) {
   return null;
 }
 
-/** Keep the person in view while they walk (navigation). */
-function FollowOrigin({ origin }: { origin: LatLng | null }) {
+/** Keep the person in view while they walk (navigation); pause when they pan, resume on recenter. */
+function FollowOrigin({ origin, recenter = 0, onPanAway }: { origin: LatLng | null; recenter?: number; onPanAway?: () => void }) {
   const map = useMap();
   const zoomed = useRef(false);
+  const paused = useRef(false);
   useEffect(() => {
-    if (!map || !origin) return;
+    if (!map) return;
+    const l = map.addListener("dragstart", () => {
+      paused.current = true;
+      onPanAway?.();
+    });
+    return () => l.remove();
+  }, [map, onPanAway]);
+  useEffect(() => {
+    paused.current = false;
+  }, [recenter]);
+  useEffect(() => {
+    if (!map || !origin || paused.current) return;
     if (!zoomed.current) {
-      map.setZoom(17);
+      map.setZoom(18); // walking scale: street corners and shop fronts
       zoomed.current = true;
     }
     map.panTo(toGoogle(origin));
-  }, [map, origin]);
+    // Like a map app: you sit low on the screen, with more of the way ahead in view.
+    const h = map.getDiv().clientHeight;
+    map.panBy(0, -Math.round(h * 0.15));
+  }, [map, origin, recenter]);
   return null;
 }
 
@@ -134,15 +164,19 @@ function PanToSelected({ markers, selectedId }: Pick<MapViewProps, "markers" | "
  * surprise), muted pastel colours, roads kept for orientation.
  */
 const MAP_STYLES: google.maps.MapTypeStyle[] = [
-  { elementType: "geometry", stylers: [{ color: "#f6f1e4" }] },
+  { elementType: "geometry", stylers: [{ color: "#f1ead9" }] },
+  // Buildings a shade darker than the ground, so streets read as streets.
+  { featureType: "landscape.man_made", elementType: "geometry", stylers: [{ color: "#e8dfc9" }] },
   { elementType: "labels.text.fill", stylers: [{ color: "#8a8272" }] },
   { elementType: "labels.text.stroke", stylers: [{ color: "#fbf8f0" }] },
   { featureType: "poi", stylers: [{ visibility: "off" }] },
   { featureType: "poi.park", elementType: "geometry", stylers: [{ visibility: "on" }, { color: "#e4ecd6" }] },
   { featureType: "transit", stylers: [{ visibility: "off" }] },
+  // Railway lines (no names) help you place yourself around a station.
+  { featureType: "transit.line", elementType: "geometry", stylers: [{ visibility: "on" }, { color: "#d6ccb6" }] },
   { featureType: "administrative.land_parcel", stylers: [{ visibility: "off" }] },
-  { featureType: "road", elementType: "geometry", stylers: [{ color: "#fffdf7" }] },
-  { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#e2d9c4" }] },
+  { featureType: "road", elementType: "geometry", stylers: [{ color: "#fffdf8" }] },
+  { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#d4c8ad" }] },
   { featureType: "road", elementType: "labels.icon", stylers: [{ visibility: "off" }] },
   { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#efe7d4" }] },
   { featureType: "water", elementType: "geometry", stylers: [{ color: "#d3e8f2" }] },
@@ -225,6 +259,9 @@ export default function GoogleSpotMap({
   route = null,
   bubbles = true,
   follow = false,
+  recenter,
+  onPanAway,
+  originMarker,
   onLoadError,
 }: MapViewProps & { onLoadError: () => void }) {
   const center = origin ?? markers[0]?.position;
@@ -243,13 +280,13 @@ export default function GoogleSpotMap({
         clickableIcons={false}
       >
         {interactive && !follow && <FitBounds origin={origin} markers={markers} bottomInset={bottomInset} />}
-        {follow && <FollowOrigin origin={origin} />}
-        {interactive && <PanToSelected markers={markers} selectedId={selectedId} />}
+        {follow && <FollowOrigin origin={origin} recenter={recenter} onPanAway={onPanAway} />}
+        {interactive && !follow && <PanToSelected markers={markers} selectedId={selectedId} />}
         {route && <RouteLine route={route} />}
 
         {origin && (
           <HtmlMarker position={origin} zIndex={5} anchor="center">
-            <CurrentLocationMarker />
+            {originMarker ?? <CurrentLocationMarker />}
           </HtmlMarker>
         )}
 

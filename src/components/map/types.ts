@@ -35,6 +35,12 @@ export interface MapViewProps {
   mascot?: import("react").ReactNode;
   /** Keep the map centred on the person (navigation). */
   follow?: boolean;
+  /** Bump to re-centre on the person after they panned away (navigation). */
+  recenter?: number;
+  /** Told when the person drags the map away while following. */
+  onPanAway?: () => void;
+  /** Drawn at the person's position instead of the dot (e.g. みちび walking). */
+  originMarker?: import("react").ReactNode;
   /** Show the selected spot's copy as a bubble on the map (default true). */
   bubbles?: boolean;
 }

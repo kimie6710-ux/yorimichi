@@ -52,6 +52,7 @@ export async function POST(req: Request) {
         origin: { location: { latLng: origin } },
         destination: { location: { latLng: destination } },
         travelMode: "WALK",
+        polylineQuality: "HIGH_QUALITY",
         languageCode: "ja",
       }),
       signal: AbortSignal.timeout(8000),
