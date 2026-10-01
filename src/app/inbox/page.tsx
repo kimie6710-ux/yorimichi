@@ -85,7 +85,7 @@ export default function InboxPage() {
                 このシールが生まれた場所を見る
               </SketchLinkButton>
               <SketchButton variant="plain" size="sm" onClick={() => setOpenItem(null)}>
-                手帳にしまう
+                ボックスにしまう
               </SketchButton>
             </div>
           </div>

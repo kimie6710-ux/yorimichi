@@ -14,7 +14,7 @@ import type {
   Sticker,
   BookDeco,
   BookPage,
-  DecoKind,
+  BookDecoKind,
   BookPos,
   CutoutName,
 } from "@/lib/types";
@@ -107,7 +107,7 @@ export const api = {
   moveInBook: (id: string, book: BookPos) =>
     request<{ sticker: Sticker }>(`/api/stickers/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ book }) }),
   decos: () => request<{ decos: BookDeco[] }>("/api/book/decos"),
-  addDeco: (kind: DecoKind, pos: BookPos) => request<{ deco: BookDeco }>("/api/book/decos", post({ kind, pos })),
+  addDeco: (kind: BookDecoKind, pos: BookPos) => request<{ deco: BookDeco }>("/api/book/decos", post({ kind, pos })),
   moveDeco: (id: string, pos: BookPos) =>
     request<{ ok: true }>(`/api/book/decos/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pos }) }),
   removeDeco: (id: string) => request<{ ok: true }>(`/api/book/decos/${id}`, { method: "DELETE" }),

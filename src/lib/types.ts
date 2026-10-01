@@ -171,9 +171,18 @@ export const DECO_KINDS = [
 export const TAPES = DECO_KINDS.filter((k) => k.startsWith("tape-")).map((k) => k.slice(5));
 export type DecoKind = (typeof DECO_KINDS)[number];
 
+/** One of your own stickers stuck on a page (the same sticker can be stuck many times). */
+export type StickerDecoKind = `sticker:${string}`;
+export type BookDecoKind = DecoKind | StickerDecoKind;
+
+/** The sticker a page item shows, if it is one of your stickers. */
+export function stickerOfDeco(kind: string): string | null {
+  return kind.startsWith("sticker:") ? kind.slice(8) : null;
+}
+
 export interface BookDeco {
   id: string;
-  kind: DecoKind;
+  kind: BookDecoKind;
   pos: BookPos;
 }
 

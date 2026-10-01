@@ -9,54 +9,20 @@ import { StickerView } from "@/components/StickerView";
 import {
   DECO_KINDS,
   PAGE_BACKGROUNDS,
+  stickerOfDeco,
   type BookDeco,
+  type BookDecoKind,
   type BookPage,
   type BookPos,
-  type DecoKind,
   type PageBackground,
   type Sticker,
 } from "@/lib/types";
 
-const PER_PAGE = 6;
-/** Loose slots for stickers that haven't been arranged yet (centre, 0..1). */
-const SLOTS: [number, number][] = [
-  [0.3, 0.18],
-  [0.72, 0.24],
-  [0.28, 0.49],
-  [0.7, 0.55],
-  [0.32, 0.8],
-  [0.72, 0.84],
-];
 const EDGE = 0.1;
 const EDGE_HOLD_MS = 650;
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
 
 export const PAGE_BG_LABEL: Record<PageBackground, string> = { cream: "生成り", grid: "方眼", kraft: "クラフト", pink: "ピンク", dots: "ドット", lined: "罫線" };
-
-/**
- * Where every sticker sits. Saved positions win; the rest keep a stable
- * default spot from their place in date order, so moving one never shuffles
- * the others.
- */
-function layout(stickers: Sticker[]): Map<string, BookPos> {
-  const out = new Map<string, BookPos>();
-  const byDate = [...stickers].sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
-  byDate.forEach((s, i) => {
-    if (s.book) {
-      out.set(s.id, s.book);
-      return;
-    }
-    const r = rng(hashSeed(s.id));
-    const [x, y] = SLOTS[i % PER_PAGE];
-    out.set(s.id, {
-      page: Math.floor(i / PER_PAGE),
-      x: clamp(x + (r() - 0.5) * 0.08, 0.12, 0.88),
-      y: clamp(y + (r() - 0.5) * 0.06, 0.1, 0.9),
-      rot: s.rotation,
-    });
-  });
-  return out;
-}
 
 interface Drag {
   id: string;
@@ -70,12 +36,16 @@ interface Drag {
   edgeSide: -1 | 1 | 0;
 }
 
+/**
+ * The notebook: pages you stick things on. Your stickers live in the box
+ * (ボックス); sticking one puts a copy on the page, so the same sticker can go
+ * on many pages, and peeling it off leaves it in the box.
+ */
 export function Notebook({
   stickers,
   decos,
   pages,
   onOpen,
-  onMove,
   onPagesChange,
   onAddDeco,
   onMoveDeco,
@@ -85,20 +55,26 @@ export function Notebook({
   decos: BookDeco[];
   pages: BookPage[];
   onOpen: (id: string) => void;
-  onMove: (id: string, pos: BookPos) => void;
   onPagesChange: (pages: BookPage[]) => void;
-  onAddDeco: (kind: DecoKind, pos: BookPos) => void;
+  onAddDeco: (kind: BookDecoKind, pos: BookPos) => void;
   onMoveDeco: (id: string, pos: BookPos) => void;
   onRemoveDeco: (id: string) => void;
 }) {
-  const base = useMemo(() => {
-    const m = layout(stickers);
-    for (const d of decos) m.set(d.id, d.pos);
+  const base = useMemo(() => new Map(decos.map((d) => [d.id, d.pos])), [decos]);
+  const byId = useMemo(() => new Map(stickers.map((s) => [s.id, s])), [stickers]);
+  /** How many times each sticker is stuck somewhere. */
+  const stuck = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const d of decos) {
+      const sid = stickerOfDeco(d.kind);
+      if (sid) m.set(sid, (m.get(sid) ?? 0) + 1);
+    }
     return m;
-  }, [stickers, decos]);
-  const decoIds = useMemo(() => new Set(decos.map((d) => d.id)), [decos]);
+  }, [decos]);
+  const unstuck = stickers.filter((s) => !stuck.has(s.id)).length;
   const [selected, setSelected] = useState<string | null>(null);
   const [trayOpen, setTrayOpen] = useState(false);
+  const [boxOpen, setBoxOpen] = useState(false);
   const [paperOpen, setPaperOpen] = useState(false);
   const [local, setLocal] = useState<Map<string, BookPos>>(new Map());
   const [order, setOrder] = useState<string[]>([]);
@@ -191,14 +167,11 @@ export function Notebook({
     setDragId(null);
     if (!d || d.pointerId !== e.pointerId) return;
     if (!d.moved) {
-      if (decoIds.has(d.id)) setSelected((cur) => (cur === d.id ? null : d.id));
-      else onOpen(d.id);
+      setSelected((cur) => (cur === d.id ? null : d.id));
       return;
     }
     const p = local.get(d.id);
-    if (!p) return;
-    if (decoIds.has(d.id)) onMoveDeco(d.id, p);
-    else onMove(d.id, p);
+    if (p) onMoveDeco(d.id, p);
   }
 
   // ── swiping the page itself ──
@@ -207,10 +180,11 @@ export function Notebook({
     setSelected(null);
   }
 
-  function addDeco(kind: DecoKind) {
+  function addDeco(kind: BookDecoKind, rot?: number) {
     const r = rng(hashSeed(`${kind}-${decos.length}-${page}`))();
-    onAddDeco(kind, { page, x: 0.35 + r * 0.3, y: 0.3 + ((r * 7) % 1) * 0.4, rot: Math.round((r * 16 - 8) * 10) / 10 });
+    onAddDeco(kind, { page, x: 0.35 + r * 0.3, y: 0.3 + ((r * 7) % 1) * 0.4, rot: rot ?? Math.round((r * 16 - 8) * 10) / 10 });
     setTrayOpen(false);
+    setBoxOpen(false);
   }
   function onPageUp(e: ReactPointerEvent<HTMLDivElement>) {
     const s = swipe.current;
@@ -220,11 +194,14 @@ export function Notebook({
     if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(e.clientY - s.y)) go(dx < 0 ? 1 : -1);
   }
 
-  type Item = { id: string; src: string | null; label: string | null; deco: boolean; tape?: boolean };
-  const onPage: Item[] = [
-    ...stickers.map((s) => ({ id: s.id, src: s.imageUrl, label: s.label, deco: false })),
-    ...decos.map((d) => ({ id: d.id, src: `/deco/${d.kind}.png`, label: null, deco: true, tape: d.kind.startsWith("tape-") })),
-  ]
+  type Item = { id: string; src: string | null; label: string | null; deco: boolean; tape?: boolean; sticker: string | null };
+  const onPage: Item[] = decos
+    .flatMap((d): Item[] => {
+      const sid = stickerOfDeco(d.kind);
+      if (!sid) return [{ id: d.id, src: `/deco/${d.kind}.png`, label: null, deco: true, tape: d.kind.startsWith("tape-"), sticker: null }];
+      const st = byId.get(sid);
+      return st ? [{ id: d.id, src: st.imageUrl, label: st.label, deco: false, sticker: sid }] : [];
+    })
     .filter((it) => pos(it.id).page === page)
     .sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
 
@@ -243,7 +220,7 @@ export function Notebook({
           {page + 1}
         </span>
         {onPage.length === 0 && (
-          <p className="pointer-events-none absolute inset-x-0 top-1/2 text-center text-sm text-ink-mute">まだ何も貼っていないページ</p>
+          <p className="pointer-events-none absolute inset-x-0 top-1/2 text-center text-sm text-ink-mute">ボックスから、好きなシールを貼ってみて</p>
         )}
         {onPage.map((s) => {
           const p = pos(s.id);
@@ -272,18 +249,34 @@ export function Notebook({
               />
               {s.label && <span className="pointer-events-none mt-0.5 block truncate text-center font-hand text-[13px] text-ink-soft">{s.label}</span>}
               {isSelected && (
-                <button
-                  type="button"
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onClick={() => {
-                    onRemoveDeco(s.id);
-                    setSelected(null);
-                  }}
-                  className="absolute -top-9 left-1/2 -translate-x-1/2 rounded-[8px_11px_9px_10px] bg-card px-3 py-1 text-[13px] font-bold whitespace-nowrap shadow-[0_2px_8px_-2px_rgb(60_50_30/0.35)]"
+                <div
+                  className="absolute -top-10 left-1/2 flex -translate-x-1/2 gap-1.5"
                   style={{ rotate: `${-p.rot}deg` }}
+                  onPointerDown={(e) => e.stopPropagation()}
                 >
-                  はがす
-                </button>
+                  {s.sticker && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onOpen(s.sticker!);
+                        setSelected(null);
+                      }}
+                      className="rounded-[8px_11px_9px_10px] bg-card px-3 py-1 text-[13px] font-bold whitespace-nowrap shadow-[0_2px_8px_-2px_rgb(60_50_30/0.35)]"
+                    >
+                      見る
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onRemoveDeco(s.id);
+                      setSelected(null);
+                    }}
+                    className="rounded-[8px_11px_9px_10px] bg-card px-3 py-1 text-[13px] font-bold whitespace-nowrap shadow-[0_2px_8px_-2px_rgb(60_50_30/0.35)]"
+                  >
+                    はがす
+                  </button>
+                </div>
               )}
             </div>
           );
@@ -313,26 +306,62 @@ export function Notebook({
             ))}
           </div>
         )}
-        <button type="button" onClick={() => go(-1)} disabled={page === 0} aria-label="前のページ" className="sketch-btn flex h-10 w-10 items-center justify-center disabled:opacity-30">
+        <button type="button" onClick={() => go(-1)} disabled={page === 0} aria-label="前のページ" className="sketch-btn flex h-10 w-8 shrink-0 items-center justify-center disabled:opacity-30">
           <img src="/ui/i-back.png" alt="" className="h-5 w-auto" />
         </button>
-        <span className="w-12 text-center text-[13px] text-ink-mute tabular-nums">
+        <span className="w-11 shrink-0 text-center text-[13px] whitespace-nowrap text-ink-mute tabular-nums">
           {page + 1} / {pageCount}
         </span>
-        <SketchButton variant="plain" size="sm" onClick={() => setPaperOpen((v) => !v)} aria-expanded={paperOpen} className="!min-h-10 !px-2">
+        <SketchButton variant="plain" size="sm" onClick={() => setPaperOpen((v) => !v)} aria-expanded={paperOpen} className="!min-h-10 !gap-1 !px-1.5 whitespace-nowrap">
           <span className={`book-${bgOf(page)} inline-block h-5 w-5 rounded-[4px_6px_4px_5px] shadow-[0_1px_2px_rgb(60_50_30/0.25)]`} aria-hidden />
           紙
         </SketchButton>
-        <SketchButton variant="sub" size="sm" onClick={() => setTrayOpen(true)} className="!min-h-10 !px-2.5" aria-label="シールを貼る">
-          <img src="/deco/bird-front.png" alt="" className="h-6 w-auto" />
-          貼る
+        <SketchButton variant="primary" size="sm" onClick={() => setBoxOpen(true)} className="relative !min-h-10 !gap-1 !px-2 whitespace-nowrap" aria-label={`ボックス（まだ貼っていないシール${unstuck}枚）`}>
+          <img src="/ui/n-cards.png" alt="" className="h-5 w-auto" />
+          ボックス
+          {unstuck > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 min-w-5 rounded-full bg-ink px-1 text-center text-[11px] leading-5 font-bold text-white tabular-nums">{unstuck}</span>
+          )}
         </SketchButton>
-        <button type="button" onClick={() => go(1)} aria-label={page === pageCount - 1 ? "新しいページ" : "次のページ"} className="sketch-btn flex h-10 w-10 items-center justify-center">
+        <SketchButton variant="sub" size="sm" onClick={() => setTrayOpen(true)} className="!min-h-10 !gap-1 !px-2 whitespace-nowrap" aria-label="みちびやテープを貼る">
+          <img src="/deco/bird-front.png" alt="" className="h-5 w-auto" />
+          飾る
+        </SketchButton>
+        <button type="button" onClick={() => go(1)} aria-label={page === pageCount - 1 ? "新しいページ" : "次のページ"} className="sketch-btn flex h-10 w-8 shrink-0 items-center justify-center">
           <img src="/ui/i-back.png" alt="" className="h-5 w-auto -scale-x-100" />
         </button>
       </div>
 
-      <SketchSheet open={trayOpen} onClose={() => setTrayOpen(false)} label="シールを貼る">
+      <SketchSheet open={boxOpen} onClose={() => setBoxOpen(false)} label="ボックス">
+        <div className="px-5 pt-1">
+          <p className="font-hand text-lg">ボックス</p>
+          <p className="text-[13px] text-ink-mute">選ぶと、このページに貼ります。同じシールを何回でも。</p>
+        </div>
+        {stickers.length === 0 ? (
+          <p className="px-5 pt-4 pb-8 text-sm text-ink-soft">撮ったシールが、ここに入ります。</p>
+        ) : (
+          <ul className="grid grid-cols-3 gap-x-3 gap-y-4 px-5 pt-3 pb-6">
+            {[...stickers]
+              .sort((a, b) => (stuck.has(a.id) ? 1 : 0) - (stuck.has(b.id) ? 1 : 0) || b.createdAt.localeCompare(a.createdAt))
+              .map((st) => {
+                const n = stuck.get(st.id) ?? 0;
+                return (
+                  <li key={st.id}>
+                    <button type="button" onClick={() => addDeco(`sticker:${st.id}`, st.rotation)} className="relative flex w-full flex-col items-center text-center transition-transform active:translate-y-0.5">
+                      <span className="flex h-24 w-full items-center justify-center">
+                        <StickerView src={st.imageUrl} alt={st.label} rotation={st.rotation} className="max-h-24 w-auto" />
+                      </span>
+                      <span className="mt-1 line-clamp-1 w-full text-[12px]">{st.label}</span>
+                      <span className={`text-[11px] ${n ? "text-ink-mute" : "font-bold text-ink"}`}>{n ? `${n}か所に貼った` : "まだ貼ってない"}</span>
+                    </button>
+                  </li>
+                );
+              })}
+          </ul>
+        )}
+      </SketchSheet>
+
+      <SketchSheet open={trayOpen} onClose={() => setTrayOpen(false)} label="飾る">
         <p className="px-5 pt-1 font-hand text-lg">みちび</p>
         <ul className="grid grid-cols-4 gap-3 px-5 pt-2 pb-4">
           {DECO_KINDS.filter((k) => k.startsWith("bird-")).map((k) => (

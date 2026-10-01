@@ -132,7 +132,7 @@ const bookPosSchema = z.object({
 });
 
 export const decoCreateSchema = z.object({
-  kind: z.enum(DECO_KINDS),
+  kind: z.union([z.enum(DECO_KINDS), z.string().regex(/^sticker:[0-9a-f-]{36}$/)]),
   pos: bookPosSchema,
 });
 

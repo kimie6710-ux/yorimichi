@@ -10,7 +10,7 @@ import { StickerDetail } from "@/components/StickerDetail";
 import { TopBar } from "@/components/TopBar";
 import { api, ApiClientError } from "@/lib/api-client";
 import { MICHIBI_LINES } from "@/lib/character";
-import type { BookDeco, BookPage, BookPos, DecoKind, Sticker } from "@/lib/types";
+import type { BookDeco, BookDecoKind, BookPage, BookPos, Sticker } from "@/lib/types";
 
 /** 手帳: pages you flip through, stickers you stick wherever you like. */
 export default function NotebookPage() {
@@ -30,17 +30,12 @@ export default function NotebookPage() {
       .catch((e) => setError(e instanceof ApiClientError ? e.message : "読み込めませんでした"));
   }, []);
 
-  const move = useCallback((id: string, book: BookPos) => {
-    setItems((list) => list?.map((s) => (s.id === id ? { ...s, book } : s)) ?? null);
-    void api.moveInBook(id, book).catch(() => undefined);
-  }, []);
-
   const changePages = useCallback((next: BookPage[]) => {
     setPages(next);
     void api.saveBookPages(next).catch(() => undefined);
   }, []);
 
-  const addDeco = useCallback((kind: DecoKind, pos: BookPos) => {
+  const addDeco = useCallback((kind: BookDecoKind, pos: BookPos) => {
     const temp = `tmp-${crypto.randomUUID()}`;
     setDecos((list) => [...list, { id: temp, kind, pos }]);
     api
@@ -88,7 +83,6 @@ export default function NotebookPage() {
           decos={decos}
           pages={pages}
           onOpen={setOpenId}
-          onMove={move}
           onPagesChange={changePages}
           onAddDeco={addDeco}
           onMoveDeco={moveDeco}

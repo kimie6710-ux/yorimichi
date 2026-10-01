@@ -556,7 +556,7 @@ function Visit() {
                 誰かに送る
               </SketchButton>
               <SketchButton variant="plain" className="flex-1" onClick={() => void share("kept")} disabled={busy}>
-                手帳に残す
+                ボックスにしまう
               </SketchButton>
             </div>
           </div>
@@ -571,7 +571,7 @@ function Visit() {
             <Michibi
               mood={outcome === "sent" ? "flap" : outcome === "placed" ? "perch" : "happy"}
               size={72}
-              says={outcome === "sent" ? MICHIBI_LINES.sent : outcome === "placed" ? MICHIBI_LINES.placed : "手帳に貼っといた。"}
+              says={outcome === "sent" ? MICHIBI_LINES.sent : outcome === "placed" ? MICHIBI_LINES.placed : "ボックスに入れといた。"}
               className="mt-3 flex-col-reverse !items-center"
               animate="none"
             />

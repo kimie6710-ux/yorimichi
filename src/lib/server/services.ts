@@ -600,7 +600,7 @@ export async function history(userId: string): Promise<MyHistory> {
 // Notebook decorations (character stickers)
 // ─────────────────────────────────────────────
 type Pos = { page: number; x: number; y: number; rot: number };
-const MAX_DECOS = 300;
+const MAX_DECOS = 800;
 
 export async function listDecos(userId: string) {
   const rows = await getStore().find("book_decos", { where: { user_id: userId }, order: { key: "created_at", asc: true } });
@@ -610,6 +610,8 @@ export async function listDecos(userId: string) {
 export async function addDeco(userId: string, kind: string, pos: Pos) {
   const store = getStore();
   if ((await store.count("book_decos", { where: { user_id: userId } })) >= MAX_DECOS) throw new RuleError("これ以上は貼れません");
+  // Only your own stickers can be stuck in your notebook.
+  if (kind.startsWith("sticker:")) await ownSticker(userId, kind.slice(8));
   const row = { id: uuid(), user_id: userId, kind, page: pos.page, x: pos.x, y: pos.y, rot: pos.rot, created_at: now() };
   await store.insert("book_decos", [row]);
   return { id: row.id, kind, pos };
