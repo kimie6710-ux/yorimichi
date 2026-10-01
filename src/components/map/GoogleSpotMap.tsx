@@ -12,6 +12,33 @@ import type { MapViewProps } from "./types";
 
 const toGoogle = (p: LatLng) => ({ lat: p.latitude, lng: p.longitude });
 
+/** Report where the person dragged the map to. */
+function ReportMoves({ onMoved }: { onMoved: (c: LatLng) => void }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!map) return;
+    const l = map.addListener("dragend", () => {
+      const c = map.getCenter();
+      if (c) onMoved({ latitude: c.lat(), longitude: c.lng() });
+    });
+    return () => l.remove();
+  }, [map, onMoved]);
+  return null;
+}
+
+/** Fly back to the person when asked. */
+function GoHome({ origin, home }: { origin: LatLng | null; home: number }) {
+  const map = useMap();
+  useEffect(() => {
+    if (map && origin && home > 0) {
+      map.panTo(toGoogle(origin));
+      map.setZoom(16);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when asked
+  }, [map, home]);
+  return null;
+}
+
 function FitBounds({ origin, markers, bottomInset = 0 }: Pick<MapViewProps, "origin" | "markers" | "bottomInset">) {
   const map = useMap();
   const key = useMemo(
@@ -262,6 +289,9 @@ export default function GoogleSpotMap({
   recenter,
   onPanAway,
   originMarker,
+  onMoved,
+  fitMarkersOnly = false,
+  home,
   onLoadError,
 }: MapViewProps & { onLoadError: () => void }) {
   const center = origin ?? markers[0]?.position;
@@ -279,7 +309,9 @@ export default function GoogleSpotMap({
         disableDefaultUI
         clickableIcons={false}
       >
-        {interactive && !follow && <FitBounds origin={origin} markers={markers} bottomInset={bottomInset} />}
+        {interactive && !follow && <FitBounds origin={fitMarkersOnly ? null : origin} markers={markers} bottomInset={bottomInset} />}
+        {onMoved && <ReportMoves onMoved={onMoved} />}
+        {home !== undefined && <GoHome origin={origin} home={home} />}
         {follow && <FollowOrigin origin={origin} recenter={recenter} onPanAway={onPanAway} />}
         {interactive && !follow && <PanToSelected markers={markers} selectedId={selectedId} />}
         {route && <RouteLine route={route} />}

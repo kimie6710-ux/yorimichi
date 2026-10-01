@@ -41,6 +41,12 @@ export interface MapViewProps {
   recenter?: number;
   /** Told when the person drags the map away while following. */
   onPanAway?: () => void;
+  /** Told where the map was dragged to (its new centre). */
+  onMoved?: (center: LatLng) => void;
+  /** Fit the view to the markers only, leaving the person out (browsing elsewhere). */
+  fitMarkersOnly?: boolean;
+  /** Bump to fly back to the person. */
+  home?: number;
   /** Drawn at the person's position instead of the dot (e.g. みちび walking). */
   originMarker?: import("react").ReactNode;
   /** Show the selected spot's copy as a bubble on the map (default true). */

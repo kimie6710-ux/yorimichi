@@ -15,7 +15,7 @@ import { api } from "@/lib/api-client";
 import { MICHIBI_LINES } from "@/lib/character";
 import { useSearch } from "@/lib/store/search-context";
 import { distanceMeters } from "@/lib/geo";
-import type { MapSpot } from "@/lib/types";
+import type { LatLng, MapSpot } from "@/lib/types";
 
 /** Shown once each time the app is opened (per browser session). */
 const STARTED_KEY = "yorumichi:started";
@@ -24,6 +24,11 @@ const STARTED_KEY = "yorumichi:started";
  * Spots in the same building or a few doors apart would stack into an unreadable
  * pile: keep the nearest one of each cluster (~45m), at most 10 on the map.
  */
+/** Dragged this far from what's loaded: offer to look around there. */
+const LOOK_AGAIN_METERS = 300;
+/** Beyond this from you, the map hasn't been walked yet (for now). */
+const EDGE_OF_MAP_METERS = 2500;
+
 function spread(spots: MapSpot[], minMeters = 70, max = 10): MapSpot[] {
   const kept: MapSpot[] = [];
   for (const s of [...spots].sort((a, b) => a.place.distanceMeters - b.place.distanceMeters)) {
@@ -54,6 +59,17 @@ export default function MapHome() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [onboarded, setOnboarded] = useState(true);
   const rail = useRef<HTMLUListElement>(null);
+  // Looking around another part of the map (you stay where you are).
+  const [moved, setMoved] = useState<LatLng | null>(null);
+  const [home, setHome] = useState(0);
+  const looking = !!(town.spotsOrigin && currentLocation && distanceMeters(town.spotsOrigin, currentLocation) > LOOK_AGAIN_METERS);
+  const tooFar = !!(moved && currentLocation && distanceMeters(moved, currentLocation) > EDGE_OF_MAP_METERS);
+  const canLook = !!(moved && town.spotsOrigin && distanceMeters(moved, town.spotsOrigin) > LOOK_AGAIN_METERS) && !tooFar;
+  const goHome = () => {
+    setMoved(null);
+    setHome((n) => n + 1);
+    if (currentLocation) town.browseAt(currentLocation);
+  };
 
   useEffect(() => {
     try {
@@ -132,6 +148,9 @@ export default function MapHome() {
           onSelect={(id) => select(id)}
           bottomInset={170}
           bubbles={false}
+          onMoved={setMoved}
+          fitMarkersOnly={looking}
+          home={home}
           mascotAt={bird.pos}
           mascot={bird.node}
           className="yorumichi-map h-full w-full"
@@ -153,6 +172,10 @@ export default function MapHome() {
             <span className="h-3 w-3 rounded-full bg-sky ring-1 ring-ink/40" aria-hidden />
             行った
           </span>
+          <span className="flex items-center gap-1">
+            <span className="h-3 w-3 rotate-12 rounded-[3px] bg-sky-deep shadow-[0_0_0_1.5px_#fffefb,0_1px_2px_1px_rgb(34_32_28/0.35)]" aria-hidden />
+            誰かの発見
+          </span>
         </div>
       )}
 
@@ -160,6 +183,33 @@ export default function MapHome() {
         <div className="flex items-start justify-between gap-2">
           <BirdSays says={bird.says} />
           <TopBar className="pointer-events-auto ml-auto" />
+        </div>
+        {/* Looking around elsewhere on the map */}
+        <div className="mt-2 flex flex-col items-center gap-2">
+          {canLook && (
+            <button
+              type="button"
+              onClick={() => {
+                if (moved) town.browseAt(moved);
+                setMoved(null);
+              }}
+              className="pointer-events-auto rounded-full bg-butter px-5 py-2 text-[15px] font-bold shadow-[0_4px_12px_-4px_rgb(60_50_30/0.5)] active:translate-y-0.5"
+            >
+              このあたりを見る
+            </button>
+          )}
+          {tooFar && (
+            <p className="rounded-full bg-card px-4 py-1.5 text-[14px] shadow-[0_3px_10px_-5px_rgb(60_50_30/0.5)]">ここから先は、まだ地図の外みたい。</p>
+          )}
+          {(looking || tooFar) && (
+            <button
+              type="button"
+              onClick={goHome}
+              className="pointer-events-auto rounded-full bg-card px-4 py-1.5 text-[14px] shadow-[0_3px_10px_-5px_rgb(60_50_30/0.5)] active:translate-y-0.5"
+            >
+              いまいる所にもどる
+            </button>
+          )}
         </div>
       </div>
 

@@ -14,7 +14,7 @@ import {
 import { api, ApiClientError } from "@/lib/api-client";
 import { MICHIBI_LINES } from "@/lib/character";
 import { mockLocation } from "@/lib/config";
-import { distanceMeters, isInServiceArea } from "@/lib/geo";
+import { distanceMeters, isInServiceArea, walkMinutes } from "@/lib/geo";
 import type { LatLng, MapSpot, NearPlace } from "@/lib/types";
 
 // ─────────────────────────────────────────────────────────────
@@ -54,6 +54,7 @@ interface TownContextValue extends TownState {
   locate: () => void;
   acceptOutsideArea: () => void;
   refreshSpots: () => void;
+  browseAt: (center: LatLng) => void;
   findSpot: (placeId: string) => MapSpot | null;
   patchSpot: (placeId: string, patch: Partial<MapSpot>) => void;
   refreshUnread: () => void;
@@ -91,7 +92,15 @@ export function SearchProvider({ children }: { children: ReactNode }) {
     try {
       const res = await api.nearbySpots(origin);
       if (id !== loadId.current) return;
-      setState((s) => ({ ...s, spots: res.spots, around: res.around ?? [], spotsStatus: res.pending.length ? "seeding" : "ready" }));
+      // Walking times are from where you are, even when looking around somewhere else.
+      const me = locRef.current;
+      const spots = me
+        ? res.spots.map((s) => {
+            const d = distanceMeters(me, s.place.location);
+            return { ...s, place: { ...s.place, distanceMeters: Math.round(d), walkMinutes: walkMinutes(d) } };
+          })
+        : res.spots;
+      setState((s) => ({ ...s, spots, around: res.around ?? [], spotsStatus: res.pending.length ? "seeding" : "ready" }));
       if (res.pending.length === 0) {
         if (res.spots.length === 0) setState((s) => ({ ...s, spotsError: MICHIBI_LINES.empty }));
         return;
@@ -187,6 +196,9 @@ export function SearchProvider({ children }: { children: ReactNode }) {
     setState((s) => ({ ...s, locationStatus: "ready" }));
   }, [loadSpots]);
 
+  /** Look at the spots around another part of the map (you stay where you are). */
+  const browseAt = useCallback((center: LatLng) => void loadSpots(center), [loadSpots]);
+
   const refreshSpots = useCallback(() => {
     if (locRef.current) void loadSpots(locRef.current);
   }, [loadSpots]);
@@ -206,8 +218,8 @@ export function SearchProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<TownContextValue>(
-    () => ({ ...state, locate, acceptOutsideArea, refreshSpots, findSpot, patchSpot, refreshUnread, startTracking, stopTracking }),
-    [state, locate, acceptOutsideArea, refreshSpots, findSpot, patchSpot, refreshUnread, startTracking, stopTracking],
+    () => ({ ...state, locate, acceptOutsideArea, refreshSpots, browseAt, findSpot, patchSpot, refreshUnread, startTracking, stopTracking }),
+    [state, locate, acceptOutsideArea, refreshSpots, browseAt, findSpot, patchSpot, refreshUnread, startTracking, stopTracking],
   );
   return <TownContext.Provider value={value}>{children}</TownContext.Provider>;
 }
