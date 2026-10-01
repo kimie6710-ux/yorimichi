@@ -134,8 +134,6 @@ export interface Sticker {
   placedAt: string | null;
   /** How many people saw it where it was placed. */
   seenCount: number;
-  /** Position in my notebook (null = not arranged yet). */
-  book: BookPos | null;
   createdAt: string;
 }
 
@@ -234,10 +232,3 @@ export interface MyHistory {
   received: Sticker[];
 }
 
-/** The AI's name for one thing cut out of a photo. */
-export interface CutoutName {
-  index: number;
-  label: string;
-  /** false = background / not really a thing. */
-  keep: boolean;
-}

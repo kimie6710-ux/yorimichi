@@ -81,20 +81,3 @@ ${JSON.stringify(places.map(placeView))}
 ${avoidText}
 すべてのスポットに、文型の違う5案（candidates）と birdLine をつけてください。placeId は一文字も変えずにコピーすること。`;
 }
-
-export const NAME_PROMPT = `街歩きの途中で撮った写真から、モノを切り抜いた画像が何枚か並んでいます（白い背景）。
-撮った人が「気になった」ものをシールにするための候補です。
-
-それぞれに名前をつけてください。
-- label：2〜10文字の日本語。ありふれた一般名より、見たままの特徴が分かる名前にする（例：「照明」より「古い照明」、「手すり」より「錆びた手すり」、「像」より「緑青の胸像」）。
-- keep：はっきりしたモノなら true。地面・空・壁・芝生だけ・背景のかけら・何か判別できないものは false。
-- index は画像の番号（0始まり）をそのまま返す。
-- 人物が写っている場合は、人を名前にせず、持ち物や服の一部など写っているモノの名前にする。`;
-
-export function buildNamePrompt(count: number, alreadyFoundHere: string[]): string {
-  const found =
-    alreadyFoundHere.length > 0
-      ? `\n\n参考：この場所ではほかの人がすでに「${alreadyFoundHere.slice(0, 12).join("」「")}」を見つけている。同じものなら同じ呼び方でよい。`
-      : "";
-  return `${NAME_PROMPT}\n\n画像は${count}枚です。${found}`;
-}

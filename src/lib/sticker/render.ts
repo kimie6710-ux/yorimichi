@@ -192,16 +192,3 @@ export function randomRotation(): number {
   return Math.round(r * 10) / 10;
 }
 
-/** Small JPEG of a sticker on white, for the AI to name it. */
-export async function thumbForNaming(sticker: Blob, size = 256): Promise<Blob> {
-  const bmp = await createImageBitmap(sticker);
-  const c = document.createElement("canvas");
-  const scale = Math.min(1, size / Math.max(bmp.width, bmp.height));
-  c.width = Math.max(1, Math.round(bmp.width * scale));
-  c.height = Math.max(1, Math.round(bmp.height * scale));
-  const ctx = c.getContext("2d")!;
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(0, 0, c.width, c.height);
-  ctx.drawImage(bmp, 0, 0, c.width, c.height);
-  return canvasToBlob(c, "image/jpeg", 0.85);
-}

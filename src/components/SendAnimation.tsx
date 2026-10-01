@@ -18,7 +18,7 @@ const FLIGHT = "M180 330 C 120 260, 60 230, 110 170 S 260 150, 250 90 S 330 30, 
  * Sending a sticker to someone you don't know: the sticker lifts off the page,
  * folds into a paper plane and flies off along a dotted line.
  */
-export function SendAnimation({ sticker, onClose }: { sticker: Sticker; onClose: () => void }) {
+export function SendAnimation({ sticker, delivered = true, onClose }: { sticker: Sticker; delivered?: boolean; onClose: () => void }) {
   const [stage, setStage] = useState<Stage>("lift");
 
   useEffect(() => {
@@ -64,7 +64,7 @@ export function SendAnimation({ sticker, onClose }: { sticker: Sticker; onClose:
         {stage === "arrived" && (
           <div className="absolute top-[130px] left-1/2 w-[70%] -translate-x-1/2 animate-peek text-center">
             <img src="/ui/i-mail.png" alt="" className="mx-auto h-12 w-auto" />
-            <p className="mt-4 font-hand text-[24px]">どこかの誰かに届いたよ。</p>
+            <p className="mt-4 font-hand text-[24px]">{delivered ? "どこかの誰かに届いたよ。" : "届け先を、探してるところ。"}</p>
             <p className="mt-2 text-sm text-ink-soft">「{sticker.label}」が、知らない街の誰かの手帳へ。</p>
           </div>
         )}

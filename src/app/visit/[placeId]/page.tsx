@@ -39,6 +39,8 @@ interface Cutout {
   emb: Float32Array | null;
 }
 const MAX_CUTOUTS = 6;
+/** Same as the server's on-site distance for leaving a sticker. */
+const PLACE_NEAR_METERS = 150;
 /** Waiting for the cutter to study the photo; past this, a soft round cut is used. */
 const EXACT_CUT_MS = 9000;
 /** Time for finding things in the photo (the first one is always cut). */
@@ -68,6 +70,7 @@ function Visit() {
   /** From the 撮る tab: shoot anything here; the sticker ties to a place nearby (changeable). */
   const free = params.get("free") === "1";
   const [linkId, setLinkId] = useState(spotId);
+  const [delivered, setDelivered] = useState(true);
 
   const [detail, setDetail] = useState<SpotDetail | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -283,7 +286,7 @@ function Visit() {
     setError(null);
     try {
       if (kind === "placed") await api.place(saved.id, currentLocation);
-      if (kind === "sent") await api.send(saved.id);
+      if (kind === "sent") setDelivered((await api.send(saved.id)).delivered);
       setOutcome(kind);
       setStep("done");
       refreshUnread();
@@ -316,6 +319,9 @@ function Visit() {
     { placeId: spotId, name: spot.place.name },
     ...around.filter((p) => p.placeId !== spotId).map((p) => ({ placeId: p.placeId, name: p.name })),
   ].slice(0, 5);
+  // From a spot you walked to you can always leave it there; a free shot only near the place it's tied to.
+  const linkedNear = linkId === spotId ? (around.find((p) => p.placeId === spotId)?.distanceMeters ?? 0) : (around.find((p) => p.placeId === linkId)?.distanceMeters ?? Infinity);
+  const canPlace = !free || linkedNear <= PLACE_NEAR_METERS;
 
   if (step === "go") {
     return (
@@ -548,9 +554,13 @@ function Visit() {
             <div className="mb-2 flex justify-center">
               <Michibi mood="perch" size={44} says={MICHIBI_LINES.shareAsk} animate="none" />
             </div>
-            <SketchButton size="lg" block onClick={() => void share("placed")} disabled={busy}>
-              ここに置いていく
-            </SketchButton>
+            {canPlace ? (
+              <SketchButton size="lg" block onClick={() => void share("placed")} disabled={busy}>
+                ここに置いていく
+              </SketchButton>
+            ) : (
+              <p className="mb-1 text-[14px] text-ink-soft">置いていけるのは、その場所の近くにいるとき。</p>
+            )}
             <div className="mt-2 flex gap-2">
               <SketchButton variant="sub" className="flex-1" onClick={() => void share("sent")} disabled={busy}>
                 誰かに送る
@@ -571,7 +581,7 @@ function Visit() {
             <Michibi
               mood={outcome === "sent" ? "flap" : outcome === "placed" ? "perch" : "happy"}
               size={72}
-              says={outcome === "sent" ? MICHIBI_LINES.sent : outcome === "placed" ? MICHIBI_LINES.placed : "ボックスに入れといた。"}
+              says={outcome === "sent" ? (delivered ? MICHIBI_LINES.sent : "届け先、探してるところ。") : outcome === "placed" ? MICHIBI_LINES.placed : "ボックスに入れといた。"}
               className="mt-3 flex-col-reverse !items-center"
               animate="none"
             />

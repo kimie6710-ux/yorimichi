@@ -4,7 +4,7 @@ import "server-only";
 // Used when AI_PROVIDER=mock, or mock data mode without ANTHROPIC_API_KEY.
 // Copies are picked by category; detection returns centred guesses.
 
-import type { NameOutput, SeedOutput } from "@/lib/schemas";
+import type { SeedOutput } from "@/lib/schemas";
 import type { Place } from "@/lib/types";
 import type { AIProvider } from "./provider";
 
@@ -88,9 +88,5 @@ export class MockAIProvider implements AIProvider {
         return { placeId: p.placeId, reading: k, candidates: [...candidates.slice(n % list.length), ...candidates.slice(0, n % list.length)], birdLine };
       }),
     };
-  }
-
-  async nameCutouts({ images }: { images: unknown[] }): Promise<NameOutput> {
-    return { items: images.map((_, index) => ({ index, label: "見つけたもの", keep: true })) };
   }
 }

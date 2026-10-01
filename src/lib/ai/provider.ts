@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { NameOutput, SeedOutput } from "@/lib/schemas";
+import type { SeedOutput } from "@/lib/schemas";
 import type { Place } from "@/lib/types";
 
 /**
@@ -13,7 +13,6 @@ export interface AIProvider {
   /** The first "なにそれ？" line for each real place. */
   seedCopies(input: { places: Place[]; avoid: string[] }): Promise<SeedOutput>;
   /** Name the things cut out of a photo (and say which are real "things"). */
-  nameCutouts(input: { images: { data: string; mediaType: "image/jpeg" | "image/png" }[]; foundHere: string[] }): Promise<NameOutput>;
 }
 
 export class AIProviderError extends Error {

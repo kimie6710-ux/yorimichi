@@ -16,7 +16,6 @@ import type {
   BookPage,
   BookDecoKind,
   BookPos,
-  CutoutName,
 } from "@/lib/types";
 
 export class ApiClientError extends Error {
@@ -88,12 +87,6 @@ export const api = {
   visit: (id: string, at: LatLng | null) => request<{ ok: true }>(`/api/spots/${encodeURIComponent(id)}/visit`, post(at)),
   save: (id: string, save: boolean) => request<{ ok: true }>(`/api/spots/${encodeURIComponent(id)}/save`, post({ save })),
 
-  nameCutouts: (thumbs: Blob[], spotId: string) => {
-    const form = new FormData();
-    thumbs.forEach((t, i) => form.append(`cutout_${i}`, t, `cutout_${i}.jpg`));
-    form.append("spotId", spotId);
-    return request<{ names: CutoutName[] }>("/api/sticker/detect", { method: "POST", body: form, timeoutMs: 40_000 });
-  },
   createStickers: (input: { spotId: string; memo: string; photo: Blob | null; items: { blob: Blob; label: string; rotation: number }[] }) => {
     const form = new FormData();
     form.append("meta", JSON.stringify({ spotId: input.spotId, memo: input.memo, items: input.items.map(({ label, rotation }) => ({ label, rotation })) }));
@@ -104,8 +97,8 @@ export const api = {
   myStickers: () => request<{ items: Sticker[] }>("/api/stickers"),
   memo: (id: string, memo: string) =>
     request<{ sticker: Sticker }>(`/api/stickers/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ memo }) }),
-  moveInBook: (id: string, book: BookPos) =>
-    request<{ sticker: Sticker }>(`/api/stickers/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ book }) }),
+  rename: (id: string, label: string) =>
+    request<{ sticker: Sticker }>(`/api/stickers/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ label }) }),
   decos: () => request<{ decos: BookDeco[] }>("/api/book/decos"),
   addDeco: (kind: BookDecoKind, pos: BookPos) => request<{ deco: BookDeco }>("/api/book/decos", post({ kind, pos })),
   moveDeco: (id: string, pos: BookPos) =>

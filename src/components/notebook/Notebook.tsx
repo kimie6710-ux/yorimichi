@@ -20,6 +20,7 @@ import {
 } from "@/lib/types";
 
 const EDGE = 0.1;
+const MAX_PAGES = 200;
 const EDGE_HOLD_MS = 650;
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
 
@@ -88,7 +89,8 @@ export function Notebook({
 
   const pos = (id: string) => local.get(id) ?? base.get(id)!;
   const usedPages = Math.max(0, ...[...base.values(), ...local.values()].map((p) => p.page)) + 1;
-  const pageCount = Math.max(usedPages, pages.length ? Math.max(...pages.map((p) => p.idx)) + 1 : 1, 1);
+  // A new page only exists on screen until something is stuck on it (or its paper changes).
+  const pageCount = Math.min(MAX_PAGES, Math.max(usedPages, pages.length ? Math.max(...pages.map((p) => p.idx)) + 1 : 1, page + 1, 1));
   const bgOf = (idx: number): PageBackground => pages.find((p) => p.idx === idx)?.bg ?? "cream";
 
   useEffect(() => {
@@ -98,11 +100,9 @@ export function Notebook({
 
   function go(delta: 1 | -1) {
     const next = page + delta;
-    if (next < 0) return;
-    if (next >= pageCount) {
-      // Flipping past the last page opens a fresh one.
-      onPagesChange([...pages.filter((p) => p.idx !== next), { idx: next, bg: bgOf(page) }]);
-    }
+    if (next < 0 || next >= MAX_PAGES) return;
+    // Past the last page there's one fresh page — but not a pile of empty ones.
+    if (next >= pageCount && !decos.some((d) => (local.get(d.id) ?? d.pos).page === page)) return;
     setDir(delta);
     setPage(next);
     return next;

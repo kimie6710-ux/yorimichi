@@ -62,7 +62,11 @@ export default function SpotPage() {
     const next = !detail!.spot.saved;
     setDetail((d) => (d ? { ...d, spot: { ...d.spot, saved: next } } : d));
     patchSpot(id, { saved: next });
-    await api.save(id, next).catch(() => undefined);
+    await api.save(id, next).catch(() => {
+      // Didn't stick: put the star back the way it was.
+      setDetail((d) => (d ? { ...d, spot: { ...d.spot, saved: !next } } : d));
+      patchSpot(id, { saved: !next });
+    });
   }
 
   return (

@@ -72,18 +72,9 @@ export const stickerMetaSchema = z.object({
     .max(6),
 });
 
-export const memoSchema = z.object({ memo: z.string().max(80) });
-
 export const stickerPatchSchema = z.object({
   memo: z.string().max(80).optional(),
-  book: z
-    .object({
-      page: z.number().int().min(0).max(199),
-      x: z.number().min(0).max(1),
-      y: z.number().min(0).max(1),
-      rot: z.number().min(-30).max(30),
-    })
-    .optional(),
+  label: z.string().trim().min(1).max(20).optional(),
 });
 
 export const bookPagesSchema = z.object({
@@ -112,17 +103,6 @@ export const seedOutputSchema = z.object({
   ),
 });
 export type SeedOutput = z.infer<typeof seedOutputSchema>;
-
-export const nameOutputSchema = z.object({
-  items: z.array(
-    z.object({
-      index: z.number().describe("入力画像の番号（0始まり）"),
-      label: z.string().describe("2〜10文字の日本語。見たままの特徴が分かる名前"),
-      keep: z.boolean().describe("はっきりしたモノなら true。地面・空・壁・背景のかけら・判別できないものは false"),
-    }),
-  ),
-});
-export type NameOutput = z.infer<typeof nameOutputSchema>;
 
 const bookPosSchema = z.object({
   page: z.number().int().min(0).max(199),

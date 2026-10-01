@@ -21,7 +21,7 @@ export default function CapturePage() {
   }, [nearest, router]);
 
   const stuck =
-    !nearest && (spotsStatus === "ready" || spotsStatus === "error" || locationStatus === "denied" || locationStatus === "unavailable");
+    !nearest && (spotsStatus === "ready" || spotsStatus === "error" || locationStatus === "denied" || locationStatus === "unavailable" || locationStatus === "unsupported");
 
   return (
     <main className="paper flex h-[calc(100dvh-76px-env(safe-area-inset-bottom))] flex-col items-center justify-center gap-4 px-4">

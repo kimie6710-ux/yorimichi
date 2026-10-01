@@ -4,9 +4,9 @@ import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import type { z } from "zod";
 
-import { nameOutputSchema, seedOutputSchema, type NameOutput, type SeedOutput } from "@/lib/schemas";
+import { seedOutputSchema, type SeedOutput } from "@/lib/schemas";
 import { serverEnv } from "@/lib/server/env";
-import { buildNamePrompt, buildSeedPrompt, SYSTEM_PROMPT } from "./prompts";
+import { buildSeedPrompt, SYSTEM_PROMPT } from "./prompts";
 import { AIProviderError, type AIProvider } from "./provider";
 
 /** Models that accept `output_config.effort` and server-side refusal fallbacks. */
@@ -86,15 +86,5 @@ export class AnthropicProvider implements AIProvider {
 
   seedCopies({ places, avoid }: Parameters<AIProvider["seedCopies"]>[0]): Promise<SeedOutput> {
     return this.call(serverEnv.anthropicModel, seedOutputSchema, buildSeedPrompt(places, avoid));
-  }
-
-  nameCutouts({ images, foundHere }: Parameters<AIProvider["nameCutouts"]>[0]): Promise<NameOutput> {
-    const content: Anthropic.Beta.BetaContentBlockParam[] = images.flatMap((img, i) => [
-      { type: "text" as const, text: `画像 ${i}` },
-      { type: "image" as const, source: { type: "base64" as const, media_type: img.mediaType, data: img.data } },
-    ]);
-    content.push({ type: "text", text: buildNamePrompt(images.length, foundHere) });
-    // Naming is quick perception work: the fast model is enough.
-    return this.call(serverEnv.anthropicShortlistModel, nameOutputSchema, content, undefined);
   }
 }

@@ -22,8 +22,25 @@ export function StickerDetail({ sticker, onChange, onClose }: { sticker: Sticker
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [showPhoto, setShowPhoto] = useState(false);
-  const [sending, setSending] = useState(false);
+  const [sending, setSending] = useState<{ delivered: boolean } | null>(null);
+  const [label, setLabel] = useState(sticker.label);
   const mine = sticker.origin === "found";
+  const inHand = mine && sticker.status === "kept";
+
+  async function send() {
+    setBusy(true);
+    setNote(null);
+    try {
+      const res = await api.send(sticker.id);
+      onChange(res.sticker);
+      refreshUnread();
+      setSending({ delivered: res.delivered });
+    } catch (err) {
+      setNote(err instanceof ApiClientError ? err.message : "送れませんでした。");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function run(fn: () => Promise<Sticker>, done: string) {
     setBusy(true);
@@ -46,7 +63,22 @@ export function StickerDetail({ sticker, onChange, onClose }: { sticker: Sticker
         <Tape seed={`${sticker.id}-r`} corner="right" />
         <StickerView src={sticker.imageUrl} alt={sticker.label} rotation={sticker.rotation} lift />
       </div>
-      <h2 className="mt-4 text-center font-hand text-[24px]">{sticker.label}</h2>
+      {mine ? (
+        <input
+          aria-label="シールの名前"
+          value={label}
+          maxLength={20}
+          onChange={(e) => setLabel(e.target.value)}
+          onBlur={() => {
+            const next = label.trim();
+            if (!next) return setLabel(sticker.label);
+            if (next !== sticker.label) void run(async () => (await api.rename(sticker.id, next)).sticker, "名前を変えました。次から覚えます。");
+          }}
+          className="mx-auto mt-4 block w-full bg-transparent text-center font-hand text-[24px] outline-none focus:underline focus:decoration-butter focus:decoration-4"
+        />
+      ) : (
+        <h2 className="mt-4 text-center font-hand text-[24px]">{sticker.label}</h2>
+      )}
       <p className="mt-1 text-center text-sm text-ink-soft">
         {date(sticker.createdAt)}・{mine ? "自分で見つけた" : "知らない誰かから届いた"}
       </p>
@@ -86,8 +118,8 @@ export function StickerDetail({ sticker, onChange, onClose }: { sticker: Sticker
       {note && <p className="mt-4 text-center text-sm font-bold" role="status">{note}</p>}
 
       <div className="mt-6 flex flex-col items-center gap-3">
-        {mine && (
-          <SketchButton size="lg" block onClick={() => setSending(true)}>
+        {inHand && (
+          <SketchButton size="lg" block disabled={busy} onClick={() => void send()}>
             誰かに送る
             <img src="/ui/i-send.png" alt="" className="h-5 w-auto" />
           </SketchButton>
@@ -95,7 +127,7 @@ export function StickerDetail({ sticker, onChange, onClose }: { sticker: Sticker
         <SketchLinkButton href={`/spot/${encodeURIComponent(sticker.spotId)}`} variant={mine ? "sub" : "primary"} block>
           生まれた場所を見る
         </SketchLinkButton>
-        {mine && sticker.status === "kept" && (
+        {inHand && (
           <SketchButton variant="plain" size="sm" disabled={busy} onClick={() => void run(async () => (await api.place(sticker.id, currentLocation)).sticker, "置いてきました。")}>
             ここに置く
           </SketchButton>
@@ -105,8 +137,9 @@ export function StickerDetail({ sticker, onChange, onClose }: { sticker: Sticker
       {sending && (
         <SendAnimation
           sticker={sticker}
+          delivered={sending.delivered}
           onClose={() => {
-            setSending(false);
+            setSending(null);
             onClose?.();
           }}
         />

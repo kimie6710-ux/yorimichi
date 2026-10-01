@@ -15,6 +15,7 @@ import type {
   SpotDetail,
   Sticker,
 } from "@/lib/types";
+import { demoNeighbours, isOwnerMode } from "./identity";
 import { getStore, type SpotRow, type StickerRow, type TransferRow } from "./repo";
 
 // ─────────────────────────────────────────────
@@ -25,6 +26,7 @@ const ON_SITE_AFTER_VISIT_MS = 24 * 60 * 60 * 1000;
 const MAX_PLACED_PER_SPOT = 3;
 const MAX_SENDS_PER_DAY = 3;
 const ACTIVE_WITHIN_MS = 14 * 24 * 60 * 60 * 1000;
+const TOUCH_EVERY_MS = 10 * 60 * 1000;
 const RECEIVE_GAP_MS = 6 * 60 * 60 * 1000;
 
 const now = () => new Date().toISOString();
@@ -51,6 +53,9 @@ export class RuleError extends Error {
 export async function touchUser(userId: string, at?: LatLng): Promise<void> {
   const store = getStore();
   const existing = await store.get("users", userId);
+  // Saving rewrites the store; once every few minutes is plenty for "active".
+  const area = at ? areaKey(at) : (existing?.area_key ?? null);
+  if (existing && existing.area_key === area && Date.now() - Date.parse(existing.last_active_at) < TOUCH_EVERY_MS) return;
   await store.upsert("users", [
     {
       id: userId,
@@ -71,7 +76,10 @@ function copyOf(row: SpotRow | undefined): SpotCopy | null {
 
 /** A spot without a line, named after the newest thing someone found there. */
 function nicknameFromStickers(found: StickerRow[]): SpotCopy | null {
-  const named = found.filter((s) => s.label && s.label !== "見つけたもの").sort((a, b) => b.created_at.localeCompare(a.created_at));
+  // Only from stickers someone left there for others to see.
+  const named = found
+    .filter((s) => s.status === "placed" && s.label && s.label !== "見つけたもの")
+    .sort((a, b) => b.created_at.localeCompare(a.created_at));
   return named[0] ? { copy: named[0].label, form: "あだ名", birdLine: "" } : null;
 }
 
@@ -219,11 +227,6 @@ export async function spotDetail(spotId: string, place: Place, userId: string | 
   };
 }
 
-export async function foundLabelsAt(spotId: string): Promise<string[]> {
-  const found = await getStore().find("stickers", { where: { spot_id: spotId, origin: "found" }, limit: 60 });
-  return [...new Set(found.map((s) => s.label))];
-}
-
 export async function toggleSave(userId: string, spotId: string, save: boolean): Promise<void> {
   const store = getStore();
   const rows = await store.find("spot_saves", { where: { user_id: userId, spot_id: spotId } });
@@ -314,10 +317,6 @@ async function toStickers(rows: StickerRow[], viewerId: string): Promise<Sticker
       status: r.status,
       placedAt: r.placed_at,
       seenCount: views.filter((v) => v.sticker_id === r.id).length,
-      book:
-        r.book_page != null && r.book_x != null && r.book_y != null
-          ? { page: r.book_page, x: r.book_x, y: r.book_y, rot: r.book_rot ?? r.rotation }
-          : null,
       createdAt: r.created_at,
     };
   });
@@ -383,7 +382,7 @@ async function ownSticker(userId: string, id: string): Promise<StickerRow> {
 export async function updateSticker(
   userId: string,
   id: string,
-  patch: { memo?: string; book?: { page: number; x: number; y: number; rot: number } },
+  patch: { memo?: string; label?: string },
 ): Promise<Sticker> {
   const row = await ownSticker(userId, id);
   const next: Partial<StickerRow> = {};
@@ -391,11 +390,10 @@ export async function updateSticker(
     if (row.creator_id !== userId) throw new RuleError("届いたシールのメモは変えられません", 403);
     next.memo = patch.memo;
   }
-  if (patch.book) {
-    next.book_page = patch.book.page;
-    next.book_x = patch.book.x;
-    next.book_y = patch.book.y;
-    next.book_rot = patch.book.rot;
+  if (patch.label !== undefined) {
+    // Renaming also teaches the recogniser (its memory follows the sticker's current name).
+    if (row.creator_id !== userId) throw new RuleError("届いたシールの名前は変えられません", 403);
+    next.label = patch.label;
   }
   await getStore().update("stickers", id, next);
   return (await toStickers([{ ...row, ...next }], userId))[0];
@@ -439,8 +437,10 @@ export async function placeSticker(userId: string, id: string, at: LatLng | null
 /** Pick someone who hasn't been to the spot, is active, and hasn't just received something. */
 async function pickReceiver(sticker: StickerRow, senderId: string): Promise<string | null> {
   const store = getStore();
+  const demo = isOwnerMode();
   const [users, visits, recent, holders] = await Promise.all([
-    store.find("users", { gte: { last_active_at: ago(ACTIVE_WITHIN_MS) } }),
+    // On the owner's own server the only other people are demo neighbours: always reachable.
+    demo ? store.find("users", { in: { id: demoNeighbours() } }) : store.find("users", { gte: { last_active_at: ago(ACTIVE_WITHIN_MS) } }),
     store.find("visits", { where: { spot_id: sticker.spot_id } }),
     store.find("sticker_transfers", { gte: { delivered_at: ago(RECEIVE_GAP_MS) } }),
     store.find("stickers", { where: { source_sticker_id: sticker.id } }),
@@ -449,7 +449,7 @@ async function pickReceiver(sticker: StickerRow, senderId: string): Promise<stri
     senderId,
     sticker.creator_id,
     ...visits.map((v) => v.user_id),
-    ...recent.map((t) => t.receiver_id).filter((x): x is string => !!x),
+    ...(demo ? [] : recent.map((t) => t.receiver_id).filter((x): x is string => !!x)),
     ...holders.map((h) => h.owner_id),
   ]);
   const candidates = users.filter((u) => !excluded.has(u.id));
@@ -475,6 +475,11 @@ async function deliver(transfer: TransferRow, receiverId: string): Promise<void>
       status: "kept",
       placed_at: null,
       source_sticker_id: original.source_sticker_id ?? original.id,
+      // It arrives in the box, not at the sender's spot in their notebook.
+      book_page: null,
+      book_x: null,
+      book_y: null,
+      book_rot: null,
       created_at: now(),
     },
   ]);
@@ -489,7 +494,8 @@ async function pickReturnFor(userId: string): Promise<StickerRow | null> {
     store.find("stickers", { where: { owner_id: userId } }),
   ]);
   const have = new Set(mine.map((s) => s.source_sticker_id ?? s.id));
-  const options = pool.filter((s) => s.creator_id !== userId && !have.has(s.id));
+  // Only things people chose to share (left at a spot or sent off), never what they kept.
+  const options = pool.filter((s) => s.creator_id !== userId && !have.has(s.id) && (s.status === "placed" || s.status === "sent"));
   return options.length ? options[Math.floor(Math.random() * options.length)] : null;
 }
 
@@ -529,14 +535,27 @@ export async function sendSticker(userId: string, id: string): Promise<{ deliver
   return { delivered: !!receiver, sticker: (await toStickers([{ ...row, status: "sent" }], userId))[0] };
 }
 
+/** One delivery check per person at a time (inbox and its badge can ask together). */
+const delivering = new Map<string, Promise<void>>();
+
+function deliverPendingTo(userId: string): Promise<void> {
+  const running = delivering.get(userId);
+  if (running) return running;
+  const job = deliverPendingNow(userId).finally(() => delivering.delete(userId));
+  delivering.set(userId, job);
+  return job;
+}
+
 /** Hand pending stickers (nobody was eligible when sent) to this user if they fit. */
-async function deliverPendingTo(userId: string): Promise<void> {
+async function deliverPendingNow(userId: string): Promise<void> {
   const store = getStore();
   const pending = await store.find("sticker_transfers", { where: { status: "pending", kind: "send" }, order: { key: "created_at", asc: true }, limit: 20 });
   const recent = await store.count("sticker_transfers", { where: { receiver_id: userId }, gte: { delivered_at: ago(RECEIVE_GAP_MS) } });
   if (recent > 0) return;
   for (const t of pending) {
     if (t.sender_id === userId) continue;
+    // Re-read: another request may have just delivered it.
+    if ((await store.get("sticker_transfers", t.id))?.status !== "pending") continue;
     const sticker = await store.get("stickers", t.sticker_id);
     if (!sticker || sticker.creator_id === userId) continue;
     const been = await store.count("visits", { where: { user_id: userId, spot_id: sticker.spot_id } });
