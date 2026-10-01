@@ -344,7 +344,6 @@ export function Notebook({
             {[...stickers]
               .sort((a, b) => (stuck.has(a.id) ? 1 : 0) - (stuck.has(b.id) ? 1 : 0) || b.createdAt.localeCompare(a.createdAt))
               .map((st) => {
-                const n = stuck.get(st.id) ?? 0;
                 return (
                   <li key={st.id}>
                     <button type="button" onClick={() => addDeco(`sticker:${st.id}`, st.rotation)} className="relative flex w-full flex-col items-center text-center transition-transform active:translate-y-0.5">
@@ -352,7 +351,6 @@ export function Notebook({
                         <StickerView src={st.imageUrl} alt={st.label} rotation={st.rotation} className="max-h-24 w-auto" />
                       </span>
                       <span className="mt-1 line-clamp-1 w-full text-[12px]">{st.label}</span>
-                      <span className={`text-[11px] ${n ? "text-ink-mute" : "font-bold text-ink"}`}>{n ? `${n}か所に貼った` : "まだ貼ってない"}</span>
                     </button>
                   </li>
                 );
