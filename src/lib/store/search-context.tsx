@@ -15,7 +15,7 @@ import { api, ApiClientError } from "@/lib/api-client";
 import { MICHIBI_LINES } from "@/lib/character";
 import { mockLocation } from "@/lib/config";
 import { distanceMeters, isInServiceArea } from "@/lib/geo";
-import type { LatLng, MapSpot } from "@/lib/types";
+import type { LatLng, MapSpot, NearPlace } from "@/lib/types";
 
 // ─────────────────────────────────────────────────────────────
 // The single source of truth for "where the user is".
@@ -40,6 +40,8 @@ interface TownState {
   currentLocation: CurrentLocation | null;
   locationStatus: LocationStatus;
   spots: MapSpot[];
+  /** Nearest places of any kind (for stickers shot anywhere). */
+  around: NearPlace[];
   spotsStatus: SpotsStatus;
   spotsError: string | null;
   /** Where the spots were loaded from. */
@@ -71,6 +73,7 @@ export function SearchProvider({ children }: { children: ReactNode }) {
     currentLocation: null,
     locationStatus: "locating",
     spots: [],
+    around: [],
     spotsStatus: "idle",
     spotsError: null,
     spotsOrigin: null,
@@ -88,7 +91,7 @@ export function SearchProvider({ children }: { children: ReactNode }) {
     try {
       const res = await api.nearbySpots(origin);
       if (id !== loadId.current) return;
-      setState((s) => ({ ...s, spots: res.spots, spotsStatus: res.pending.length ? "seeding" : "ready" }));
+      setState((s) => ({ ...s, spots: res.spots, around: res.around ?? [], spotsStatus: res.pending.length ? "seeding" : "ready" }));
       if (res.pending.length === 0) {
         if (res.spots.length === 0) setState((s) => ({ ...s, spotsError: MICHIBI_LINES.empty }));
         return;

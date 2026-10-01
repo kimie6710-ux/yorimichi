@@ -52,6 +52,23 @@ export const EXTENDED_TOWN_TYPES = [
   "market",
 ];
 
+/** Not shops: places you go to look around (parks, shrines, plazas, landmarks…). */
+export const SPOT_TYPES = [
+  "park",
+  "garden",
+  "plaza",
+  "playground",
+  "shinto_shrine",
+  "buddhist_temple",
+  "historical_landmark",
+  "tourist_attraction",
+  "bridge",
+  "observation_deck",
+  "art_gallery",
+  "museum",
+  "library",
+];
+
 /** Short Japanese fallback labels when primaryTypeDisplayName is missing. */
 const TYPE_LABELS: Record<string, string> = {
   restaurant: "飲食店",

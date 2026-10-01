@@ -3,7 +3,7 @@ import "server-only";
 import { distanceMeters, walkMinutes } from "@/lib/geo";
 import { serverEnv } from "@/lib/server/env";
 import type { LatLng, Place, PlacePhoto, PlaceReview } from "@/lib/types";
-import { EXTENDED_TOWN_TYPES, FOOD_TYPES, TOWN_TYPES, labelForType } from "./place-types";
+import { EXTENDED_TOWN_TYPES, FOOD_TYPES, SPOT_TYPES, TOWN_TYPES, labelForType } from "./place-types";
 
 const PLACES_BASE = "https://places.googleapis.com/v1";
 const LANGUAGE = "ja";
@@ -249,17 +249,30 @@ async function searchTownTypes(origin: LatLng, radius: number): Promise<GPlace[]
   }
 }
 
+/** Spots that aren't shops, nearest first (popularity buries them under malls near stations). */
+async function searchSpotTypes(origin: LatLng, radius: number): Promise<GPlace[]> {
+  try {
+    return await searchNearbyOnce(origin, radius, { includedTypes: SPOT_TYPES, rankPreference: "DISTANCE" });
+  } catch (err) {
+    if (err instanceof PlacesApiError && err.status === 400) {
+      return searchNearbyOnce(origin, radius, { includedTypes: ["park", "tourist_attraction", "historical_landmark", "museum", "art_gallery", "library"], rankPreference: "DISTANCE" });
+    }
+    throw err;
+  }
+}
+
 /**
  * Fetch a broad, multi-category slice of the neighbourhood.
- * Three parallel calls (food / town / anything-closest) are merged round-robin
+ * Four parallel calls (spots / food / town / anything-closest) are merged round-robin
  * so no single category dominates the candidate list.
  */
 export async function searchNearbyPlaces(
   origin: LatLng,
   radius: number,
-  limit = 30,
+  limit = 40,
 ): Promise<Place[]> {
   const settled = await Promise.allSettled([
+    searchSpotTypes(origin, radius),
     searchNearbyOnce(origin, radius, { includedTypes: FOOD_TYPES, rankPreference: "POPULARITY" }),
     searchTownTypes(origin, radius),
     searchNearbyOnce(origin, radius, { rankPreference: "DISTANCE" }),

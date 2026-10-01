@@ -68,6 +68,12 @@ function copyOf(row: SpotRow | undefined): SpotCopy | null {
   return { copy: row.ai_copy, form: row.ai_copy_form ?? "", birdLine: row.ai_bird_line ?? "" };
 }
 
+/** A spot without a line, named after the newest thing someone found there. */
+function nicknameFromStickers(found: StickerRow[]): SpotCopy | null {
+  const named = found.filter((s) => s.label && s.label !== "見つけたもの").sort((a, b) => b.created_at.localeCompare(a.created_at));
+  return named[0] ? { copy: named[0].label, form: "あだ名", birdLine: "" } : null;
+}
+
 function baseRow(p: Place, prev?: SpotRow): SpotRow {
   return {
     id: p.placeId,
@@ -109,7 +115,8 @@ export async function toMapSpots(places: Place[], userId: string | null): Promis
     const here = stickers.filter((s) => s.spot_id === place.placeId);
     return {
       place,
-      copy: copyOf(byId.get(place.placeId)),
+      // No line yet but someone found something here: their sticker's name becomes the spot's nickname.
+      copy: copyOf(byId.get(place.placeId)) ?? nicknameFromStickers(here),
       placedCount: here.filter((s) => s.status === "placed" && s.owner_id !== userId).length,
       foundCount: here.length,
       visited: visits.some((v) => v.spot_id === place.placeId),

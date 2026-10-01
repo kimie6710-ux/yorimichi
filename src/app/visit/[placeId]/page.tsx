@@ -64,7 +64,10 @@ function Visit() {
   const spotId = decodeURIComponent(raw);
   const router = useRouter();
   const params = useSearchParams();
-  const { currentLocation, patchSpot, refreshUnread } = useSearch();
+  const { currentLocation, patchSpot, refreshUnread, around } = useSearch();
+  /** From the 撮る tab: shoot anything here; the sticker ties to a place nearby (changeable). */
+  const free = params.get("free") === "1";
+  const [linkId, setLinkId] = useState(spotId);
 
   const [detail, setDetail] = useState<SpotDetail | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -128,12 +131,12 @@ function Visit() {
 
   // Coming straight to explore (from the spot page / ＋ tab) also counts as a visit.
   useEffect(() => {
-    if (step === "explore" && detail && !detail.spot.visited && !recorded.current) {
+    if (!free && step === "explore" && detail && !detail.spot.visited && !recorded.current) {
       recorded.current = true;
       void api.visit(spotId, currentLocation).then(load).catch(() => undefined);
       patchSpot(spotId, { visited: true });
     }
-  }, [step, detail, spotId, currentLocation, load, patchSpot]);
+  }, [free, step, detail, spotId, currentLocation, load, patchSpot]);
 
   async function toCutout(mask: CutMask, point: CutPoint | null): Promise<Cutout | null> {
     if (!work.current) return null;
@@ -258,7 +261,7 @@ function Visit() {
     setError(null);
     try {
       const { items } = await api.createStickers({
-        spotId,
+        spotId: linkId,
         memo: memo.trim(),
         photo: photoBlob,
         items: [{ blob: sticker.blob, label: label.trim() || UNNAMED, rotation: sticker.rotation }],
@@ -308,6 +311,11 @@ function Visit() {
 
   const { spot } = detail;
   const others = detail.placed.filter((p) => !p.mine);
+  // Where a free capture can belong: the nearest places (the page's own spot first).
+  const places = [
+    { placeId: spotId, name: spot.place.name },
+    ...around.filter((p) => p.placeId !== spotId).map((p) => ({ placeId: p.placeId, name: p.name })),
+  ].slice(0, 5);
 
   if (step === "go") {
     return (
@@ -330,8 +338,8 @@ function Visit() {
     <main className="paper flex h-[calc(100dvh-76px-env(safe-area-inset-bottom))] flex-col overflow-hidden px-4 pt-[max(10px,env(safe-area-inset-top))] pb-3">
       {fileInputs}
       <header className="flex shrink-0 items-center gap-3">
-        <BackButton fallback={`/spot/${encodeURIComponent(spotId)}`} />
-        <p className="min-w-0 flex-1 truncate text-[17px]">{spot.copy?.copy}</p>
+        <BackButton fallback={free ? "/" : `/spot/${encodeURIComponent(spotId)}`} />
+        <p className="min-w-0 flex-1 truncate text-[17px]">{free ? "見つけたら、撮る" : spot.copy?.copy}</p>
       </header>
 
       {error && (
@@ -341,7 +349,27 @@ function Visit() {
       )}
 
       {/* ───── 探索モード ───── */}
-      {step === "explore" && (
+      {/* ───── どこでも撮る（撮るタブ） ───── */}
+      {step === "explore" && free && (
+        <section className="animate-rise mt-3 flex min-h-0 flex-1 flex-col">
+          <div className="flex min-h-0 flex-1 flex-col items-center justify-center">
+            <Michibi mood="front" size={96} says="なにか見つけた？" className="flex-col-reverse !items-center" animate="none" />
+          </div>
+          <div className="shrink-0 pt-2">
+            <p className="mb-2 text-center text-[17px]">気になったもの、ある？</p>
+            <SketchButton size="lg" block onClick={() => cameraRef.current?.click()}>
+              撮る
+            </SketchButton>
+            <div className="mt-1 flex justify-center">
+              <SketchButton variant="plain" size="sm" onClick={() => libraryRef.current?.click()}>
+                アルバムから選ぶ
+              </SketchButton>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {step === "explore" && !free && (
         <section className="animate-rise mt-3 flex min-h-0 flex-1 flex-col">
           <div className="flex shrink-0 items-center gap-3 rounded-[14px_18px_12px_20px] bg-card p-2.5 shadow-[0_1px_0_rgb(60_50_30/0.08),0_6px_12px_-8px_rgb(60_50_30/0.3)]">
             <PlaceImage place={spot.place} width={200} className="h-16 w-16 shrink-0 rounded-[10px_12px_9px_13px]" />
@@ -461,6 +489,22 @@ function Visit() {
             </div>
           </div>
           <div className="shrink-0 pt-3">
+            {free && places.length > 0 && (
+              <div className="hide-scrollbar mb-2 flex items-center gap-2 overflow-x-auto">
+                <span className="shrink-0 text-[14px] text-ink-mute">どこで？</span>
+                {places.map((p) => (
+                  <button
+                    key={p.placeId}
+                    type="button"
+                    onClick={() => setLinkId(p.placeId)}
+                    aria-pressed={linkId === p.placeId}
+                    className={`max-w-[11rem] shrink-0 truncate rounded-[10px_13px_9px_12px] px-3 py-1 text-[14px] transition-colors ${linkId === p.placeId ? "bg-butter" : "bg-card"}`}
+                  >
+                    {p.name}
+                  </button>
+                ))}
+              </div>
+            )}
             {guesses.length > 0 && (
               <div className="mb-2 flex items-center gap-2 overflow-hidden">
                 <span className="shrink-0 text-[14px] text-ink-mute">これかな？</span>

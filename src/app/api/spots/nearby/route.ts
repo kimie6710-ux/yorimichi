@@ -9,6 +9,8 @@ import { toMapSpots, touchUser } from "@/lib/server/services";
 import type { Place } from "@/lib/types";
 
 const MAX_ON_MAP = 12;
+/** Places nobody "finds" something at: not offered as where a sticker was found. */
+const NOT_A_FIND = new Set(["atm", "bank", "parking", "police", "local_government_office", "post_office", "insurance_agency", "real_estate_agency", "doctor", "dentist", "hospital", "pharmacy"]);
 const SEED_BATCH = 8;
 
 /** Spread picks across categories, nearest first. */
@@ -57,5 +59,12 @@ export async function POST(req: Request) {
   const room = aiEnabled() ? Math.max(0, Math.min(SEED_BATCH, MAX_ON_MAP - withCopy.length)) : 0;
   const pending = diverse(all.filter((s) => !s.copy).map((s) => s.place), room);
 
-  return Response.json({ spots: withCopy, pending, total: places.length });
+  // Nearest places of any kind: a sticker shot anywhere ties to one of these.
+  const around = [...places]
+    .filter((p) => !p.types.some((t) => NOT_A_FIND.has(t)))
+    .sort((a, b) => a.distanceMeters - b.distanceMeters)
+    .slice(0, 6)
+    .map((p) => ({ placeId: p.placeId, name: p.name, category: p.primaryTypeLabel ?? null, distanceMeters: p.distanceMeters }));
+
+  return Response.json({ spots: withCopy, pending, around, total: places.length });
 }

@@ -8,6 +8,7 @@ import type {
   LatLng,
   MapSpot,
   MyHistory,
+  NearPlace,
   Place,
   SpotDetail,
   Sticker,
@@ -80,7 +81,7 @@ const qs = (at: LatLng | null) => (at ? `?lat=${at.latitude}&lng=${at.longitude}
 
 export const api = {
   nearbySpots: (at: LatLng) =>
-    request<{ spots: MapSpot[]; pending: Place[]; total: number }>("/api/spots/nearby", { ...post(at), timeoutMs: 20_000 }),
+    request<{ spots: MapSpot[]; pending: Place[]; around: NearPlace[]; total: number }>("/api/spots/nearby", { ...post(at), timeoutMs: 20_000 }),
   seedSpots: (origin: LatLng, places: Place[]) =>
     request<{ spots: MapSpot[] }>("/api/spots/seed", { ...post({ origin, places }), timeoutMs: 70_000 }),
   spot: (id: string, at: LatLng | null) => request<SpotDetail>(`/api/spots/${encodeURIComponent(id)}${qs(at)}`),

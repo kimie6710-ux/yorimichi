@@ -89,6 +89,14 @@ export interface SpotCopy {
   birdLine: string;
 }
 
+/** A place near you that a free capture can be tied to (with or without a copy). */
+export interface NearPlace {
+  placeId: string;
+  name: string;
+  category: string | null;
+  distanceMeters: number;
+}
+
 /** A real place on the map with its よりみち layer. */
 export interface MapSpot {
   place: Place;
