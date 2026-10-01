@@ -333,7 +333,7 @@ export function Notebook({
       </div>
 
       <SketchSheet open={trayOpen} onClose={() => setTrayOpen(false)} label="シールを貼る">
-        <p className="px-5 pt-1 font-hand text-lg">とり</p>
+        <p className="px-5 pt-1 font-hand text-lg">みちび</p>
         <ul className="grid grid-cols-4 gap-3 px-5 pt-2 pb-4">
           {DECO_KINDS.filter((k) => k.startsWith("bird-")).map((k) => (
             <li key={k}>
