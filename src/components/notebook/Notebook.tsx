@@ -253,7 +253,7 @@ export function Notebook({
                 lift={lifted}
                 className={`pointer-events-none mx-auto ${s.tape ? "w-full opacity-90" : "w-auto"} ${s.deco && !s.tape ? "max-h-[26cqw]" : s.tape ? "" : "max-h-[36cqw]"} ${isSelected ? "rounded-xl outline-2 outline-sky-deep outline-offset-2 outline-dashed" : ""}`}
               />
-              {s.label && <span className="pointer-events-none mt-0.5 block text-center font-hand text-[14px] leading-tight text-ink-soft"><Wrap>{s.label}</Wrap></span>}
+              {s.label && <span className="pointer-events-none relative left-1/2 mt-0.5 block w-max max-w-[min(150%,10em)] -translate-x-1/2 text-center font-hand text-[14px] leading-tight text-ink-soft"><Wrap>{s.label}</Wrap></span>}
               {isSelected && (
                 <div
                   className="absolute -top-10 left-1/2 flex -translate-x-1/2 gap-1.5"

@@ -124,10 +124,10 @@
 }
 
 @layer components {
-  /* <Wrap>: break only at the <wbr> between phrases; a phrase wider than the box still breaks. */
+  /* <Wrap>: break only at the <wbr> between phrases, never inside one (a long phrase may stick out a little instead). */
   .wrap-phrase {
     word-break: keep-all;
-    overflow-wrap: anywhere;
+    overflow-wrap: normal;
   }
 
   /* Hand-drawn buttons (SketchButton): tilt a little on hover, sink on press. */

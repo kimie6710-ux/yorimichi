@@ -6,12 +6,13 @@ sticker, a thin ink line around it.
     python3 scripts/deco/bird-stickers.py
 """
 import math
-import random
 from pathlib import Path
 
 import numpy as np
 from PIL import Image
 from scipy import ndimage
+
+from diecut import die_cut
 
 ROOT = Path(__file__).resolve().parents[2]
 POSES = ["back", "flap", "front", "happy", "hop", "perch", "side", "sleepy", "surprise", "walk"]
@@ -22,12 +23,6 @@ BORDER = 30 * K
 ROUND = 14 * K
 INK_EDGE = 2.4
 PAD = math.ceil(BORDER + ROUND + INK_EDGE + 2)
-INK = (0x22, 0x20, 0x1C)
-PAPER = (0xFF, 0xFE, 0xFB)
-
-
-def ramp(a, lo=96, hi=132):
-    return np.clip((a - lo) / (hi - lo), 0, 1)
 
 
 def build(pose: str) -> Image.Image:
@@ -46,35 +41,7 @@ def build(pose: str) -> Image.Image:
     inner = SIZE - PAD * 2
     s = inner / max(src.size)
     src = src.resize((max(1, round(src.width * s)), max(1, round(src.height * s))), Image.LANCZOS)
-    W, H = src.width + PAD * 2, src.height + PAD * 2
-
-    sil = np.zeros((H, W), bool)
-    sil[PAD:PAD + src.height, PAD:PAD + src.width] = np.array(src.getchannel("A")) > 12
-    # Grow by the border width (exact disc), then blur and cut again → rounded outline.
-    grown = ndimage.distance_transform_edt(~sil) <= BORDER
-    blurred = ndimage.gaussian_filter(grown.astype(float) * 255, ROUND * 0.6 / 2)
-    shape = ramp(blurred)
-
-    # Ink: the shape pushed out by INK_EDGE with a slight hand wobble.
-    rng = random.Random(pose)
-    phase = rng.random() * math.tau
-    ink = np.zeros_like(shape)
-    for a in range(0, 360, 6):
-        r = math.radians(a)
-        rr = INK_EDGE + 0.9 * K * math.sin(r * 3 + phase) + 0.45 * K * math.sin(r * 7 + phase * 2)
-        ink = np.maximum(ink, ndimage.shift(shape, (math.sin(r) * rr, math.cos(r) * rr), order=1))
-
-    out = np.zeros((H, W, 4), float)
-    out[..., :3] = INK
-    out[..., 3] = ink
-    # White over ink.
-    a = shape[..., None]
-    out[..., :3] = out[..., :3] * (1 - a) + np.array(PAPER) * a
-    out[..., 3] = np.maximum(out[..., 3], shape)
-    img = Image.fromarray((out * [1, 1, 1, 255]).round().astype(np.uint8))
-    img.alpha_composite(src, (PAD, PAD))
-    return img
-
+    return die_cut(src, np.array(src.getchannel("A")) > 12, BORDER, ROUND, INK_EDGE, pose)
 
 if __name__ == "__main__":
     for p in POSES:

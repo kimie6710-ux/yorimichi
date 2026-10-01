@@ -1,5 +1,6 @@
 import "server-only";
 
+import { statSync } from "node:fs";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 
@@ -145,11 +146,11 @@ export class LocalStore implements Store {
   }
 
   async fileUrl(p: string): Promise<string> {
-    return `/api/files/${p}`;
+    return versionedUrl(p);
   }
 
   async fileUrls(paths: string[]): Promise<Map<string, string>> {
-    return new Map(paths.map((p) => [p, `/api/files/${p}`]));
+    return new Map(paths.map((p) => [p, versionedUrl(p)]));
   }
 
   static async readFile(p: string): Promise<Buffer | null> {
@@ -158,5 +159,14 @@ export class LocalStore implements Store {
     } catch {
       return null;
     }
+  }
+}
+
+/** Files are served as immutable; the mtime in the URL makes a rewritten file (e.g. a new border) load fresh. */
+function versionedUrl(p: string): string {
+  try {
+    return `/api/files/${p}?v=${Math.floor(statSync(safePath(p)).mtimeMs).toString(36)}`;
+  } catch {
+    return `/api/files/${p}`;
   }
 }

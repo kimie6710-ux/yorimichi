@@ -113,7 +113,7 @@ export function StickerBox({ stickers, stuck, onPick }: { stickers: Sticker[]; s
                     <span className="flex h-24 w-full items-center justify-center">
                       <StickerView src={st.imageUrl} alt={st.label} rotation={st.rotation} className="max-h-24 w-auto" />
                     </span>
-                    <span className="mt-1 w-full text-[14px] leading-snug"><Wrap>{st.label}</Wrap></span>
+                    <span className="mt-1 w-max max-w-[calc(100%+12px)] text-[14px] leading-snug"><Wrap>{st.label}</Wrap></span>
                   </button>
                 </li>
               ))}

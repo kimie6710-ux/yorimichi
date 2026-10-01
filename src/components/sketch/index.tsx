@@ -258,11 +258,11 @@ export function SketchTextarea({ seed, className = "", ...rest }: { seed?: strin
  * foot = source px from the body's bottom line to the tail tip.
  */
 const BUBBLES = [
-  { src: "/ui/bubbles/b1.png", tip: 77, slice: [95, 115, 110, 175], foot: 50 },
-  { src: "/ui/bubbles/b2.png", tip: 90, slice: [100, 130, 105, 150], foot: 40 },
-  { src: "/ui/bubbles/b3.png", tip: 94, slice: [80, 100, 100, 150], foot: 62 },
-  { src: "/ui/bubbles/b4.png", tip: 38, slice: [60, 60, 85, 110], foot: 53 },
-  { src: "/ui/bubbles/b6.png", tip: 106, slice: [60, 70, 110, 160], foot: 70 },
+  { src: "/ui/bubbles/b1.png", h: 292, tip: 77, slice: [95, 115, 110, 175], foot: 50 },
+  { src: "/ui/bubbles/b2.png", h: 309, tip: 90, slice: [100, 130, 105, 150], foot: 40 },
+  { src: "/ui/bubbles/b3.png", h: 252, tip: 94, slice: [80, 100, 100, 150], foot: 62 },
+  { src: "/ui/bubbles/b4.png", h: 268, tip: 38, slice: [60, 60, 85, 110], foot: 53 },
+  { src: "/ui/bubbles/b6.png", h: 302, tip: 106, slice: [60, 70, 110, 160], foot: 70 },
 ] as const;
 const BUBBLE_SCALE = 1 / 3.4;
 const EDGE_PAD = 26 * BUBBLE_SCALE + 8;
@@ -290,8 +290,9 @@ export function SketchBubble({
   const len = text.length;
   const b = len <= 9 ? BUBBLES[0] : len <= 16 ? BUBBLES[3] : BUBBLES[hashSeed(seed ?? text) % 2 === 0 ? 4 : 1];
   const [t, r, bt, l] = b.slice.map((v) => Math.round(v * BUBBLE_SCALE));
+  // Never shorter than the drawing itself: squeezed, the curved sides lose their middle and kink.
   return (
-    <div className={`relative isolate w-fit ${className}`} style={{ minHeight: t + bt, minWidth: l + r + 12, ...(tipAtStart ? { width: "max-content", marginLeft: -Math.round(b.tip * BUBBLE_SCALE) } : null), ...style }}>
+    <div className={`relative isolate flex w-fit items-center ${className}`} style={{ minHeight: Math.round(b.h * BUBBLE_SCALE), minWidth: l + r + 12, ...(tipAtStart ? { width: "max-content", marginLeft: -Math.round(b.tip * BUBBLE_SCALE) } : null), ...style }}>
       <span
         aria-hidden
         className="pointer-events-none absolute inset-0 -z-10 box-border"
