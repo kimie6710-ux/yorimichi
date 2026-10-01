@@ -53,7 +53,7 @@ export const MICHIBI_LINES = {
   nudge: "上とか、足もととか。",
   photoAsk: "それ、シールにする？",
   choose: "どれにする？",
-  made: "それ、私は気づかなかった。",
+  made: "それ、ぼくは気づかなかった。",
   shareAsk: "置いていく？",
   placed: "置いてきた。次の誰かが見つけるかも。",
   sent: "どこかの誰かに届けたよ。",

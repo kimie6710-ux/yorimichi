@@ -20,7 +20,7 @@ function greeting(): string {
   return "夜の道も悪くないよ。";
 }
 
-const IDLE_LINES = ["なんかあるかも。", "こっち、こっち。", "ちょっと寄り道しない？", "私も気になってた。", "足もと、見てる？"];
+const IDLE_LINES = ["なんかあるかも。", "こっち、こっち。", "ちょっと寄り道しない？", "ぼくも気になってた。", "足もと、見てる？"];
 const TAP_LINES = ["わっ。", "なに？", "つつかないで〜。", "いっしょに行く？", "それ、いいね。"];
 /** Things it mutters when left alone and wandering off by itself. */
 export const WANDER_LINES = [
@@ -37,7 +37,7 @@ export const WANDER_LINES = [
   "向こうの信号、青の気分じゃない。",
   "落ち葉を一枚だけ持って帰る。",
   "なんとなく、左の道のほうが好き。",
-  "さっきの影、わたしより大きかった。",
+  "さっきの影、ぼくより大きかった。",
   "ひまだから、地図のはじっこ見てくる。",
 ];
 const WANDER_AFTER_MS = 22000;
