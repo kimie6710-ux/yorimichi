@@ -3,13 +3,12 @@
 /* eslint-disable @next/next/no-img-element -- local bird sprites */
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { MICHIBI_LINES, michibiSrc } from "@/lib/character";
-import { distanceMeters, walkMinutes } from "@/lib/geo";
+import { michibiSrc } from "@/lib/character";
+import { bearingDegrees, distanceMeters, walkMinutes } from "@/lib/geo";
 import { useSearch } from "@/lib/store/search-context";
 import type { LatLng, MapSpot } from "@/lib/types";
 import { MapView } from "./map/MapView";
-import { Michibi } from "./Michibi";
-import { SketchButton, SketchCard, SketchIconButton } from "./sketch";
+import { SketchButton, SketchIconButton } from "./sketch";
 
 const ARRIVE_METERS = 40;
 /** Off the path by this much → ask for a new route. */
@@ -138,6 +137,11 @@ export function GuideView({ spot, onArrive, onQuit }: { spot: MapSpot; onArrive:
   );
 
   const mins = remaining !== null ? walkMinutes(remaining) : null;
+  // The map is north-up: when the next thing is "keep going", point the arrow
+  // the way the path actually runs on the map, not straight up.
+  const straight = !dir || dir.word === "まっすぐ";
+  const aheadTo = current?.end ?? dest;
+  const heading = currentLocation && straight ? bearingDegrees(currentLocation, aheadTo) : null;
   // Join the walked line to where you are and to the door (the road path stops at the kerb).
   const path = useMemo(() => {
     if (!route) return null;
@@ -175,7 +179,7 @@ export function GuideView({ spot, onArrive, onQuit }: { spot: MapSpot; onArrive:
             {near ? (
               <img src={michibiSrc("flap", "sm")} alt="" className="h-11 w-11" draggable={false} />
             ) : (
-              <Arrow angle={dir?.angle ?? 0} size={40} color="#fffefb" />
+              <Arrow angle={heading ?? dir?.angle ?? 0} size={40} color="#fffefb" />
             )}
           </span>
           <div className="min-w-0 flex-1">
