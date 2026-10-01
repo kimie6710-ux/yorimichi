@@ -290,14 +290,13 @@ class SamCutter implements StickerCutter {
     return { w: Math.max(1, Math.round((this.rw / 1024) * LOW)), h: Math.max(1, Math.round((this.rh / 1024) * LOW)) };
   }
 
-  private async decode(prompt: { point: CutPoint; box?: [number, number, number, number] }) {
+  private async decode(prompt: { point: CutPoint }) {
     const { tf, model } = this.sam!;
     const inputs: Record<string, unknown> = {
       ...this.embeddings,
       input_points: new tf.Tensor("float32", Float32Array.from([prompt.point.x * this.rw, prompt.point.y * this.rh]), [1, 1, 1, 2]),
       input_labels: new tf.Tensor("int64", BigInt64Array.from([BigInt(1)]), [1, 1, 1]),
     };
-    if (prompt.box) inputs.input_boxes = new tf.Tensor("float32", Float32Array.from(prompt.box), [1, 1, 4]);
     const out = await model(inputs);
     return { scores: out.iou_scores.data as Float32Array, logits: out.pred_masks.data as Float32Array };
   }
@@ -335,31 +334,8 @@ class SamCutter implements StickerCutter {
       }
     }
     if (bestArea < 0) k = first.scores.indexOf(Math.max(...first.scores));
-    let logits = first.logits;
 
-    // Second look with a box around what it found: fills in missing bits and
-    // trims spill-over, so the whole outline comes out.
-    const st = this.stats(first.logits, k);
-    if (st.area > 0) {
-      const pad = 0.04 * Math.max(st.box[2] - st.box[0], st.box[3] - st.box[1]);
-      const box: [number, number, number, number] = [
-        Math.max(0, (st.box[0] - pad) * 4),
-        Math.max(0, (st.box[1] - pad) * 4),
-        Math.min(this.rw, (st.box[2] + 1 + pad) * 4),
-        Math.min(this.rh, (st.box[3] + 1 + pad) * 4),
-      ];
-      try {
-        const again = await this.decode({ point, box });
-        const j = again.scores.indexOf(Math.max(...again.scores));
-        const st2 = this.stats(again.logits, j);
-        if (again.scores[j] >= 0.75 && st2.area > st.area * 0.6 && st2.area < st.area * 1.6 && st2.ratio <= 0.92) {
-          logits = again.logits;
-          k = j;
-        }
-      } catch (err) {
-        console.warn("[sam] box pass skipped", err);
-      }
-    }
+    const logits = first.logits;
 
     // Stretch the low-res reading smoothly to the photo's size (soft 0–1)…
     const { w, h } = this.lowSize;

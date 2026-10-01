@@ -260,7 +260,7 @@ function SpotCard({
       </Link>
       <div className="mt-2 flex items-center justify-between gap-2">
         <p className="text-sm text-ink-mute">
-          徒歩{spot.place.walkMinutes}分{spot.placedCount > 0 ? "・誰かの発見あり" : ""}
+          徒歩{spot.place.walkMinutes}分{spot.placedCount > 0 ? "・誰かの発見" : ""}
         </p>
         <SketchButton size="sm" onClick={onGo} className="shrink-0">
           行ってみる

@@ -35,7 +35,12 @@ export function YorumichiMarker({
         <img src={`/ui/badge-${badge}.png`} alt="" className="absolute inset-0 h-full w-full" draggable={false} />
         <span className="relative text-[14px] font-bold tabular-nums">{marker.index ?? "?"}</span>
         {(marker.placed ?? 0) > 0 && (
-          <img src="/deco/tape-stripe.png" alt={`誰かの発見が${marker.placed}枚`} className="absolute -right-3 -bottom-0.5 h-2.5 w-7 rotate-12 object-cover opacity-90" />
+          // Someone left something here: a tiny sticker peeking out from behind the badge.
+          <span
+            role="img"
+            aria-label={`誰かの発見が${marker.placed}枚`}
+            className="absolute -top-1 -right-1.5 h-3.5 w-3.5 rotate-12 rounded-[3px] bg-sky-deep shadow-[0_0_0_2px_#fffefb,0_1px_2px_1.5px_rgb(34_32_28/0.35)]"
+          />
         )}
       </span>
     </button>

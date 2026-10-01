@@ -5,10 +5,12 @@ import { buildMockPlaces } from "@/lib/places/mock";
 import { spotsNearbyRequestSchema } from "@/lib/schemas";
 import { aiEnabled, isMockModeServer, serverEnv } from "@/lib/server/env";
 import { jsonError, parseJsonBody } from "@/lib/server/http";
-import { toMapSpots, touchUser } from "@/lib/server/services";
+import { knownSpotsNear, toMapSpots, touchUser } from "@/lib/server/services";
 import type { Place } from "@/lib/types";
 
 const MAX_ON_MAP = 12;
+/** Places people already made part of the map are shown a little further out. */
+const KNOWN_RADIUS_METERS = 1500;
 /** Places nobody "finds" something at: not offered as where a sticker was found. */
 const NOT_A_FIND = new Set(["atm", "bank", "parking", "police", "local_government_office", "post_office", "insurance_agency", "real_estate_agency", "doctor", "dentist", "hospital", "pharmacy"]);
 const SEED_BATCH = 8;
@@ -49,6 +51,9 @@ export async function POST(req: Request) {
       return jsonError("places_failed", "周辺スポットを取得できませんでした", status);
     }
   }
+
+  // Plus places people have already made part of the map.
+  if (!isMockModeServer()) places = [...places, ...(await knownSpotsNear(origin, KNOWN_RADIUS_METERS, new Set(places.map((p) => p.placeId))))];
 
   const userId = await identify(req);
   if (userId) await touchUser(userId, origin).catch(() => undefined);

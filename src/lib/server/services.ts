@@ -130,6 +130,22 @@ function veil(place: Place): Place {
   };
 }
 
+/**
+ * Places we already know around here that Google's nearby search may have left
+ * out: ones with a line, or where someone has left a sticker. The map grows
+ * from what people find, not only from what the search returns.
+ */
+export async function knownSpotsNear(origin: LatLng, radius: number, skip: Set<string>): Promise<Place[]> {
+  const store = getStore();
+  const [rows, placed] = await Promise.all([store.find("spots", {}), store.find("stickers", { where: { status: "placed" } })]);
+  const withFinds = new Set(placed.map((s) => s.spot_id));
+  return rows
+    .filter((r) => !skip.has(r.id) && (r.ai_copy || withFinds.has(r.id)))
+    .map((r) => ({ r, d: distanceMeters(origin, { latitude: r.lat, longitude: r.lng }) }))
+    .filter(({ d }) => d <= radius)
+    .map(({ r }) => placeFromRow(r, origin));
+}
+
 /** Real places → map spots with their よりみち layer (copy + counts). */
 export async function toMapSpots(places: Place[], userId: string | null, reveal: (placeId: string) => boolean = () => false): Promise<MapSpot[]> {
   const store = getStore();

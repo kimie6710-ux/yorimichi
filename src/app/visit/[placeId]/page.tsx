@@ -318,7 +318,7 @@ function Visit() {
   const others = detail.placed.filter((p) => !p.mine);
   // Where a free capture can belong: the nearest places (the page's own spot first).
   const places = [
-    { placeId: spotId, name: around.find((p) => p.placeId === spotId)?.name ?? spot.place.name },
+    { placeId: spotId, name: around.find((p) => p.placeId === spotId)?.name || spot.place.name || "この近く" },
     ...around.filter((p) => p.placeId !== spotId).map((p) => ({ placeId: p.placeId, name: p.name })),
   ].slice(0, 5);
   // From a spot you walked to you can always leave it there; a free shot only near the place it's tied to.
