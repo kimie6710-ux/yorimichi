@@ -36,18 +36,71 @@ function FitBounds({ origin, markers, bottomInset = 0 }: Pick<MapViewProps, "ori
   return null;
 }
 
+/**
+ * The walking route, drawn as SVG on its own layer: map tiles are toned down
+ * with a CSS filter, and a route drawn on the map canvas would be greyed out too.
+ * Looks like a map app's route: deep-blue edge, bright-blue line, round joins.
+ */
 function RouteLine({ route }: { route: LatLng[] }) {
   const map = useMap();
   useEffect(() => {
     if (!map || typeof google === "undefined" || route.length < 2) return;
-    const path = route.map(toGoogle);
-    // A clear sky-blue path with a paper casing, readable on the pale map.
-    const casing = new google.maps.Polyline({ path, map, strokeColor: "#fffefb", strokeOpacity: 1, strokeWeight: 11, zIndex: 1 });
-    const line = new google.maps.Polyline({ path, map, strokeColor: "#3f86ad", strokeOpacity: 0.95, strokeWeight: 6, zIndex: 2 });
-    return () => {
-      casing.setMap(null);
-      line.setMap(null);
-    };
+    const NS = "http://www.w3.org/2000/svg";
+    const PAD = 16;
+
+    class RouteOverlay extends google.maps.OverlayView {
+      private svg = document.createElementNS(NS, "svg");
+      private edge = document.createElementNS(NS, "path");
+      private line = document.createElementNS(NS, "path");
+
+      constructor() {
+        super();
+        this.svg.style.position = "absolute";
+        this.svg.style.overflow = "visible";
+        this.svg.style.pointerEvents = "none";
+        for (const [p, color, width] of [
+          [this.edge, "#2c6a99", 10],
+          [this.line, "#4fa3e3", 6],
+        ] as const) {
+          p.setAttribute("fill", "none");
+          p.setAttribute("stroke", color);
+          p.setAttribute("stroke-width", String(width));
+          p.setAttribute("stroke-linecap", "round");
+          p.setAttribute("stroke-linejoin", "round");
+          this.svg.appendChild(p);
+        }
+      }
+
+      onAdd() {
+        this.getPanes()?.overlayLayer.appendChild(this.svg);
+      }
+
+      draw() {
+        const proj = this.getProjection();
+        if (!proj) return;
+        const pts = route.map((p) => proj.fromLatLngToDivPixel(toGoogle(p))).filter((p): p is google.maps.Point => !!p);
+        if (pts.length < 2) return;
+        const minX = Math.min(...pts.map((p) => p.x)) - PAD;
+        const minY = Math.min(...pts.map((p) => p.y)) - PAD;
+        const maxX = Math.max(...pts.map((p) => p.x)) + PAD;
+        const maxY = Math.max(...pts.map((p) => p.y)) + PAD;
+        this.svg.style.left = `${minX}px`;
+        this.svg.style.top = `${minY}px`;
+        this.svg.setAttribute("width", String(maxX - minX));
+        this.svg.setAttribute("height", String(maxY - minY));
+        const d = pts.map((p, i) => `${i ? "L" : "M"}${(p.x - minX).toFixed(1)} ${(p.y - minY).toFixed(1)}`).join(" ");
+        this.edge.setAttribute("d", d);
+        this.line.setAttribute("d", d);
+      }
+
+      onRemove() {
+        this.svg.remove();
+      }
+    }
+
+    const overlay = new RouteOverlay();
+    overlay.setMap(map);
+    return () => overlay.setMap(null);
   }, [map, route]);
   return null;
 }
