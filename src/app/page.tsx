@@ -26,8 +26,6 @@ const STARTED_KEY = "yorumichi:started";
  */
 /** Dragged this far from what's loaded: offer to look around there. */
 const LOOK_AGAIN_METERS = 300;
-/** Beyond this from you, the map hasn't been walked yet (for now). */
-const EDGE_OF_MAP_METERS = 2500;
 
 function spread(spots: MapSpot[], minMeters = 70, max = 10): MapSpot[] {
   const kept: MapSpot[] = [];
@@ -63,8 +61,7 @@ export default function MapHome() {
   const [moved, setMoved] = useState<LatLng | null>(null);
   const [home, setHome] = useState(0);
   const looking = !!(town.spotsOrigin && currentLocation && distanceMeters(town.spotsOrigin, currentLocation) > LOOK_AGAIN_METERS);
-  const tooFar = !!(moved && currentLocation && distanceMeters(moved, currentLocation) > EDGE_OF_MAP_METERS);
-  const canLook = !!(moved && town.spotsOrigin && distanceMeters(moved, town.spotsOrigin) > LOOK_AGAIN_METERS) && !tooFar;
+  const canLook = !!(moved && town.spotsOrigin && distanceMeters(moved, town.spotsOrigin) > LOOK_AGAIN_METERS);
   const goHome = () => {
     setMoved(null);
     setHome((n) => n + 1);
@@ -207,10 +204,7 @@ export default function MapHome() {
               このあたりを見る
             </button>
           )}
-          {tooFar && (
-            <p className="rounded-full bg-card px-4 py-1.5 text-[14px] shadow-[0_3px_10px_-5px_rgb(60_50_30/0.5)]">ここから先は、まだ地図の外みたい。</p>
-          )}
-          {(looking || tooFar) && (
+          {looking && (
             <button
               type="button"
               onClick={goHome}

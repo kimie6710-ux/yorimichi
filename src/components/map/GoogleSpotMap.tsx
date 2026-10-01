@@ -4,7 +4,7 @@ import { APIProvider, Map, useMap } from "@vis.gl/react-google-maps";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
-import { publicConfig } from "@/lib/config";
+import { publicConfig, MAP_LIMIT, MAP_MIN_ZOOM } from "@/lib/config";
 import type { LatLng } from "@/lib/types";
 import { CurrentLocationMarker } from "./CurrentLocationMarker";
 import { MapMarkerView, MichibiMapMarker } from "./MapMarkerView";
@@ -308,6 +308,8 @@ export default function GoogleSpotMap({
         keyboardShortcuts={interactive}
         disableDefaultUI
         clickableIcons={false}
+        restriction={{ latLngBounds: MAP_LIMIT, strictBounds: true }}
+        minZoom={MAP_MIN_ZOOM}
       >
         {interactive && !follow && <FitBounds origin={fitMarkersOnly ? null : origin} markers={markers} bottomInset={bottomInset} />}
         {onMoved && <ReportMoves onMoved={onMoved} />}

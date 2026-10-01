@@ -56,3 +56,11 @@ export const SERVICE_AREAS: ServiceArea[] = [
 ];
 
 export const SEARCH_RADIUS_METERS = 800;
+
+/**
+ * For now the map stays inside 町田市: you can't drag or zoom out past it.
+ * (A little margin around the city so its edges aren't stuck to the screen.)
+ */
+export const MAP_LIMIT = { north: 35.64, south: 35.495, west: 139.32, east: 139.515 };
+/** Zoomed out further than this, the whole city is already in view. */
+export const MAP_MIN_ZOOM = 12;
