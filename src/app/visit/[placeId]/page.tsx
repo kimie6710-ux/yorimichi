@@ -338,8 +338,9 @@ function Visit() {
     <main className="paper flex h-[calc(100dvh-76px-env(safe-area-inset-bottom))] flex-col overflow-hidden px-4 pt-[max(10px,env(safe-area-inset-top))] pb-3">
       {fileInputs}
       <header className="flex shrink-0 items-center gap-3">
-        <BackButton fallback={free ? "/" : `/spot/${encodeURIComponent(spotId)}`} />
-        <p className="min-w-0 flex-1 truncate text-[17px]">{free ? "見つけたら、撮る" : spot.copy?.copy}</p>
+        {/* 撮る is a tab of its own: nothing to go back to. */}
+        {!free && <BackButton fallback={`/spot/${encodeURIComponent(spotId)}`} />}
+        {free ? <h1 className="font-hand text-[26px]">撮る</h1> : <p className="min-w-0 flex-1 truncate text-[17px]">{spot.copy?.copy}</p>}
       </header>
 
       {error && (
