@@ -17,6 +17,7 @@ import { boxMask, findThings, MIDDLE_BOX, prepareCutter, warmUpCutter, within, t
 import { canvasToBlob, downscaleToJpeg, loadBitmap, plainFromMask, randomRotation, stickerFromMask, toCanvas } from "@/lib/sticker/render";
 import { useSearch } from "@/lib/store/search-context";
 import { recognize, remember, UNNAMED, warmUpVision, type Guess } from "@/lib/vision/recognize";
+import { modelProgress, onModelProgress } from "@/lib/vision/runtime";
 import type { SpotDetail, Sticker } from "@/lib/types";
 
 type Step = "go" | "explore" | "looking" | "pick" | "making" | "make" | "share" | "done";
@@ -637,6 +638,9 @@ function Visit() {
  * with CSS only, so it keeps going even while the cutter keeps the page busy.
  */
 function WaitView({ photoUrl, line, cutting = false }: { photoUrl: string | null; line: string; cutting?: boolean }) {
+  // First time only: the on-device models are downloading.
+  const [progress, setProgress] = useState<number | null>(modelProgress());
+  useEffect(() => onModelProgress(setProgress), []);
   return (
     <section className="mt-3 flex min-h-0 flex-1 flex-col items-center" role="status" aria-live="polite">
       <div className="relative flex min-h-0 w-full flex-1 items-center justify-center">
@@ -652,7 +656,7 @@ function WaitView({ photoUrl, line, cutting = false }: { photoUrl: string | null
       <div className="flex shrink-0 items-end gap-2 pt-3">
         <img src={michibiSrc(cutting ? "flap" : "side", "sm")} alt="" className="bird-hop-loop h-14 w-14" />
         <p className="mb-2 text-[18px]">
-          {line}
+          {progress !== null ? `はじめての準備中 ${Math.round(progress * 100)}%` : line}
           <span className="wait-dots" aria-hidden><i>.</i><i>.</i><i>.</i></span>
         </p>
       </div>
