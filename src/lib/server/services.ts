@@ -111,8 +111,26 @@ function baseRow(p: Place, prev?: SpotRow): SpotRow {
   };
 }
 
+/** Before you've been there, the place stays a surprise — not just on screen, in what we send too. */
+function veil(place: Place): Place {
+  return {
+    ...place,
+    name: "",
+    address: null,
+    photos: [],
+    reviews: [],
+    editorialSummary: null,
+    attributes: [],
+    googleMapsUri: null,
+    websiteUri: null,
+    weekdayHours: [],
+    rating: null,
+    userRatingCount: null,
+  };
+}
+
 /** Real places → map spots with their よりみち layer (copy + counts). */
-export async function toMapSpots(places: Place[], userId: string | null): Promise<MapSpot[]> {
+export async function toMapSpots(places: Place[], userId: string | null, reveal: (placeId: string) => boolean = () => false): Promise<MapSpot[]> {
   const store = getStore();
   const ids = places.map((p) => p.placeId);
   if (ids.length === 0) return [];
@@ -129,13 +147,14 @@ export async function toMapSpots(places: Place[], userId: string | null): Promis
 
   return places.map((place) => {
     const here = stickers.filter((s) => s.spot_id === place.placeId);
+    const visited = visits.some((v) => v.spot_id === place.placeId);
     return {
-      place,
+      place: visited || reveal(place.placeId) ? place : veil(place),
       // No line yet but someone found something here: their sticker's name becomes the spot's nickname.
       copy: copyOf(byId.get(place.placeId)) ?? nicknameFromStickers(here),
       placedCount: here.filter((s) => s.status === "placed" && s.owner_id !== userId).length,
       foundCount: here.length,
-      visited: visits.some((v) => v.spot_id === place.placeId),
+      visited,
       saved: saves.some((v) => v.spot_id === place.placeId),
     };
   });
@@ -197,9 +216,9 @@ async function isOnSite(userId: string | null, spot: SpotRow, at: LatLng | null)
 
 export async function spotDetail(spotId: string, place: Place, userId: string | null, at: LatLng | null): Promise<SpotDetail> {
   const store = getStore();
-  const [spot] = await toMapSpots([place], userId);
   const row = (await store.get("spots", spotId)) ?? baseRow(place);
   const onSite = await isOnSite(userId, row, at);
+  const [spot] = await toMapSpots([place], userId, () => onSite);
   const found = await store.find("stickers", { where: { spot_id: spotId, origin: "found" }, order: { key: "created_at" } });
   const placedRows = found.filter((s) => s.status === "placed");
   const urls = onSite ? await store.fileUrls(placedRows.map((s) => s.image_path)) : new Map<string, string>();
