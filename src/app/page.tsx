@@ -162,18 +162,27 @@ export default function MapHome() {
       {/* What the colours mean */}
       {markers.length > 0 && (
         <div className="pointer-events-none absolute bottom-[184px] left-3 flex items-center gap-2.5 rounded-full bg-card/90 px-3 py-1 text-[14px] text-ink-soft shadow-[0_2px_6px_-3px_rgb(60_50_30/0.4)]">
+          {/* Same shapes as on the map, all the same size */}
           <span className="flex items-center gap-1">
-            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-butter font-hand text-[14px] leading-none font-bold ring-1 ring-ink/40" aria-hidden>
-              ?
+            <span className="relative flex h-5 w-5 items-center justify-center" aria-hidden>
+              <img src="/ui/badge-yellow.png" alt="" className="absolute inset-0 h-full w-full" />
+              <span className="relative font-hand text-[14px] leading-none font-bold">?</span>
             </span>
             まだ
           </span>
           <span className="flex items-center gap-1">
-            <span className="h-3 w-3 rounded-full bg-sky ring-1 ring-ink/40" aria-hidden />
+            <span className="relative flex h-5 w-5 items-center justify-center" aria-hidden>
+              <img src="/ui/badge-blue.png" alt="" className="absolute inset-0 h-full w-full" />
+              <svg className="relative h-2.5 w-2.5" viewBox="0 0 24 24" fill="none">
+                <path d="M5 12.5l4.2 4.3L19 7" stroke="var(--color-ink)" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </span>
             行った
           </span>
           <span className="flex items-center gap-1">
-            <span className="h-3 w-3 rotate-12 rounded-[3px] bg-sky-deep shadow-[0_0_0_1.5px_#fffefb,0_1px_2px_1px_rgb(34_32_28/0.35)]" aria-hidden />
+            <span className="flex h-5 w-5 items-center justify-center" aria-hidden>
+              <span className="h-3 w-3 rotate-12 rounded-[3px] bg-sky-deep shadow-[0_0_0_1.5px_#fffefb,0_1px_2px_1px_rgb(34_32_28/0.35)]" />
+            </span>
             誰かの発見
           </span>
         </div>
