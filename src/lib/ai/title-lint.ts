@@ -37,6 +37,11 @@ export function copyIsUsable(copy: string, name: string): boolean {
  * Pick one copy per spot from its candidates so the set reads varied:
  * avoid repeating an opening, an ending or a form already used nearby.
  */
+/** 「迷子製造の十階」型：Aの B だけの名詞句。続くと単調になる。 */
+const A_NO_B = /^[^、。！？!?\s]{1,10}の[^、。！？!?\s]{1,9}$/;
+const ENDS_LIKE_A_VERB = /[るうくすつむぬぶぐたいだ]$/;
+const isANoB = (flat: string) => A_NO_B.test(flat) && !ENDS_LIKE_A_VERB.test(flat);
+
 export function pickVaried<T extends { copy: string; form: string }>(
   options: T[][],
   already: string[] = [],
@@ -44,6 +49,7 @@ export function pickVaried<T extends { copy: string; form: string }>(
   const openings = new Set(already.map((c) => c.slice(0, 2)));
   const endings = new Set(already.map((c) => c.replace(TRAILING, "").slice(-2)));
   const forms = new Map<string, number>();
+  let aNoB = already.filter((c) => isANoB(c.replace(/\n/g, ""))).length;
   return options.map((list) => {
     let best: T | null = null;
     let bestScore = -Infinity;
@@ -53,6 +59,7 @@ export function pickVaried<T extends { copy: string; form: string }>(
       if (openings.has(flat.slice(0, 2))) score -= 2;
       if (endings.has(flat.replace(TRAILING, "").slice(-2))) score -= 2;
       score -= (forms.get(o.form) ?? 0) * 1.5;
+      if (isANoB(flat)) score -= 1 + aNoB * 1.5;
       if (score > bestScore) {
         best = o;
         bestScore = score;
@@ -63,6 +70,7 @@ export function pickVaried<T extends { copy: string; form: string }>(
       openings.add(flat.slice(0, 2));
       endings.add(flat.replace(TRAILING, "").slice(-2));
       forms.set(best.form, (forms.get(best.form) ?? 0) + 1);
+      if (isANoB(flat)) aNoB++;
     }
     return best;
   });
