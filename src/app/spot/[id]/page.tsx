@@ -2,17 +2,16 @@
 
 /* eslint-disable @next/next/no-img-element -- hand-drawn UI sprites */
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { BackButton } from "@/components/BackButton";
-import { MapView } from "@/components/map/MapView";
 import { Michibi } from "@/components/Michibi";
-import { SketchButton, SketchCard, SketchSection } from "@/components/sketch";
+import { SketchButton, SketchCard } from "@/components/sketch";
 import { MessageView } from "@/components/StateViews";
-import { StickerGrid } from "@/components/StickerGrid";
+import { StickerView } from "@/components/StickerView";
 import { SpotReveal } from "@/components/SpotReveal";
 import { api, ApiClientError } from "@/lib/api-client";
-import { MICHIBI_LINES } from "@/lib/character";
+import { bearingDegrees, compassWord, distanceMeters } from "@/lib/geo";
 import { useSearch } from "@/lib/store/search-context";
 import type { SpotDetail } from "@/lib/types";
 
@@ -34,10 +33,6 @@ export default function SpotPage() {
   }, [id]);
   useEffect(load, [load]);
 
-  const markers = useMemo(
-    () => (detail ? [{ id, position: detail.spot.place.location, label: detail.spot.copy?.copy ?? "", tone: "spot" as const }] : []),
-    [detail, id],
-  );
 
   if (error) {
     return (
@@ -54,7 +49,7 @@ export default function SpotPage() {
     );
   }
 
-  const { spot, onSite, placed, foundLabels, mine } = detail;
+  const { spot, onSite, placed, mine } = detail;
   const known = spot.visited || onSite;
   const others = placed.filter((p) => !p.mine);
 
@@ -69,9 +64,16 @@ export default function SpotPage() {
     });
   }
 
+  const here = currentLocation ? { latitude: currentLocation.latitude, longitude: currentLocation.longitude } : null;
+  const away = here ? distanceMeters(here, spot.place.location) : null;
+  const bearing = here ? bearingDegrees(here, spot.place.location) : 0;
+  // What you can see here: others' finds (once you're here) and your own.
+  const finds = [...(onSite ? others : []), ...mine.map((m) => ({ id: m.id, imageUrl: m.imageUrl, label: m.label, rotation: m.rotation, memo: m.memo, mine: true }))];
+
+  // One screen: the line on top, what's been found in the middle, the way to go at the bottom.
   return (
-    <main className="paper min-h-[calc(100dvh-76px)] px-4 pt-[max(12px,env(safe-area-inset-top))] pb-10">
-      <header className="flex items-center justify-between">
+    <main className="paper flex h-[calc(100dvh-76px-env(safe-area-inset-bottom))] flex-col overflow-hidden px-4 pt-[max(12px,env(safe-area-inset-top))] pb-3">
+      <header className="flex shrink-0 items-center justify-between">
         <BackButton />
         <SketchButton variant={spot.saved ? "primary" : "plain"} size="sm" onClick={() => void toggleSave()} aria-pressed={spot.saved}>
           <img src="/ui/i-star.png" alt="" className="h-4 w-auto" />
@@ -79,14 +81,51 @@ export default function SpotPage() {
         </SketchButton>
       </header>
 
-      {/* よりみちの層 */}
-      <SketchCard tone="butter" pad="lg" seed={`copy-${id}`} className="mt-4">
+      <SketchCard tone="butter" pad="lg" seed={`copy-${id}`} className="mt-3 shrink-0">
         <p className="font-hand text-[26px] leading-snug whitespace-pre-line">{spot.copy?.copy ?? "なんか気になる。"}</p>
-        {currentLocation && <p className="mt-2 text-sm text-ink-soft">徒歩{spot.place.walkMinutes}分</p>}
+        {away !== null && !known && (
+          <p className="mt-2 flex items-center gap-1.5 text-[15px] text-ink-soft">
+            <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden style={{ transform: `rotate(${bearing}deg)` }}>
+              <path d="M12 3l6 16-6-4-6 4z" fill="var(--color-sky-deep)" />
+            </svg>
+            徒歩{spot.place.walkMinutes}分・{compassWord(bearing)}へ{away >= 1000 ? `${(away / 1000).toFixed(1)}km` : `${Math.round(away / 10) * 10}m`}
+          </p>
+        )}
       </SketchCard>
-      {spot.copy?.birdLine && <Michibi mood="side" size={52} says={spot.copy.birdLine} className="mt-2" animate="none" />}
+      {spot.copy?.birdLine && <Michibi mood="side" size={48} says={spot.copy.birdLine} className="mt-2 shrink-0" animate="none" />}
 
-      <div className="mt-4 flex flex-col gap-3">
+      <section className="mt-3 flex min-h-0 flex-1 flex-col">
+        {known && (
+          <div className="mb-3 shrink-0">
+            <SpotReveal place={spot.place} compact />
+          </div>
+        )}
+        <p className="shrink-0 text-[15px] font-bold">ここで見つかったもの</p>
+        {finds.length > 0 ? (
+          <ul className="hide-scrollbar -mx-4 mt-2 flex min-h-0 flex-1 items-center gap-4 overflow-x-auto px-4">
+            {finds.map((f) => (
+              <li key={f.id} className="w-[34%] shrink-0 text-center">
+                <StickerView src={f.imageUrl} alt={f.label} rotation={f.rotation} className="mx-auto max-h-[18dvh] w-auto" />
+                <p className="mt-1 truncate text-[14px]">{f.label}</p>
+                <p className="truncate text-[14px] text-ink-mute">{f.mine ? "自分" : f.memo ? `「${f.memo}」` : "誰かの発見"}</p>
+              </li>
+            ))}
+          </ul>
+        ) : !onSite && spot.placedCount > 0 ? (
+          <div className="mt-2 flex min-h-0 flex-1 flex-col justify-center">
+            <div className="flex gap-3" aria-hidden>
+              {Array.from({ length: Math.min(4, spot.placedCount) }, (_, i) => (
+                <span key={i} className="h-16 w-16 rounded-[44%_52%_47%_55%] bg-ink/15 blur-[6px]" style={{ transform: `rotate(${i * 17 - 10}deg)` }} />
+              ))}
+            </div>
+            <p className="mt-3 text-[15px] text-ink-soft">誰かが、ここに何かを置いています。着いたら見られます。</p>
+          </div>
+        ) : (
+          <p className="mt-2 text-[15px] text-ink-soft">{spot.foundCount > 0 ? `これまでに${spot.foundCount}枚のシールが生まれています。` : "まだ誰も、ここで何も見つけていません。"}</p>
+        )}
+      </section>
+
+      <div className="shrink-0 pt-3">
         {onSite ? (
           <SketchButton size="lg" block onClick={() => router.push(`/visit/${encodeURIComponent(id)}?step=explore`)}>
             ここで探す
@@ -97,54 +136,6 @@ export default function SpotPage() {
           </SketchButton>
         )}
       </div>
-
-      <SketchSection title="ここで見つかったもの" className="mt-6" seed={`found-${id}`}>
-        {onSite ? (
-          <>
-            {others.length > 0 ? (
-              <>
-                <p className="mb-3 text-sm text-ink-soft">{MICHIBI_LINES.somebodyWasHere}</p>
-                <StickerGrid items={others} caption={(sid) => <Memo text={others.find((p) => p.id === sid)?.memo} />} />
-              </>
-            ) : (
-              <p className="text-sm text-ink-soft">まだ誰も置いていません。</p>
-            )}
-            {foundLabels.length > 0 && <p className="mt-4 text-sm text-ink-soft">ほかに見つかったもの：{foundLabels.join("・")}</p>}
-          </>
-        ) : spot.placedCount > 0 ? (
-          <div>
-            <p className="text-base font-bold">誰かが、ここに何かを置いています（{spot.placedCount}）</p>
-            <div className="mt-3 flex gap-3" aria-hidden>
-              {Array.from({ length: Math.min(4, spot.placedCount) }, (_, i) => (
-                <span key={i} className="h-16 w-16 rounded-[44%_52%_47%_55%] bg-ink/15 blur-[6px]" style={{ transform: `rotate(${i * 17 - 10}deg)` }} />
-              ))}
-            </div>
-            <p className="mt-3 text-sm text-ink-soft">着いたら見られます。</p>
-          </div>
-        ) : (
-          <p className="text-sm text-ink-soft">{spot.foundCount > 0 ? `ここでは、これまでに${spot.foundCount}枚のシールが生まれています。` : "まだ誰も、ここで何も見つけていません。"}</p>
-        )}
-      </SketchSection>
-
-      {mine.length > 0 && (
-        <SketchSection title="自分がここで見つけたもの" className="mt-4" tone="white" seed={`mine-${id}`}>
-          <StickerGrid items={mine} />
-        </SketchSection>
-      )}
-
-      <SketchSection title="この場所" className="mt-4" tone="white" seed={`info-${id}`}>
-        <div className="overflow-hidden rounded-[14px_18px_12px_20px] outline-2 outline-ink outline-solid">
-          <MapView origin={currentLocation} markers={markers} selectedId={null} onSelect={() => undefined} interactive={false} bubbles={false} className="yorumichi-map h-40 w-full" />
-        </div>
-        <div className="mt-3">
-          {known ? <SpotReveal place={spot.place} compact /> : <p className="text-sm text-ink-soft">名前と写真は、着いてから。</p>}
-        </div>
-      </SketchSection>
     </main>
   );
-}
-
-function Memo({ text }: { text?: string }) {
-  if (!text) return null;
-  return <span className="mt-0.5 line-clamp-2 font-hand text-sm text-ink-soft">「{text}」</span>;
 }

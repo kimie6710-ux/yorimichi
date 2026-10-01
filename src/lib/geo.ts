@@ -54,3 +54,20 @@ export function googleMapsWalkingUrl(dest: LatLng, placeId?: string): string {
   if (placeId && !placeId.startsWith("mock_")) params.set("destination_place_id", placeId);
   return `https://www.google.com/maps/dir/?${params.toString()}`;
 }
+
+/** Compass bearing from a to b, in degrees (0 = north, 90 = east). */
+export function bearingDegrees(a: LatLng, b: LatLng): number {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const φ1 = toRad(a.latitude);
+  const φ2 = toRad(b.latitude);
+  const Δλ = toRad(b.longitude - a.longitude);
+  const y = Math.sin(Δλ) * Math.cos(φ2);
+  const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+}
+
+const COMPASS = ["北", "北東", "東", "南東", "南", "南西", "西", "北西"];
+/** 「北西」 etc. for a bearing. */
+export function compassWord(deg: number): string {
+  return COMPASS[Math.round(deg / 45) % 8];
+}
