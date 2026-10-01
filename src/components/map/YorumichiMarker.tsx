@@ -2,9 +2,10 @@
 import type { MapMarker } from "./types";
 
 /**
- * A real spot on the map: a small scalloped sticker with its number.
- * Yellow = not yet visited, blue = been there, cream = selected.
- * The selected one shows its copy on a small paper tag (one or two lines).
+ * A real spot on the map: a small scalloped sticker.
+ * Not been yet: yellow with a "?" (what it is stays a surprise).
+ * Been there: blue — showing your own sticker from there, if you made one.
+ * Selected: a little bigger. A tiny sticker peeks out where someone left something.
  */
 export function YorumichiMarker({
   marker,
@@ -17,7 +18,8 @@ export function YorumichiMarker({
   onClick: () => void;
   bubble?: boolean;
 }) {
-  const badge = selected ? "cream" : marker.visited ? "blue" : "yellow";
+  const badge = marker.visited ? "blue" : selected ? "cream" : "yellow";
+  const thumb = marker.visited ? marker.thumb : null;
   return (
     <button
       type="button"
@@ -31,9 +33,17 @@ export function YorumichiMarker({
           {marker.label}
         </span>
       )}
-      <span className={`relative flex items-center justify-center transition-transform ${selected ? "h-11 w-11 scale-105" : "h-9 w-9"}`}>
-        <img src={`/ui/badge-${badge}.png`} alt="" className="absolute inset-0 h-full w-full" draggable={false} />
-        <span className="relative text-[14px] font-bold tabular-nums">{marker.index ?? "?"}</span>
+      <span className={`relative flex items-center justify-center transition-transform ${selected ? "h-12 w-12" : "h-9 w-9"}`}>
+        <img src={`/ui/badge-${badge}.png`} alt="" className={`absolute inset-0 h-full w-full ${selected ? "drop-shadow-[0_3px_3px_rgb(34_32_28/0.3)]" : ""}`} draggable={false} />
+        {thumb ? (
+          <img src={thumb} alt="" className="relative h-[72%] w-[72%] object-contain" draggable={false} />
+        ) : marker.visited ? (
+          <svg className="relative h-[46%] w-[46%]" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <path d="M5 12.5l4.2 4.3L19 7" stroke="var(--color-ink)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        ) : (
+          <span className={`relative font-hand font-bold ${selected ? "text-[20px]" : "text-[16px]"}`}>?</span>
+        )}
         {(marker.placed ?? 0) > 0 && (
           // Someone left something here: a tiny sticker peeking out from behind the badge.
           <span

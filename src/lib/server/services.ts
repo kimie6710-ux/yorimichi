@@ -162,8 +162,18 @@ export async function toMapSpots(places: Place[], userId: string | null, reveal:
   const stale = places.filter((p) => !byId.has(p.placeId));
   if (stale.length > 0) await store.upsert("spots", stale.map((p) => baseRow(p)));
 
+  // Your newest sticker at each place, for the map marker.
+  const mineBy = new Map<string, StickerRow>();
+  for (const s of stickers) {
+    if (s.owner_id !== userId) continue;
+    const cur = mineBy.get(s.spot_id);
+    if (!cur || cur.created_at < s.created_at) mineBy.set(s.spot_id, s);
+  }
+  const mineUrls = mineBy.size ? await store.fileUrls([...mineBy.values()].map((s) => s.image_path)) : new Map<string, string>();
+
   return places.map((place) => {
     const here = stickers.filter((s) => s.spot_id === place.placeId);
+    const mineRow = mineBy.get(place.placeId);
     const visited = visits.some((v) => v.spot_id === place.placeId);
     return {
       place: visited || reveal(place.placeId) ? place : veil(place),
@@ -173,6 +183,7 @@ export async function toMapSpots(places: Place[], userId: string | null, reveal:
       foundCount: here.length,
       visited,
       saved: saves.some((v) => v.spot_id === place.placeId),
+      mineUrl: mineRow ? (mineUrls.get(mineRow.image_path) ?? null) : null,
     };
   });
 }

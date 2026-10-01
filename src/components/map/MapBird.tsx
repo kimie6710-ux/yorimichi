@@ -170,9 +170,7 @@ export function useMapBird(spots: MapSpot[], selected: MapSpot | null, origin: L
         setFlip((f) => !f);
         setPose("side");
       } else if (r < 0.75) {
-        const other = spots[Math.floor(Math.random() * spots.length)];
-        const n = spots.indexOf(other) + 1;
-        say(Math.random() < 0.5 ? pick(IDLE_LINES) : `${n}番、気にならない？`);
+        say(Math.random() < 0.5 ? pick(IDLE_LINES) : pick(["あの「？」、気にならない？", "まだ行ってない「？」がある。", "どの「？」にする？"]));
       } else {
         setPose("front");
       }

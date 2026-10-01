@@ -69,14 +69,14 @@ export default function MapHome() {
 
   const markers = useMemo<MapMarker[]>(
     () =>
-      declutter(spots).map(({ spot: s, position }, i) => ({
+      declutter(spots).map(({ spot: s, position }) => ({
         id: s.place.placeId,
         position,
         label: s.copy?.copy ?? "",
         tone: "spot",
-        index: i + 1,
         placed: s.placedCount,
         visited: s.visited,
+        thumb: s.mineUrl ?? null,
       })),
     [spots],
   );
@@ -144,7 +144,9 @@ export default function MapHome() {
       {markers.length > 0 && (
         <div className="pointer-events-none absolute bottom-[184px] left-3 flex items-center gap-2.5 rounded-full bg-card/90 px-3 py-1 text-[14px] text-ink-soft shadow-[0_2px_6px_-3px_rgb(60_50_30/0.4)]">
           <span className="flex items-center gap-1">
-            <span className="h-3 w-3 rounded-full bg-butter ring-1 ring-ink/40" aria-hidden />
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-butter font-hand text-[14px] leading-none font-bold ring-1 ring-ink/40" aria-hidden>
+              ?
+            </span>
             まだ
           </span>
           <span className="flex items-center gap-1">
@@ -205,9 +207,9 @@ export default function MapHome() {
             </div>
           )}
           <ul ref={rail} className="hide-scrollbar flex snap-x snap-mandatory gap-4 overflow-x-auto px-[9%] pt-4 pb-1" aria-label="近くのスポット">
-            {spots.map((s, i) => (
+            {spots.map((s) => (
               <li key={s.place.placeId} data-id={s.place.placeId} className="w-[84%] shrink-0 snap-center">
-                <SpotCard spot={s} index={i + 1} active={selected?.place.placeId === s.place.placeId} onFocus={() => select(s.place.placeId, false)} onGo={() => router.push(`/visit/${encodeURIComponent(s.place.placeId)}`)}
+                <SpotCard spot={s} active={selected?.place.placeId === s.place.placeId} onFocus={() => select(s.place.placeId, false)} onGo={() => router.push(`/visit/${encodeURIComponent(s.place.placeId)}`)}
                   onSave={() => {
                     const next = !s.saved;
                     town.patchSpot(s.place.placeId, { saved: next });
@@ -225,14 +227,12 @@ export default function MapHome() {
 
 function SpotCard({
   spot,
-  index,
   active,
   onFocus,
   onGo,
   onSave,
 }: {
   spot: MapSpot;
-  index: number;
   active: boolean;
   onFocus: () => void;
   onGo: () => void;
@@ -241,7 +241,7 @@ function SpotCard({
   return (
     <SketchCard tone={active ? "white" : "paper"} pad="md" seed={`card-${spot.place.placeId}`} onClick={onFocus}>
       <div className="flex items-start justify-between">
-        <span className="text-[14px] tracking-widest text-ink-mute tabular-nums">{String(index).padStart(2, "0")}</span>
+        <span className="text-[14px] text-ink-mute">{spot.visited ? "行った" : "まだ"}</span>
         <button
           type="button"
           onClick={(e) => {

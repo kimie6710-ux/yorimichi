@@ -9,6 +9,8 @@ export interface MapMarker {
   label: string;
   tone: MarkerTone;
   index?: number;
+  /** Your own sticker from here, shown in place of the "?" once you've been. */
+  thumb?: string | null;
   /** Sticker markers: the transparent PNG. */
   thumbUrl?: string | null;
   rotation?: number;

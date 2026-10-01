@@ -104,6 +104,8 @@ export interface NearPlace {
 export interface MapSpot {
   place: Place;
   copy: SpotCopy | null;
+  /** Your own newest sticker from here (shown on the map once you've been). */
+  mineUrl?: string | null;
   /** Stickers other people left here. */
   placedCount: number;
   /** Stickers ever made here (by anyone). */
