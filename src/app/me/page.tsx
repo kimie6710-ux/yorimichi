@@ -9,6 +9,7 @@ import { SketchSection } from "@/components/sketch";
 import { StickerGrid } from "@/components/StickerGrid";
 import { api, ApiClientError } from "@/lib/api-client";
 import type { MyHistory } from "@/lib/types";
+import { Wrap } from "@/components/Wrap";
 
 type Tab = "saved" | "visited" | "placed" | "sent";
 const TABS: { value: Tab; label: string; icon: string; note: string }[] = [
@@ -84,7 +85,7 @@ export default function MyPage() {
               <Link href={`/spot/${encodeURIComponent(v.spotId)}`} className="block">
                 <SketchSection tone="white" seed={`visited-${v.spotId}`}>
                   <p className="font-bold">{v.name}</p>
-                  {v.copy && <p className="mt-0.5 text-sm text-ink-soft">{v.copy}</p>}
+                  {v.copy && <p className="mt-0.5 text-sm text-ink-soft"><Wrap>{v.copy}</Wrap></p>}
                 </SketchSection>
               </Link>
             </li>

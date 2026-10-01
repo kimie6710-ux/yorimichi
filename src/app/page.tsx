@@ -16,6 +16,7 @@ import { MICHIBI_LINES } from "@/lib/character";
 import { useSearch } from "@/lib/store/search-context";
 import { distanceMeters } from "@/lib/geo";
 import type { LatLng, MapSpot } from "@/lib/types";
+import { Wrap } from "@/components/Wrap";
 
 /** Shown once each time the app is opened (per browser session). */
 const STARTED_KEY = "yorumichi:started";
@@ -309,7 +310,7 @@ function SpotCard({
         </button>
       </div>
       <Link href={`/spot/${encodeURIComponent(spot.place.placeId)}`} className="mt-0.5 line-clamp-2 block text-[20px] leading-snug whitespace-pre-line">
-        {spot.copy?.copy}
+        <Wrap>{spot.copy?.copy}</Wrap>
       </Link>
       <div className="mt-2 flex items-center justify-between gap-2">
         <p className="text-sm text-ink-mute">

@@ -15,9 +15,6 @@ interface MichibiProps {
   className?: string;
 }
 
-/** How far the bubble's tail tip sits from its left edge. */
-const TAIL_X = 24;
-
 /** The little bird: appears small, says one thing, gets out of the way. */
 export function Michibi({ mood = "front", size = 64, says, side = "right", animate = "bob", above = false, className = "" }: MichibiProps) {
   const anim = animate === "bob" ? "animate-bob" : animate === "wander" ? "animate-wander" : "";
@@ -32,17 +29,19 @@ export function Michibi({ mood = "front", size = 64, says, side = "right", anima
         style={{ width: size, height: size }}
         draggable={false}
       />
-      {says && (
-        <SketchBubble
-          key={says}
-          side={above ? "left" : side === "right" ? "left" : "right"}
-          // Above: slide right so the tail (near the bubble's left edge) lands over the bird.
-          className={above ? "animate-peek max-w-[200px]" : "animate-peek mb-5 max-w-[260px]"}
-          style={above ? { translate: `calc(50% - ${TAIL_X}px) 0` } : undefined}
-        >
-          {says}
-        </SketchBubble>
-      )}
+      {says &&
+        (above ? (
+          // Zero-width column on the bird's centre line: the tail's tip lands right on it, the bird stays put.
+          <div className="flex w-0 justify-start">
+            <SketchBubble key={says} side="left" tipAtStart className="animate-peek shrink-0 max-w-[min(220px,calc(50vw+4px))]">
+              {says}
+            </SketchBubble>
+          </div>
+        ) : (
+          <SketchBubble key={says} side={side === "right" ? "left" : "right"} className="animate-peek mb-5 max-w-[260px]">
+            {says}
+          </SketchBubble>
+        ))}
     </div>
   );
 }

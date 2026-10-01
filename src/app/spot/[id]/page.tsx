@@ -2,7 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element -- hand-drawn UI sprites */
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { BackButton } from "@/components/BackButton";
 import { Michibi } from "@/components/Michibi";
@@ -15,6 +15,10 @@ import { MICHIBI_LINES } from "@/lib/character";
 import { bearingDegrees, compassWord, distanceMeters } from "@/lib/geo";
 import { useSearch } from "@/lib/store/search-context";
 import type { SpotDetail } from "@/lib/types";
+import { Wrap } from "@/components/Wrap";
+import { handPhoto } from "@/lib/pending-photo";
+import { warmUpCutter } from "@/lib/sticker/cutter";
+import { warmUpVision } from "@/lib/vision/recognize";
 
 export default function SpotPage() {
   const { id: raw } = useParams<{ id: string }>();
@@ -33,6 +37,28 @@ export default function SpotPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
   useEffect(load, [load]);
+
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const libraryRef = useRef<HTMLInputElement>(null);
+  const onSiteNow = !!detail?.onSite;
+  const visitedNow = !!detail?.spot.visited;
+
+  // Being here counts as a visit; get the cutter ready before the shutter.
+  useEffect(() => {
+    if (!onSiteNow) return;
+    warmUpCutter();
+    warmUpVision();
+    if (visitedNow) return;
+    patchSpot(id, { visited: true });
+    void api.visit(id, currentLocation).catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once on arrival, not per GPS tick
+  }, [onSiteNow, visitedNow, id]);
+
+  function onPhoto(file: File | undefined) {
+    if (!file) return;
+    handPhoto(file);
+    router.push(`/visit/${encodeURIComponent(id)}?step=explore`);
+  }
 
 
   if (error) {
@@ -83,7 +109,7 @@ export default function SpotPage() {
       </header>
 
       <SketchCard tone="butter" pad="lg" seed={`copy-${id}`} className="mt-3 shrink-0">
-        <p className="font-hand text-[26px] leading-snug whitespace-pre-line">{spot.copy?.copy ?? "なんか気になる。"}</p>
+        <p className="font-hand text-[26px] leading-snug whitespace-pre-line"><Wrap>{spot.copy?.copy ?? "なんか気になる。"}</Wrap></p>
         {away !== null && !known && (
           <p className="mt-2 flex items-center gap-1.5 text-[15px] text-ink-soft">
             <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden style={{ transform: `rotate(${bearing}deg)` }}>
@@ -122,11 +148,21 @@ export default function SpotPage() {
         )}
       </section>
 
-      <div className="shrink-0 pt-3">
+      <div className="shrink-0 pt-2">
         {onSite ? (
-          <SketchButton size="lg" block onClick={() => router.push(`/visit/${encodeURIComponent(id)}?step=explore`)}>
-            ここで探す
-          </SketchButton>
+          <>
+            <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => onPhoto(e.target.files?.[0])} />
+            <input ref={libraryRef} type="file" accept="image/jpeg,image/png,image/webp,image/heic" className="sr-only" onChange={(e) => onPhoto(e.target.files?.[0])} />
+            <p className="mb-2 text-center text-[17px]">{others.length > 0 ? "あなたは、何を見つける？" : "気になったもの、ある？"}</p>
+            <SketchButton size="lg" block onClick={() => cameraRef.current?.click()}>
+              ここで撮る
+            </SketchButton>
+            <div className="mt-1 flex justify-center">
+              <SketchButton variant="plain" size="sm" onClick={() => libraryRef.current?.click()}>
+                アルバムから選ぶ
+              </SketchButton>
+            </div>
+          </>
         ) : (
           <SketchButton size="lg" block onClick={() => router.push(`/visit/${encodeURIComponent(id)}`)}>
             行ってみる

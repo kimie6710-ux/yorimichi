@@ -3,6 +3,7 @@
 import type { MichibiMood } from "@/lib/character";
 import { Michibi } from "./Michibi";
 import { SketchButton, SketchLinkButton } from "./sketch";
+import { Wrap } from "@/components/Wrap";
 
 export function MessageView({
   mood,
@@ -20,7 +21,7 @@ export function MessageView({
   return (
     <div className="paper flex h-full flex-col items-center justify-center px-6 text-center" role="status">
       <Michibi mood={mood} size={120} animate="none" />
-      <p className="mt-4 text-xl font-bold">{says}</p>
+      <p className="mt-4 text-xl font-bold"><Wrap>{says}</Wrap></p>
       {detail && <p className="mt-2 max-w-xs text-sm text-ink-soft">{detail}</p>}
       <div className="mt-6 flex flex-col items-center gap-3">
         {action &&

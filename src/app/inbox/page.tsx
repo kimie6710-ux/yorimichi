@@ -10,6 +10,7 @@ import { api, ApiClientError } from "@/lib/api-client";
 import { MICHIBI_LINES } from "@/lib/character";
 import { useSearch } from "@/lib/store/search-context";
 import type { InboxItem } from "@/lib/types";
+import { Wrap } from "@/components/Wrap";
 
 export default function InboxPage() {
   const { refreshUnread } = useSearch();
@@ -77,8 +78,8 @@ export default function InboxPage() {
             <div className="mt-5 w-[60%] animate-[stick_0.5s_cubic-bezier(0.2,0.9,0.3,1.2)_both]" style={{ ["--r" as string]: `${openItem.sticker.rotation}deg` }}>
               <StickerView src={openItem.sticker.imageUrl} alt={openItem.sticker.label} lift />
             </div>
-            <p className="mt-4 text-lg font-bold">{openItem.sticker.label}</p>
-            {openItem.sticker.memo && <p className="mt-1 font-hand text-base">「{openItem.sticker.memo}」</p>}
+            <p className="mt-4 text-lg font-bold"><Wrap>{openItem.sticker.label}</Wrap></p>
+            {openItem.sticker.memo && <p className="mt-1 font-hand text-base"><Wrap>{`「${openItem.sticker.memo}」`}</Wrap></p>}
             {openItem.sticker.spotCopy && <p className="mt-3 text-sm text-ink-soft">生まれた場所：{openItem.sticker.spotCopy}</p>}
             <div className="mt-6 flex w-full flex-col gap-3">
               <SketchLinkButton href={`/spot/${encodeURIComponent(openItem.sticker.spotId)}`} block>

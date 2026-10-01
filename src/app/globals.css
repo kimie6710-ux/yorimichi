@@ -108,6 +108,10 @@
     font-size: 16px;
     line-height: 1.7;
     font-feature-settings: "palt";
+    /* Japanese line breaking: no 、。 っ ー at a line start; break between phrases where supported. */
+    line-break: strict;
+    word-break: auto-phrase;
+    text-wrap: pretty;
   }
   button {
     cursor: pointer;
@@ -120,6 +124,12 @@
 }
 
 @layer components {
+  /* <Wrap>: break only at the <wbr> between phrases; a phrase wider than the box still breaks. */
+  .wrap-phrase {
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+
   /* Hand-drawn buttons (SketchButton): tilt a little on hover, sink on press. */
   .sketch-btn {
     transition: transform 0.15s ease;

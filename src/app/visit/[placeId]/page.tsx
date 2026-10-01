@@ -18,8 +18,10 @@ import { boxMask, findThings, MIDDLE_BOX, prepareCutter, warmUpCutter, within, t
 import { canvasToBlob, downscaleToJpeg, loadBitmap, plainFromMask, randomRotation, stickerFromMask, toCanvas } from "@/lib/sticker/render";
 import { useSearch } from "@/lib/store/search-context";
 import { recognize, remember, UNNAMED, warmUpVision, type Guess } from "@/lib/vision/recognize";
+import { takePhoto } from "@/lib/pending-photo";
 import { modelProgress, onModelProgress } from "@/lib/vision/runtime";
 import type { SpotDetail, Sticker } from "@/lib/types";
+import { Wrap } from "@/components/Wrap";
 
 type Step = "go" | "explore" | "looking" | "pick" | "making" | "make" | "share" | "done";
 type Outcome = "kept" | "placed" | "sent";
@@ -214,6 +216,16 @@ function Visit() {
       setStep("explore");
     }
   }
+
+  // A photo already taken on the spot page: go straight to cutting it.
+  const handed = useRef(false);
+  useEffect(() => {
+    if (handed.current) return;
+    handed.current = true;
+    const file = takePhoto();
+    if (file) void Promise.resolve().then(() => onPhoto(file));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on arrival
+  }, []);
 
   async function choose(picked: Cutout) {
     let c = cutouts.find((x) => x.id === picked.id) ?? picked;
@@ -467,7 +479,7 @@ function Visit() {
             )}
           </div>
           <div className="flex shrink-0 justify-center pt-1">
-            <SketchButton variant="plain" size="sm" onClick={() => setStep("explore")}>
+            <SketchButton variant="plain" size="sm" onClick={() => cameraRef.current?.click()}>
               撮り直す
             </SketchButton>
           </div>
@@ -543,7 +555,7 @@ function Visit() {
         <section className="animate-rise mt-3 flex min-h-0 flex-1 flex-col items-center text-center">
           <div className="flex min-h-0 w-full flex-1 flex-col items-center justify-center">
             <StickerView src={saved.imageUrl} alt={saved.label} rotation={saved.rotation} lift className="max-h-[80%] w-auto" />
-            <p className="mt-2 text-lg">{saved.label}</p>
+            <p className="mt-2 text-lg"><Wrap>{saved.label}</Wrap></p>
           </div>
           <div className="w-full shrink-0">
             <div className="mb-2 flex justify-center">
@@ -589,14 +601,14 @@ function Visit() {
             <SketchButton
               className="flex-1"
               onClick={() => {
-                setStep("explore");
                 setSaved(null);
                 setSticker(null);
                 setMemo("");
                 void load();
+                cameraRef.current?.click();
               }}
             >
-              もう少し探す
+              もう1枚撮る
             </SketchButton>
           </div>
         </section>

@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { StickerView } from "@/components/StickerView";
 import { SPOT_KIND_LABEL } from "@/lib/places/place-types";
 import type { SpotKind, Sticker } from "@/lib/types";
+import { Wrap } from "@/components/Wrap";
 
 type Filter = "all" | "new" | "received" | SpotKind;
 type View = "date" | "place";
@@ -112,7 +113,7 @@ export function StickerBox({ stickers, stuck, onPick }: { stickers: Sticker[]; s
                     <span className="flex h-24 w-full items-center justify-center">
                       <StickerView src={st.imageUrl} alt={st.label} rotation={st.rotation} className="max-h-24 w-auto" />
                     </span>
-                    <span className="mt-1 w-full text-[14px] leading-snug break-words">{st.label}</span>
+                    <span className="mt-1 w-full text-[14px] leading-snug"><Wrap>{st.label}</Wrap></span>
                   </button>
                 </li>
               ))}

@@ -9,6 +9,7 @@ import type { Sticker } from "@/lib/types";
 import { SketchButton, SketchLinkButton, SketchTextarea, Tape } from "./sketch";
 import { SendAnimation } from "./SendAnimation";
 import { StickerView } from "./StickerView";
+import { Wrap } from "@/components/Wrap";
 
 function date(iso: string) {
   const d = new Date(iso);
@@ -88,7 +89,7 @@ export function StickerDetail({
           className="mx-auto mt-4 block w-full bg-transparent text-center font-hand text-[24px] outline-none focus:underline focus:decoration-butter focus:decoration-4"
         />
       ) : (
-        <h2 className="mt-4 text-center font-hand text-[24px]">{sticker.label}</h2>
+        <h2 className="mt-4 text-center font-hand text-[24px]"><Wrap>{sticker.label}</Wrap></h2>
       )}
       <p className="mt-1 text-center text-sm text-ink-soft">
         {date(sticker.createdAt)}・{mine ? "自分で見つけた" : "知らない誰かから届いた"}
@@ -111,7 +112,7 @@ export function StickerDetail({
           sticker.memo && (
             <div>
               <dt className="font-bold">見つけた人のメモ</dt>
-              <dd className="mt-0.5 font-hand text-base">「{sticker.memo}」</dd>
+              <dd className="mt-0.5 font-hand text-base"><Wrap>{`「${sticker.memo}」`}</Wrap></dd>
             </div>
           )
         )}

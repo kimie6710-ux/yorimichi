@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 
 import { StickerView } from "./StickerView";
+import { Wrap } from "@/components/Wrap";
 
 /** Stickers loosely stuck on paper, each with its small caption. */
 export function StickerGrid({
@@ -23,7 +24,7 @@ export function StickerGrid({
           <button type="button" onClick={() => onPick?.(s.id)} disabled={!onPick} className="w-full transition-transform active:translate-y-0.5">
             <StickerView src={s.imageUrl} alt={s.label} rotation={s.rotation} className="mx-auto w-[88%]" />
           </button>
-          <span className="mt-1 line-clamp-1 text-sm font-bold">{s.label}</span>
+          <span className="mt-1 text-sm leading-snug font-bold"><Wrap>{s.label}</Wrap></span>
           {caption?.(s.id)}
         </li>
       ))}

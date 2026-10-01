@@ -8,10 +8,13 @@ import type { CutMask } from "./cutter";
 
 /** Longest side of the saved sticker PNG. */
 const STICKER_MAX = 520;
-/** White border thickness in the saved PNG (≈ 7–10px at typical display sizes). */
-const BORDER = 22;
+/** White border thickness in the saved PNG (≈ 10–13px at typical display sizes). */
+const BORDER = 30;
+/** How much the border's outline is rounded off (spikes and narrow gaps melt into soft curves). */
+const ROUND = 14;
 const INK = "#22201c";
-const PAD = BORDER + 8;
+const INK_EDGE = 2.6;
+const PAD = BORDER + ROUND;
 
 export async function loadBitmap(blob: Blob): Promise<ImageBitmap> {
   return createImageBitmap(blob, { imageOrientation: "from-image" });
@@ -78,29 +81,41 @@ export function dieCut(transparent: HTMLCanvasElement): HTMLCanvasElement | null
   out.height = h + PAD * 2;
   const ctx = out.getContext("2d")!;
 
-  // Silhouette of the object, used to grow the border.
+  // Silhouette of the object.
   const sil = document.createElement("canvas");
   sil.width = w;
   sil.height = h;
   const sctx = sil.getContext("2d")!;
   sctx.drawImage(trimmed, 0, 0, w, h);
   sctx.globalCompositeOperation = "source-in";
+  sctx.fillRect(0, 0, w, h);
 
-  // Radius wobbles a little around the outline so the edge looks drawn by hand.
-  const phase = Math.random() * Math.PI * 2;
-  const ring = (radius: number, color: string, wobble = 0) => {
-    sctx.fillStyle = color;
-    sctx.fillRect(0, 0, w, h);
-    for (let a = 0; a < 360; a += 6) {
+  // Grow it by the border width, then round it off like a die-cut sticker:
+  // blur and re-threshold, so corners become curves and thin gaps fill in.
+  const grown = blank(out.width, out.height);
+  const gctx = grown.getContext("2d")!;
+  for (let a = 0; a < 360; a += 5) {
+    const r = (a * Math.PI) / 180;
+    gctx.drawImage(sil, PAD + Math.cos(r) * BORDER, PAD + Math.sin(r) * BORDER);
+  }
+  for (let rr = BORDER * 0.5; rr > 0; rr -= BORDER * 0.5) {
+    for (let a = 0; a < 360; a += 15) {
       const r = (a * Math.PI) / 180;
-      const rr = radius + wobble * Math.sin(r * 3 + phase) + wobble * 0.5 * Math.sin(r * 7 + phase * 2);
-      ctx.drawImage(sil, PAD + Math.cos(r) * rr, PAD + Math.sin(r) * rr);
+      gctx.drawImage(sil, PAD + Math.cos(r) * rr, PAD + Math.sin(r) * rr);
     }
-    ctx.drawImage(sil, PAD, PAD);
-  };
+  }
+  gctx.drawImage(sil, PAD, PAD);
+  const shape = smoothShape(grown, ROUND);
 
-  ring(BORDER + 2.6, INK, 1.1); // hand-drawn ink edge
-  ring(BORDER, "#fffefb", 1.1); // white border (paper white)
+  // Thin hand-drawn ink line just outside the white, wobbling a little.
+  const phase = Math.random() * Math.PI * 2;
+  const inkShape = tint(shape, INK);
+  for (let a = 0; a < 360; a += 6) {
+    const r = (a * Math.PI) / 180;
+    const rr = INK_EDGE + 0.9 * Math.sin(r * 3 + phase) + 0.45 * Math.sin(r * 7 + phase * 2);
+    ctx.drawImage(inkShape, Math.cos(r) * rr, Math.sin(r) * rr);
+  }
+  ctx.drawImage(tint(shape, "#fffefb"), 0, 0); // white border (paper white)
 
   // The object, slightly calmed down (a touch less saturated, a touch warm).
   ctx.filter = "saturate(0.9) sepia(0.08) contrast(1.02)";
@@ -116,6 +131,44 @@ export function dieCut(transparent: HTMLCanvasElement): HTMLCanvasElement | null
   }
   ctx.globalCompositeOperation = "source-over";
   return out;
+}
+
+function blank(w: number, h: number): HTMLCanvasElement {
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = h;
+  return c;
+}
+
+/** Blur a silhouette and cut it again at the middle: a rounder, smoother outline with a soft anti-aliased edge. */
+function smoothShape(src: HTMLCanvasElement, radius: number): HTMLCanvasElement {
+  const c = blank(src.width, src.height);
+  const ctx = c.getContext("2d", { willReadFrequently: true })!;
+  ctx.filter = `blur(${radius * 0.6}px)`;
+  ctx.drawImage(src, 0, 0);
+  ctx.filter = "none";
+  const img = ctx.getImageData(0, 0, c.width, c.height);
+  const d = img.data;
+  // Cut a little below half, so concave dips fill in rather than eat into the border.
+  const lo = 96, hi = 132;
+  for (let i = 3; i < d.length; i += 4) {
+    const a = d[i];
+    d[i] = a <= lo ? 0 : a >= hi ? 255 : Math.round(((a - lo) / (hi - lo)) * 255);
+    d[i - 3] = d[i - 2] = d[i - 1] = 0;
+  }
+  ctx.putImageData(img, 0, 0);
+  return c;
+}
+
+/** The same shape, filled with one colour. */
+function tint(shape: HTMLCanvasElement, color: string): HTMLCanvasElement {
+  const c = blank(shape.width, shape.height);
+  const ctx = c.getContext("2d")!;
+  ctx.drawImage(shape, 0, 0);
+  ctx.globalCompositeOperation = "source-in";
+  ctx.fillStyle = color;
+  ctx.fillRect(0, 0, c.width, c.height);
+  return c;
 }
 
 /** The object alone (transparent around it), at the source's size. */
