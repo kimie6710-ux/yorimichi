@@ -274,7 +274,8 @@ export default function MapHome() {
               <Michibi mood="walk" size={44} animate="wander" says={MICHIBI_LINES.loading[1]} />
             </div>
           )}
-          <ul ref={rail} className="hide-scrollbar flex snap-x snap-mandatory gap-4 overflow-x-auto px-[9%] pt-4 pb-1" aria-label="近くのスポット">
+          {/* Cards differ in height (one- or two-line copies): line them up on the bottom, close to the tabs. */}
+          <ul ref={rail} className="hide-scrollbar flex snap-x snap-mandatory items-end gap-4 overflow-x-auto px-[9%] pt-4 pb-1" aria-label="近くのスポット">
             {spots.map((s) => (
               <li key={s.place.placeId} data-id={s.place.placeId} className="w-[84%] shrink-0 snap-center">
                 <SpotCard spot={s} active={selected?.place.placeId === s.place.placeId} onFocus={() => select(s.place.placeId, false)} onGo={() => {
