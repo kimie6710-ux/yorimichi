@@ -274,8 +274,8 @@ export default function MapHome() {
               <Michibi mood="walk" size={44} animate="wander" says={MICHIBI_LINES.loading[1]} />
             </div>
           )}
-          {/* Cards differ in height (one- or two-line copies): line them up on the bottom, close to the tabs. */}
-          <ul ref={rail} className="hide-scrollbar flex snap-x snap-mandatory items-end gap-4 overflow-x-auto px-[9%] pt-4 pb-1" aria-label="近くのスポット">
+          {/* Every card as tall as the tallest one (one- or two-line copies), buttons on one line. */}
+          <ul ref={rail} className="hide-scrollbar flex snap-x snap-mandatory items-stretch gap-4 overflow-x-auto px-[9%] pt-4 pb-1" aria-label="近くのスポット">
             {spots.map((s) => (
               <li key={s.place.placeId} data-id={s.place.placeId} className="w-[84%] shrink-0 snap-center">
                 <SpotCard spot={s} active={selected?.place.placeId === s.place.placeId} onFocus={() => select(s.place.placeId, false)} onGo={() => {
@@ -312,7 +312,7 @@ function SpotCard({
   onSave: () => void;
 }) {
   return (
-    <SketchCard tone={active ? "white" : "paper"} pad="md" seed={`card-${spot.place.placeId}`} onClick={onFocus}>
+    <SketchCard tone={active ? "white" : "paper"} pad="md" seed={`card-${spot.place.placeId}`} onClick={onFocus} className="flex h-full flex-col">
       <div className="flex items-start justify-between">
         <span className="text-[14px] text-ink-mute">{spot.visited ? "行った" : "まだ"}</span>
         <button
@@ -331,9 +331,13 @@ function SpotCard({
       <Link href={`/spot/${encodeURIComponent(spot.place.placeId)}`} className="mt-0.5 block text-[22px] leading-snug whitespace-pre-line">
         <Wrap>{spot.copy?.copy}</Wrap>
       </Link>
-      <div className="mt-2 flex items-center justify-between gap-2">
-        <p className="text-sm text-ink-mute">
-          徒歩{spot.place.walkMinutes}分{spot.placedCount > 0 ? "・誰かの発見" : ""}
+      <div className="mt-auto flex items-center justify-between gap-2 pt-2">
+        <p className="flex items-center gap-1.5 text-sm whitespace-nowrap text-ink-mute">
+          徒歩{spot.place.walkMinutes}分
+          {/* Same mark as on the map: someone left something here */}
+          {spot.placedCount > 0 && (
+            <span className="h-3 w-3 rotate-12 rounded-[3px] bg-sky-deep shadow-[0_0_0_1.5px_#fffefb,0_1px_2px_1px_rgb(34_32_28/0.35)]" role="img" aria-label="誰かの発見あり" />
+          )}
         </p>
         <SketchButton size="sm" onClick={onGo} className="shrink-0">
           行ってみる
