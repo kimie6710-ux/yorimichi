@@ -90,7 +90,8 @@ export default function GuidePage() {
       </header>
 
       <section
-        className="flex min-h-0 flex-1 flex-col items-center justify-center"
+        // Centred, but never pushed up over the title when the screen is short.
+        className="flex min-h-0 flex-1 flex-col items-center justify-center-safe pt-2"
         onPointerDown={(e) => (start.current = e.clientX)}
         onPointerUp={(e) => {
           if (start.current === null) return;
@@ -102,17 +103,17 @@ export default function GuidePage() {
       >
         <div key={i} className="animate-rise w-full max-w-[400px]">
           <PaperFrame kind={page.frame} tape={page.frame === "fold" || page.frame === "tape" ? `guide-${i}` : undefined} className="w-full">
-            <div className="flex flex-col items-center px-1 py-3 text-center">
+            <div className="flex flex-col items-center px-1 py-2 text-center">
               {page.icon === "michibi" ? (
-                <img src={michibiSrc(page.bird, "sm")} alt="みちび" className="bird-breathe h-24 w-24" draggable={false} />
+                <img src={michibiSrc(page.bird, "sm")} alt="みちび" className="bird-breathe h-20 w-20" draggable={false} />
               ) : (
                 <img src={page.icon} alt="" className="h-12 w-auto" draggable={false} />
               )}
-              <h2 className="relative isolate mt-3 px-1 text-[22px] leading-snug">
+              <h2 className="relative isolate mt-2 px-1 text-[22px] leading-snug">
                 <img src="/ui/marker-yellow.png" alt="" aria-hidden className="absolute inset-x-0 bottom-0.5 -z-10 h-3 w-full" />
                 {page.title}
               </h2>
-              <div className={`mt-3 flex flex-col text-[16px] leading-relaxed ${page.icon === "michibi" ? "gap-3" : "gap-1"}`}>
+              <div className={`mt-2 flex flex-col text-[16px] leading-normal ${page.icon === "michibi" ? "gap-2" : "gap-1"}`}>
                 {page.lines.map((l) => (
                   <p key={l} className="whitespace-pre-line">
                     {l}
