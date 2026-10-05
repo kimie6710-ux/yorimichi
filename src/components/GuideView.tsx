@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { michibiSrc } from "@/lib/character";
-import { ON_SITE_METERS } from "@/lib/config";
+import { mockLocation, ON_SITE_METERS } from "@/lib/config";
 import { bearingDegrees, distanceMeters, walkMinutes } from "@/lib/geo";
 import { useSearch } from "@/lib/store/search-context";
 import type { LatLng, MapSpot } from "@/lib/types";
@@ -250,8 +250,9 @@ export function GuideView({ spot, onArrive, onQuit, error = null }: { spot: MapS
           <SketchButton variant="plain" size="sm" onClick={onQuit} className="shrink-0">
             やめる
           </SketchButton>
-          {/* Only when you're really there (the server checks the same distance). */}
-          <SketchButton size="md" onClick={onArrive} disabled={!near} className="shrink-0">
+          {/* Only when you're really there (the server checks the same distance). With a fixed
+              position nobody can walk anywhere, so it's always open. */}
+          <SketchButton size="md" onClick={onArrive} disabled={!near && !mockLocation()} className="shrink-0">
             着いた
           </SketchButton>
         </div>

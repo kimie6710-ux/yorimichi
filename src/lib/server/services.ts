@@ -16,7 +16,7 @@ import type {
   Sticker,
 } from "@/lib/types";
 import { LABEL_MAX, ON_SITE_METERS } from "@/lib/config";
-import { demoNeighbours, isOwnerMode } from "./identity";
+import { demoNeighbours, isOwnerMode, ownerId } from "./identity";
 import { getStore, type SpotRow, type StickerRow, type TransferRow } from "./repo";
 
 // ─────────────────────────────────────────────
@@ -514,18 +514,25 @@ export async function placeSticker(userId: string, id: string, at: LatLng | null
 async function pickReceiver(sticker: StickerRow, senderId: string): Promise<string | null> {
   const store = getStore();
   const demo = isOwnerMode();
-  const [users, visits, recent, holders] = await Promise.all([
-    // On the owner's own server the only other people are demo neighbours: always reachable.
-    demo ? store.find("users", { in: { id: demoNeighbours() } }) : store.find("users", { gte: { last_active_at: ago(ACTIVE_WITHIN_MS) } }),
+  const neighbours = demo ? demoNeighbours() : [];
+  const [active, near, visits, recent, holders] = await Promise.all([
+    store.find("users", { gte: { last_active_at: ago(ACTIVE_WITHIN_MS) } }),
+    // On the owner's own server the neighbours are always reachable (also for visitors on a shared link).
+    neighbours.length ? store.find("users", { in: { id: neighbours } }) : Promise.resolve([]),
     store.find("visits", { where: { spot_id: sticker.spot_id } }),
     store.find("sticker_transfers", { gte: { delivered_at: ago(RECEIVE_GAP_MS) } }),
     store.find("stickers", { where: { source_sticker_id: sticker.id } }),
   ]);
+  const neighbourIds = new Set(neighbours);
+  // What the owner sends only ever goes to the neighbours, never to visitors on a shared link.
+  const fromOwner = demo && senderId === ownerId();
+  const users = fromOwner ? near : [...near, ...active.filter((u) => !neighbourIds.has(u.id))];
   const excluded = new Set<string>([
     senderId,
     sticker.creator_id,
     ...visits.map((v) => v.user_id),
-    ...(demo ? [] : recent.map((t) => t.receiver_id).filter((x): x is string => !!x)),
+    // Real people get a break between deliveries; the neighbours don't need one.
+    ...recent.map((t) => t.receiver_id).filter((x): x is string => !!x && !neighbourIds.has(x)),
     ...holders.map((h) => h.owner_id),
   ]);
   const candidates = users.filter((u) => !excluded.has(u.id));
@@ -571,7 +578,15 @@ async function pickReturnFor(userId: string): Promise<StickerRow | null> {
   ]);
   const have = new Set(mine.map((s) => s.source_sticker_id ?? s.id));
   // Only things people chose to share (left at a spot or sent off), never what they kept.
-  const options = pool.filter((s) => s.creator_id !== userId && !have.has(s.id) && (s.status === "placed" || s.status === "sent"));
+  const owner = ownerId();
+  const options = pool.filter(
+    (s) =>
+      s.creator_id !== userId &&
+      !have.has(s.id) &&
+      (s.status === "placed" || s.status === "sent") &&
+      // The owner's own finds (with personal notes) stay between the owner's devices.
+      (!owner || userId === owner || s.creator_id !== owner),
+  );
   return options.length ? options[Math.floor(Math.random() * options.length)] : null;
 }
 
@@ -630,6 +645,8 @@ async function deliverPendingNow(userId: string): Promise<void> {
   if (recent > 0) return;
   for (const t of pending) {
     if (t.sender_id === userId) continue;
+    // The owner's sends wait for a neighbour, not for a visitor.
+    if (t.sender_id === ownerId() && !demoNeighbours().includes(userId)) continue;
     // Re-read: another request may have just delivered it.
     if ((await store.get("sticker_transfers", t.id))?.status !== "pending") continue;
     const sticker = await store.get("stickers", t.sticker_id);

@@ -1,10 +1,17 @@
 import { z } from "zod";
 
+import { distanceMeters } from "@/lib/geo";
 import { latLngSchema } from "@/lib/schemas";
 import { isMockModeServer, serverEnv } from "@/lib/server/env";
 import { parseJsonBody } from "@/lib/server/http";
 
 const bodySchema = z.object({ origin: latLngSchema, destination: latLngSchema });
+
+// Each route costs money: the same walk (from about the same spot) is answered once for a while.
+const REMEMBER_MS = 10 * 60 * 1000;
+const remembered = new Map<string, { at: number; body: unknown }>();
+/** Longer than this isn't a よりみち walk: a straight line is enough (and free). */
+const MAX_ROUTED_METERS = 3000;
 
 /** Decode a Google encoded polyline into points. */
 function decodePolyline(encoded: string) {
@@ -38,6 +45,10 @@ export async function POST(req: Request) {
   const straight = { points: [origin, destination], source: "straight" as const };
 
   if (isMockModeServer() || !serverEnv.placesApiKey) return Response.json(straight);
+  if (distanceMeters(origin, destination) > MAX_ROUTED_METERS) return Response.json(straight);
+  const key = `${origin.latitude.toFixed(4)},${origin.longitude.toFixed(4)}>${destination.latitude.toFixed(5)},${destination.longitude.toFixed(5)}`;
+  const hit = remembered.get(key);
+  if (hit && Date.now() - hit.at < REMEMBER_MS) return Response.json(hit.body);
 
   try {
     const res = await fetch("https://routes.googleapis.com/directions/v2:computeRoutes", {
@@ -82,12 +93,15 @@ export async function POST(req: Request) {
         start: st.startLocation!.latLng!,
         end: st.endLocation!.latLng!,
       }));
-    return Response.json({
+    const body = {
       points: decodePolyline(r.polyline.encodedPolyline),
       distanceMeters: r.distanceMeters ?? null,
       steps,
       source: "google",
-    });
+    };
+    if (remembered.size > 300) remembered.clear();
+    remembered.set(key, { at: Date.now(), body });
+    return Response.json(body);
   } catch (err) {
     console.warn("[route]", err);
     return Response.json(straight);

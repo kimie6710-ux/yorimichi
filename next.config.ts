@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Nothing on screen that isn't the app itself.
+  devIndicators: false,
   // Let a phone on the same Wi-Fi open the dev server (npm run dev:phone).
   allowedDevOrigins: ["192.168.*.*", "10.*.*.*", "172.*.*.*", "*.local"],
   async headers() {

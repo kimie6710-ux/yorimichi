@@ -12,7 +12,9 @@ const MAX_ON_MAP = 12;
 /** Places people already made part of the map are shown a little further out. */
 const KNOWN_RADIUS_METERS = 1500;
 /** Places nobody "finds" something at: not offered as where a sticker was found. */
-const NOT_A_FIND = new Set(["atm", "bank", "parking", "police", "local_government_office", "post_office", "insurance_agency", "real_estate_agency", "doctor", "dentist", "hospital", "pharmacy"]);
+const NOT_A_FIND = new Set(["atm", "bank", "parking", "police", "local_government_office", "post_office", "insurance_agency", "real_estate_agency", "doctor", "dentist", "hospital", "pharmacy", "subpremise", "premise", "street_address", "route", "political", "administrative_area_level_1", "locality"]);
+/** A place with its own line is a nicer home for a sticker: worth this many extra meters. */
+const LINE_BONUS_METERS = 120;
 const SEED_BATCH = 8;
 
 /** Spread picks across categories, nearest first. */
@@ -68,7 +70,7 @@ export async function POST(req: Request) {
   // Names stay hidden until you've been there (shooting there counts).
   const around = [...all]
     .filter((s) => !s.place.types.some((t) => NOT_A_FIND.has(t)))
-    .sort((a, b) => a.place.distanceMeters - b.place.distanceMeters)
+    .sort((a, b) => a.place.distanceMeters - (a.copy ? LINE_BONUS_METERS : 0) - (b.place.distanceMeters - (b.copy ? LINE_BONUS_METERS : 0)))
     .slice(0, 6)
     .map((s) => ({
       placeId: s.place.placeId,

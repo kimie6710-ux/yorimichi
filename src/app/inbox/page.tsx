@@ -76,15 +76,15 @@ export default function InboxPage() {
 
       <SketchModal open={!!openItem} onClose={() => setOpenItem(null)} label="届いたシール">
         {openItem && (
-          <div className="flex flex-col items-center text-center">
+          <div className="flex flex-col items-center pb-4 text-center">
             <p className="text-base font-bold">知らない誰かから、小さな発見が届いたよ。</p>
-            <div className="mt-5 w-[60%] animate-[stick_0.5s_cubic-bezier(0.2,0.9,0.3,1.2)_both]" style={{ ["--r" as string]: `${openItem.sticker.rotation}deg` }}>
+            <div className="mt-3 w-[44%] animate-[stick_0.5s_cubic-bezier(0.2,0.9,0.3,1.2)_both]" style={{ ["--r" as string]: `${openItem.sticker.rotation}deg` }}>
               <StickerView src={openItem.sticker.imageUrl} alt={openItem.sticker.label} lift />
             </div>
-            <p className="mt-4 text-lg font-bold"><Wrap>{openItem.sticker.label}</Wrap></p>
+            <p className="mt-3 text-lg font-bold"><Wrap>{openItem.sticker.label}</Wrap></p>
             {openItem.sticker.memo && <p className="mt-1 font-hand text-base"><Wrap>{`「${openItem.sticker.memo}」`}</Wrap></p>}
             {openItem.sticker.spotCopy && <p className="mt-3 text-sm text-ink-soft">生まれた場所：<Wrap>{openItem.sticker.spotCopy.replace(/\n/g, "")}</Wrap></p>}
-            <div className="mt-6 flex w-full flex-col gap-3">
+            <div className="mt-4 flex w-full flex-col gap-2">
               <SketchLinkButton href={`/spot/${encodeURIComponent(openItem.sticker.spotId)}`} block>
                 このシールが生まれた場所を見る
               </SketchLinkButton>

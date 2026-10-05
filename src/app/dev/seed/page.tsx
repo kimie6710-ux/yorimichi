@@ -56,7 +56,7 @@ export default function SeedPage() {
         const photo = await downscaleToJpeg(bmp);
         const rotation = Math.round(((Math.random() * 7 + 2) * (Math.random() < 0.5 ? -1 : 1)) * 10) / 10;
         const form = new FormData();
-        form.append("meta", JSON.stringify({ spotId: it.spotId, memo: it.memo, items: [{ label: it.label, rotation }] }));
+        form.append("meta", JSON.stringify({ spotId: it.spotId, memo: it.memo, at: { latitude: it.lat, longitude: it.lng }, items: [{ label: it.label, rotation }] }));
         form.append("photo", photo, "photo.jpg");
         form.append("sticker_0", png, "sticker_0.png");
         const headers = { "x-yorumichi-device": owner };

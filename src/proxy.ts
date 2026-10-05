@@ -23,9 +23,19 @@ const LOCKED_PAGE = `<!doctype html><html lang="ja"><meta charset="utf-8"><meta 
 <button style="font-size:16px;padding:12px;border-radius:12px;border:0;background:#ffd95c">入る</button>
 </form></body></html>`;
 
+/** This machine or the home network: no passphrase needed. */
+function isHome(request: NextRequest): boolean {
+  const host = (request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? "").split(":")[0].toLowerCase();
+  return host === "localhost" || host === "127.0.0.1" || host.endsWith(".local") || /^(192\.168|10)\./.test(host) || /^172\.(1[6-9]|2\d|3[01])\./.test(host);
+}
+
 export function proxy(request: NextRequest) {
+  const home = isHome(request);
+  // The purchased font is for this machine only (its license forbids putting the file on the web):
+  // anyone outside gets the fallback font.
+  if (!home && request.nextUrl.pathname.startsWith("/fonts/local/")) return new NextResponse(null, { status: 404 });
   const key = process.env.YORIMICHI_ACCESS_KEY ?? "";
-  if (!key) return NextResponse.next();
+  if (!key || home) return NextResponse.next();
 
   const given = request.nextUrl.searchParams.get("key");
   if (given !== null) {

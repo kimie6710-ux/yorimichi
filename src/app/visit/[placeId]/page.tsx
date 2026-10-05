@@ -19,7 +19,7 @@ import { useSearch } from "@/lib/store/search-context";
 import { recognize, remember, UNNAMED, warmUpVision, type Guess } from "@/lib/vision/recognize";
 import { takePhoto } from "@/lib/pending-photo";
 import { modelProgress, onModelProgress } from "@/lib/vision/runtime";
-import { LABEL_MAX, ON_SITE_METERS } from "@/lib/config";
+import { LABEL_MAX, mockLocation, ON_SITE_METERS } from "@/lib/config";
 import { distanceMeters } from "@/lib/geo";
 import type { SpotDetail, Sticker } from "@/lib/types";
 import { Wrap } from "@/components/Wrap";
@@ -140,7 +140,8 @@ function Visit() {
   async function arrive() {
     setError(null);
     try {
-      await api.visit(spotId, currentLocation);
+      // Fixed position: "walking there" is pretended, so the place itself is where you are.
+      await api.visit(spotId, mockLocation() && detail ? detail.spot.place.location : currentLocation);
       patchSpot(spotId, { visited: true });
       router.replace(`/spot/${encodeURIComponent(spotId)}`);
     } catch (e) {
@@ -236,12 +237,24 @@ function Visit() {
 
   // Half-made sticker: the phone's back gesture asks before throwing it away.
   const working = step === "looking" || step === "pick" || step === "making" || step === "make";
+  const guarded = useRef(false); // our extra history entry is there
+  const leaving = useRef(false); // the page is going away (not just the step changing)
+  useEffect(() => {
+    leaving.current = false;
+    return () => {
+      leaving.current = true;
+    };
+  }, []);
   useEffect(() => {
     if (!working) return;
-    // Same router state, one more history entry to catch "back" with.
-    window.history.pushState(window.history.state, "");
+    // Same router state, one more history entry to catch "back" with (once, even if effects run twice).
+    if (!guarded.current) {
+      window.history.pushState(window.history.state, "");
+      guarded.current = true;
+    }
     const onPop = () => {
       if (window.confirm("作りかけのシールは消えるよ。やめる？")) {
+        guarded.current = false;
         run.current++;
         if (free) setStep("explore");
         else router.replace(`/spot/${encodeURIComponent(spotId)}`);
@@ -250,7 +263,14 @@ function Visit() {
       }
     };
     window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
+    return () => {
+      window.removeEventListener("popstate", onPop);
+      // Done making it: take the extra entry back out, so the next "back" works at once.
+      if (guarded.current && !leaving.current) {
+        guarded.current = false;
+        window.history.back();
+      }
+    };
   }, [working, free, router, spotId]);
 
   async function choose(picked: Cutout) {
@@ -338,7 +358,10 @@ function Visit() {
     setBusy(true);
     setError(null);
     try {
-      if (kind === "placed") await api.place(saved.id, currentLocation);
+      if (kind === "placed") {
+        await api.place(saved.id, currentLocation);
+        void load(); // so the per-place limit is right for the next one
+      }
       if (kind === "sent") setDelivered((await api.send(saved.id)).delivered);
       setOutcome(kind);
       setStep("done");
@@ -499,12 +522,13 @@ function Visit() {
       {step === "make" && sticker && (
         <section className="animate-rise mt-3 flex min-h-0 flex-1 flex-col">
           <div className="sticker-sheet relative flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-[22px_18px_24px_16px]">
-            <div className="h-[74%] animate-[stick_0.45s_cubic-bezier(0.2,0.9,0.3,1.2)_both]" style={{ ["--r" as string]: `${sticker.rotation}deg` }}>
+            <div className="h-[82%] animate-[stick_0.45s_cubic-bezier(0.2,0.9,0.3,1.2)_both]" style={{ ["--r" as string]: `${sticker.rotation}deg` }}>
               <StickerView src={sticker.url} alt="できたシール" lift className="h-full w-auto" />
             </div>
-            <div className="absolute bottom-2 left-2">
-              <Michibi mood="happy" size={44} says={MICHIBI_LINES.made} animate="none" />
-            </div>
+          </div>
+          {/* Under the sticker, never on it */}
+          <div className="mt-2 shrink-0">
+            <Michibi mood="happy" size={44} says={MICHIBI_LINES.made} animate="none" />
           </div>
           <div className="shrink-0 pt-3">
             <SketchInput

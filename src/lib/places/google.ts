@@ -5,6 +5,29 @@ import { serverEnv } from "@/lib/server/env";
 import type { LatLng, Place, PlacePhoto, PlaceReview } from "@/lib/types";
 import { EXTENDED_TOWN_TYPES, FOOD_TYPES, SPOT_TYPES, TOWN_TYPES, labelForType } from "./place-types";
 
+// ── Short memory of answers (every call costs money) ──────────────
+// Many people opening the map at the same spot within minutes ask the same
+// question: answer it once. In-process only, a few minutes.
+const REMEMBER_MS = 10 * 60 * 1000;
+const memory = new Map<string, { at: number; value: Promise<unknown> }>();
+function remembered<T>(key: string, make: () => Promise<T>): Promise<T> {
+  const hit = memory.get(key);
+  if (hit && Date.now() - hit.at < REMEMBER_MS) return hit.value as Promise<T>;
+  const value = make();
+  memory.set(key, { at: Date.now(), value });
+  value.catch(() => memory.delete(key)); // failures aren't kept
+  if (memory.size > 500) for (const [k, v] of memory) if (Date.now() - v.at >= REMEMBER_MS) memory.delete(k);
+  return value;
+}
+
+/** Distances measured from where this person is (the remembered answer may be from a few meters away). */
+function from(origin: LatLng, places: Place[]): Place[] {
+  return places.map((p) => {
+    const d = distanceMeters(origin, p.location);
+    return { ...p, distanceMeters: Math.round(d), walkMinutes: walkMinutes(d) };
+  });
+}
+
 const PLACES_BASE = "https://places.googleapis.com/v1";
 const LANGUAGE = "ja";
 const REGION = "JP";
@@ -266,11 +289,14 @@ async function searchSpotTypes(origin: LatLng, radius: number): Promise<GPlace[]
  * Four parallel calls (spots / food / town / anything-closest) are merged round-robin
  * so no single category dominates the candidate list.
  */
-export async function searchNearbyPlaces(
-  origin: LatLng,
-  radius: number,
-  limit = 40,
-): Promise<Place[]> {
+export async function searchNearbyPlaces(origin: LatLng, radius: number, limit = 40): Promise<Place[]> {
+  // ~100m cells: people standing together share one search.
+  const key = `nearby:${origin.latitude.toFixed(3)},${origin.longitude.toFixed(3)}:${radius}:${limit}`;
+  const places = await remembered(key, () => searchNearbyFresh(origin, radius, limit));
+  return from(origin, places).sort((a, b) => a.distanceMeters - b.distanceMeters);
+}
+
+async function searchNearbyFresh(origin: LatLng, radius: number, limit: number): Promise<Place[]> {
   const settled = await Promise.allSettled([
     searchSpotTypes(origin, radius),
     searchNearbyOnce(origin, radius, { includedTypes: FOOD_TYPES, rankPreference: "POPULARITY" }),
@@ -308,6 +334,11 @@ export async function searchNearbyPlaces(
 
 /** Full details (basic + reviews/atmosphere) for a few place ids. */
 export async function getPlaceDetails(placeIds: string[], origin: LatLng): Promise<Place[]> {
+  const lists = await Promise.all(placeIds.map((id) => remembered(`details:${id}`, () => getPlaceDetailsFresh([id], origin))));
+  return from(origin, lists.flat());
+}
+
+async function getPlaceDetailsFresh(placeIds: string[], origin: LatLng): Promise<Place[]> {
   const basic = NEARBY_FIELD_MASK.split(",").map((f) => f.replace(/^places\./, ""));
   const mask = [...new Set([...basic, ...DETAILS_FIELD_MASK.split(",")])].join(",");
   const results = await Promise.allSettled(
@@ -326,6 +357,10 @@ export async function getPlaceDetails(placeIds: string[], origin: LatLng): Promi
 
 /** Resolve a Places photo resource name to a short-lived googleusercontent URL. */
 export async function resolvePhotoUri(photoName: string, maxWidthPx: number): Promise<string> {
+  return remembered(`photo:${photoName}:${maxWidthPx}`, () => resolvePhotoUriFresh(photoName, maxWidthPx));
+}
+
+async function resolvePhotoUriFresh(photoName: string, maxWidthPx: number): Promise<string> {
   const key = requireKey();
   const url = `${PLACES_BASE}/${photoName}/media?maxWidthPx=${maxWidthPx}&skipHttpRedirect=true&key=${encodeURIComponent(key)}`;
   const res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS) });

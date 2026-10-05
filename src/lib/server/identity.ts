@@ -10,6 +10,11 @@ export function isOwnerMode(): boolean {
   return DEVICE_RE.test(process.env.YORUMICHI_OWNER_ID ?? "");
 }
 
+/** The owner's id on a personal server (null otherwise). */
+export function ownerId(): string | null {
+  return isOwnerMode() ? (process.env.YORUMICHI_OWNER_ID ?? "").toLowerCase() : null;
+}
+
 /** Demo neighbours who can receive what the owner sends (YORUMICHI_DEMO_NEIGHBOURS, comma-separated). */
 export function demoNeighbours(): string[] {
   return (process.env.YORUMICHI_DEMO_NEIGHBOURS ?? "")
@@ -27,10 +32,25 @@ export async function identify(req: Request): Promise<string | null> {
     const sb = await supabaseForRequest(req);
     return sb?.userId ?? null;
   }
-  // Personal server: every device (PC, phone) is the same person, so the
-  // notebook and inbox stay in sync. Set YORUMICHI_OWNER_ID in .env.local.
+  // Personal server: at home (this machine, the home Wi-Fi) every device is the
+  // owner, so the notebook and inbox stay in sync. Set YORUMICHI_OWNER_ID in .env.local.
+  // Opened from outside (a shared link): each phone is its own person.
   const owner = process.env.YORUMICHI_OWNER_ID ?? "";
-  if (DEVICE_RE.test(owner)) return owner.toLowerCase();
+  if (DEVICE_RE.test(owner) && isHomeRequest(req)) return owner.toLowerCase();
   const id = req.headers.get("x-yorumichi-device") ?? "";
   return DEVICE_RE.test(id) ? id.toLowerCase() : null;
+}
+
+/** Reached on this machine or the home network (not through a public link). */
+function isHomeRequest(req: Request): boolean {
+  const host = (req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? "").split(":")[0].toLowerCase();
+  return (
+    host === "localhost" ||
+    host === "127.0.0.1" ||
+    host === "[::1]" ||
+    host.endsWith(".local") ||
+    /^192\.168\./.test(host) ||
+    /^10\./.test(host) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(host)
+  );
 }

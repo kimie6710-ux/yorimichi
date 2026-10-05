@@ -18,6 +18,8 @@ import { distanceMeters } from "@/lib/geo";
 import { ON_SITE_METERS, SEARCH_RADIUS_METERS } from "@/lib/config";
 import type { LatLng, MapSpot } from "@/lib/types";
 import { Wrap } from "@/components/Wrap";
+import { warmUpCutter } from "@/lib/sticker/cutter";
+import { warmUpVision } from "@/lib/vision/recognize";
 
 /** Shown once each time the app is opened (per browser session). */
 const STARTED_KEY = "yorumichi:started";
@@ -65,7 +67,8 @@ export default function MapHome() {
     [town.spots, town.spotsOrigin, browsing],
   );
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [onboarded, setOnboarded] = useState(true);
+  // Unknown until browser storage is read: draw nothing yet (no flash of the map before the cover).
+  const [onboarded, setOnboarded] = useState<boolean | null>(null);
   const rail = useRef<HTMLUListElement>(null);
   // Looking around another part of the map (you stay where you are).
   const [moved, setMoved] = useState<LatLng | null>(null);
@@ -83,7 +86,7 @@ export default function MapHome() {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- read once from browser storage
       setOnboarded(sessionStorage.getItem(STARTED_KEY) === "1");
     } catch {
-      /* storage blocked: skip onboarding */
+      setOnboarded(true); // storage blocked: skip the cover
     }
   }, []);
 
@@ -127,10 +130,14 @@ export default function MapHome() {
     return () => io.disconnect();
   }, [spots]);
 
+  if (onboarded === null) return <main className="h-[calc(100dvh-76px)] bg-paper" />;
   if (!onboarded) {
     return (
       <StartScreen
         onStart={() => {
+          // Start fetching the on-device models now, so the first sticker is cut properly.
+          warmUpCutter();
+          warmUpVision();
           try {
             sessionStorage.setItem(STARTED_KEY, "1");
           } catch {
