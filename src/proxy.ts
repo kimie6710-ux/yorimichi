@@ -25,7 +25,7 @@ const LOCKED_PAGE = `<!doctype html><html lang="ja"><meta charset="utf-8"><meta 
 
 /** This machine or the home network: no passphrase needed. */
 function isHome(request: NextRequest): boolean {
-  const host = (request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? "").split(":")[0].toLowerCase();
+  const host = (request.headers.get("host") ?? "").split(":")[0].toLowerCase();
   return host === "localhost" || host === "127.0.0.1" || host.endsWith(".local") || /^(192\.168|10)\./.test(host) || /^172\.(1[6-9]|2\d|3[01])\./.test(host);
 }
 

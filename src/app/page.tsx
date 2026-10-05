@@ -105,9 +105,12 @@ export default function MapHome() {
     [spots],
   );
 
+  /** While the cards glide to a tapped marker, the ones passing by don't count as picked. */
+  const gliding = useRef(0);
   function select(id: string, scroll = true) {
     setSelectedId(id);
     if (!scroll) return;
+    gliding.current = Date.now() + 900;
     const el = rail.current?.querySelector<HTMLElement>(`[data-id="${CSS.escape(id)}"]`);
     el?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
   }
@@ -120,7 +123,7 @@ export default function MapHome() {
       (entries) => {
         const hit = entries.filter((e) => e.isIntersecting && e.intersectionRatio > 0.7)[0];
         const id = (hit?.target as HTMLElement | undefined)?.dataset.id;
-        if (id) setSelectedId(id);
+        if (id && Date.now() > gliding.current) setSelectedId(id);
       },
       { root: el, threshold: [0.7] },
     );

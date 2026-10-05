@@ -12,11 +12,18 @@ import https from "node:https";
 const LISTEN = Number(process.env.PORT ?? 5460);
 const TARGET = Number(process.env.TARGET ?? 5461);
 
+function strip(headers) {
+  const out = { ...headers };
+  for (const k of Object.keys(out)) if (k.startsWith("x-forwarded-")) delete out[k];
+  return out;
+}
+
 const server = https.createServer(
   { key: readFileSync("certificates/localhost-key.pem"), cert: readFileSync("certificates/localhost.pem") },
   (req, res) => {
     const up = http.request(
-      { host: "127.0.0.1", port: TARGET, method: req.method, path: req.url, headers: { ...req.headers, "x-forwarded-proto": "https" } },
+      // Headers a client could make up to look like "home" are dropped.
+      { host: "127.0.0.1", port: TARGET, method: req.method, path: req.url, headers: { ...strip(req.headers), "x-forwarded-proto": "https" } },
       (r) => {
         res.writeHead(r.statusCode ?? 502, r.headers);
         r.pipe(res);

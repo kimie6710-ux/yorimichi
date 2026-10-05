@@ -193,11 +193,14 @@ function Visit() {
     warmUpVision();
     try {
       await nextPaint();
+      // Last photo's pictures aren't needed any more (phones run out of memory quickly).
+      urls.current.splice(0).forEach((u) => URL.revokeObjectURL(u));
       const bitmap = await loadBitmap(file);
       const photo = await downscaleToJpeg(bitmap);
       setPhotoBlob(photo);
       setPhotoUrl(track(photo));
       const canvas = toCanvas(bitmap, 1024);
+      bitmap.close();
       work.current = canvas;
       cutter.current = prepareCutter(canvas);
       cutter.current.catch(() => undefined);
@@ -343,7 +346,8 @@ function Visit() {
       const { items } = await api.createStickers({
         spotId: linkId,
         memo: memo.trim(),
-        at: currentLocation,
+        // Fixed position: you "walked" to the place, so that's where it was found.
+        at: mockLocation() ? (linkedAt ?? currentLocation) : currentLocation,
         photo: photoBlob,
         items: [{ blob: sticker.blob, label: label.trim() || UNNAMED, rotation: sticker.rotation }],
       });

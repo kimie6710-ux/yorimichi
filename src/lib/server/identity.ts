@@ -41,9 +41,9 @@ export async function identify(req: Request): Promise<string | null> {
   return DEVICE_RE.test(id) ? id.toLowerCase() : null;
 }
 
-/** Reached on this machine or the home network (not through a public link). */
+/** Reached on this machine or the home network (not through a public link). Only the Host header counts: forwarded-host headers can be made up by anyone. */
 function isHomeRequest(req: Request): boolean {
-  const host = (req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? "").split(":")[0].toLowerCase();
+  const host = (req.headers.get("host") ?? "").split(":")[0].toLowerCase();
   return (
     host === "localhost" ||
     host === "127.0.0.1" ||

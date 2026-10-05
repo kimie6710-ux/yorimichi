@@ -403,7 +403,10 @@ export async function createStickers(input: {
   const spot = await store.get("spots", input.spotId);
   if (!spot) throw new RuleError("見つからなかった。", 404);
   const away = input.at ? distanceMeters(input.at, { latitude: spot.lat, longitude: spot.lng }) : Infinity;
-  if (away > CAPTURE_NEAR_METERS) throw new RuleError("その場所は、ちょっと遠すぎる。", 403);
+  if (!input.at) {
+    // Position not known yet: fine if you were just there.
+    if (!(await isOnSite(input.userId, spot, null))) throw new RuleError("いまの場所がわからなかった。もう一回どうぞ。", 403);
+  } else if (away > CAPTURE_NEAR_METERS) throw new RuleError("その場所は、ちょっと遠すぎる。", 403);
   const today = await store.count("stickers", { where: { creator_id: input.userId }, gte: { created_at: ago(24 * 60 * 60 * 1000) } });
   if (today + input.items.length > MAX_STICKERS_PER_DAY) throw new RuleError(`シールにできるのは1日${MAX_STICKERS_PER_DAY}枚まで。`, 429);
   const obsId = uuid();
@@ -640,7 +643,11 @@ function deliverPendingTo(userId: string): Promise<void> {
 /** Hand pending stickers (nobody was eligible when sent) to this user if they fit. */
 async function deliverPendingNow(userId: string): Promise<void> {
   const store = getStore();
-  const pending = await store.find("sticker_transfers", { where: { status: "pending", kind: "send" }, order: { key: "created_at", asc: true }, limit: 20 });
+  // Oldest first; the owner's sends (only for the neighbours) don't take up the window.
+  const owner = ownerId();
+  const pending = (await store.find("sticker_transfers", { where: { status: "pending", kind: "send" }, order: { key: "created_at", asc: true }, limit: 200 }))
+    .filter((t) => !owner || t.sender_id !== owner || demoNeighbours().includes(userId))
+    .slice(0, 20);
   const recent = await store.count("sticker_transfers", { where: { receiver_id: userId }, gte: { delivered_at: ago(RECEIVE_GAP_MS) } });
   if (recent > 0) return;
   for (const t of pending) {

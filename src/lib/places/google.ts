@@ -10,12 +10,14 @@ import { EXTENDED_TOWN_TYPES, FOOD_TYPES, SPOT_TYPES, TOWN_TYPES, labelForType }
 // question: answer it once. In-process only, a few minutes.
 const REMEMBER_MS = 10 * 60 * 1000;
 const memory = new Map<string, { at: number; value: Promise<unknown> }>();
-function remembered<T>(key: string, make: () => Promise<T>): Promise<T> {
+function remembered<T>(key: string, make: () => Promise<T>, keep: (v: T) => boolean = () => true): Promise<T> {
   const hit = memory.get(key);
   if (hit && Date.now() - hit.at < REMEMBER_MS) return hit.value as Promise<T>;
   const value = make();
   memory.set(key, { at: Date.now(), value });
-  value.catch(() => memory.delete(key)); // failures aren't kept
+  // Failures and empty answers aren't kept (only this entry, not a newer one under the same key).
+  const forget = () => memory.get(key)?.value === value && memory.delete(key);
+  value.then((v) => !keep(v) && forget(), forget);
   if (memory.size > 500) for (const [k, v] of memory) if (Date.now() - v.at >= REMEMBER_MS) memory.delete(k);
   return value;
 }
@@ -292,7 +294,7 @@ async function searchSpotTypes(origin: LatLng, radius: number): Promise<GPlace[]
 export async function searchNearbyPlaces(origin: LatLng, radius: number, limit = 40): Promise<Place[]> {
   // ~100m cells: people standing together share one search.
   const key = `nearby:${origin.latitude.toFixed(3)},${origin.longitude.toFixed(3)}:${radius}:${limit}`;
-  const places = await remembered(key, () => searchNearbyFresh(origin, radius, limit));
+  const places = await remembered(key, () => searchNearbyFresh(origin, radius, limit), (list) => list.length > 0);
   return from(origin, places).sort((a, b) => a.distanceMeters - b.distanceMeters);
 }
 
@@ -334,7 +336,7 @@ async function searchNearbyFresh(origin: LatLng, radius: number, limit: number):
 
 /** Full details (basic + reviews/atmosphere) for a few place ids. */
 export async function getPlaceDetails(placeIds: string[], origin: LatLng): Promise<Place[]> {
-  const lists = await Promise.all(placeIds.map((id) => remembered(`details:${id}`, () => getPlaceDetailsFresh([id], origin))));
+  const lists = await Promise.all(placeIds.map((id) => remembered(`details:${id}`, () => getPlaceDetailsFresh([id], origin), (list) => list.length > 0)));
   return from(origin, lists.flat());
 }
 
