@@ -63,8 +63,8 @@ export function StartScreen({ onStart }: { onStart: () => void }) {
       <div className="relative h-[120px]">
         <div className="absolute bottom-2" style={{ left: `${x}%` }}>
           {says && (
-            // Anchored at the bird's centre line: the tail's tip points right at it.
-            <div className="absolute bottom-[calc(100%-6px)] left-1/2 flex w-0">
+            // The tail's tip points at the bird's head (it faces right: a little right of centre).
+            <div className="absolute bottom-[calc(100%-6px)] left-[calc(50%+16px)] flex w-0">
               <SketchBubble key={says} side="left" tipAtStart className="animate-peek shrink-0 max-w-[170px]">
                 {says}
               </SketchBubble>

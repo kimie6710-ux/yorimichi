@@ -173,34 +173,6 @@ export default function MapHome() {
         <div className="paper-grid h-full w-full" />
       )}
 
-      {/* What the colours mean */}
-      {markers.length > 0 && (
-        <div className="pointer-events-none absolute bottom-[184px] left-3 flex items-center gap-2.5 rounded-full bg-card/90 px-3 py-1 text-[14px] text-ink-soft shadow-[0_2px_6px_-3px_rgb(60_50_30/0.4)]">
-          {/* Same shapes as on the map, all the same size */}
-          <span className="flex items-center gap-1">
-            <span className="relative flex h-5 w-5 items-center justify-center" aria-hidden>
-              <img src="/ui/badge-yellow.png" alt="" className="absolute inset-0 h-full w-full" />
-              <span className="relative font-hand text-[14px] leading-none font-bold">?</span>
-            </span>
-            まだ
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="relative flex h-5 w-5 items-center justify-center" aria-hidden>
-              <img src="/ui/badge-blue.png" alt="" className="absolute inset-0 h-full w-full" />
-              <svg className="relative h-2.5 w-2.5" viewBox="0 0 24 24" fill="none">
-                <path d="M5 12.5l4.2 4.3L19 7" stroke="var(--color-ink)" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </span>
-            行った
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="flex h-5 w-5 items-center justify-center" aria-hidden>
-              <span className="h-3 w-3 rotate-12 rounded-[3px] bg-sky-deep shadow-[0_0_0_1.5px_#fffefb,0_1px_2px_1px_rgb(34_32_28/0.35)]" />
-            </span>
-            誰かの発見
-          </span>
-        </div>
-      )}
 
       <div className="pointer-events-none absolute inset-x-0 top-0 p-3 pt-[max(12px,env(safe-area-inset-top))]">
         <div className="flex items-start justify-between gap-2">
@@ -271,6 +243,32 @@ export default function MapHome() {
       {/* Copies on the map, as paper cards */}
       {spots.length > 0 && (
         <div className="absolute inset-x-0 bottom-0 pb-3">
+          {/* What the colours mean: right on top of the cards, however tall they get */}
+          <div className="pointer-events-none ml-3 inline-flex items-center gap-2.5 rounded-full bg-card/90 px-3 py-1 text-[14px] text-ink-soft shadow-[0_2px_6px_-3px_rgb(60_50_30/0.4)]">
+            {/* Same shapes as on the map, all the same size */}
+            <span className="flex items-center gap-1">
+              <span className="relative flex h-5 w-5 items-center justify-center" aria-hidden>
+                <img src="/ui/badge-yellow.png" alt="" className="absolute inset-0 h-full w-full" />
+                <span className="relative font-hand text-[14px] leading-none font-bold">?</span>
+              </span>
+              まだ
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="relative flex h-5 w-5 items-center justify-center" aria-hidden>
+                <img src="/ui/badge-blue.png" alt="" className="absolute inset-0 h-full w-full" />
+                <svg className="relative h-2.5 w-2.5" viewBox="0 0 24 24" fill="none">
+                  <path d="M5 12.5l4.2 4.3L19 7" stroke="var(--color-ink)" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </span>
+              行った
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="flex h-5 w-5 items-center justify-center" aria-hidden>
+                <span className="h-3 w-3 rotate-12 rounded-[3px] bg-sky-deep shadow-[0_0_0_1.5px_#fffefb,0_1px_2px_1px_rgb(34_32_28/0.35)]" />
+              </span>
+              誰かの発見
+            </span>
+          </div>
           {spotsStatus === "seeding" && (
             <div className="mb-1 px-4">
               <Michibi mood="walk" size={44} animate="wander" says={MICHIBI_LINES.loading[1]} />
