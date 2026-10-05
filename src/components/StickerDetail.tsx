@@ -6,7 +6,7 @@ import { useState } from "react";
 import { api, ApiClientError } from "@/lib/api-client";
 import { useSearch } from "@/lib/store/search-context";
 import type { Sticker } from "@/lib/types";
-import { SketchButton, SketchLinkButton, SketchTextarea, Tape } from "./sketch";
+import { SketchButton, SketchLinkButton, SketchTextarea } from "./sketch";
 import { SendAnimation } from "./SendAnimation";
 import { StickerView } from "./StickerView";
 import { Wrap } from "@/components/Wrap";
@@ -72,8 +72,6 @@ export function StickerDetail({
   return (
     <div className="px-5 pb-4">
       <div className="relative mx-auto w-[58%] pt-2">
-        <Tape seed={sticker.id} corner="left" />
-        <Tape seed={`${sticker.id}-r`} corner="right" />
         <StickerView src={sticker.imageUrl} alt={sticker.label} rotation={sticker.rotation} lift />
       </div>
       {mine ? (
