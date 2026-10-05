@@ -19,7 +19,7 @@ import { useSearch } from "@/lib/store/search-context";
 import { recognize, remember, UNNAMED, warmUpVision, type Guess } from "@/lib/vision/recognize";
 import { takePhoto } from "@/lib/pending-photo";
 import { cameraBack, cameraOpening, checkCameraReload, diag } from "@/lib/diag";
-import { isIOS, modelProgress, onModelProgress } from "@/lib/vision/runtime";
+import { modelProgress, onModelProgress } from "@/lib/vision/runtime";
 import { LABEL_MAX, mockLocation, ON_SITE_METERS } from "@/lib/config";
 import { distanceMeters } from "@/lib/geo";
 import type { SpotDetail, Sticker } from "@/lib/types";
@@ -48,8 +48,8 @@ const MAX_CUTOUTS = 6;
 /** You can leave this many of your own stickers at one place (same as the server). */
 const MAX_PLACED_PER_SPOT = 3;
 /** Waiting for the cutter to study the photo (models load only after the shot); past this, a soft round cut is used.
- *  iPhones cut on the CPU (see cutter.ts): slower, so they get longer. */
-const EXACT_CUT_MS = isIOS() ? 30000 : 12000;
+ *  (iPhones send the photo to the server to be studied, see cutter.ts.) */
+const EXACT_CUT_MS = 20000;
 /** Time for finding things in the photo (the first one is always cut). */
 const FIND_MS = 2500;
 
@@ -135,6 +135,10 @@ function Visit() {
   useEffect(() => {
     void load();
   }, [load]);
+  // The server half of the cutter wakes up now (costs the phone nothing).
+  useEffect(() => {
+    void fetch("/api/sticker/sam").catch(() => undefined);
+  }, []);
 
   /** 着いた (only offered when you're there): count it, then the spot page takes over. */
   async function arrive() {

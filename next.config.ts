@@ -3,6 +3,8 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   // Nothing on screen that isn't the app itself.
   devIndicators: false,
+  // The cutter's image encoder runs on the server too (for phones that can't hold it): keep these as real Node packages.
+  serverExternalPackages: ["@huggingface/transformers", "onnxruntime-node", "sharp"],
   // Let a phone on the same Wi-Fi open the dev server (npm run dev:phone).
   allowedDevOrigins: ["192.168.*.*", "10.*.*.*", "172.*.*.*", "*.local"],
   async headers() {

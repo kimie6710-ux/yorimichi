@@ -199,7 +199,8 @@ function loadSam(): Promise<Sam> {
 
 /** Start downloading the model early (e.g. while the user is walking). */
 export function warmUpCutter(): void {
-  void loadSam().catch(() => undefined);
+  if (isIOS()) void fetch("/api/sticker/sam").catch(() => undefined);
+  else void loadSam().catch(() => undefined);
 }
 
 /** SAM's low-res masks are 256×256 over the photo scaled so its long side is 1024 (padded). */
@@ -281,9 +282,7 @@ class SamCutter implements StickerCutter {
     [this.rh, this.rw] = inputs.reshaped_input_sizes[0] as [number, number];
     this.iw = image.width;
     this.ih = image.height;
-    const { data } = image.getContext("2d", { willReadFrequently: true })!.getImageData(0, 0, image.width, image.height);
-    this.guide = new Float32Array(image.width * image.height);
-    for (let i = 0; i < this.guide.length; i++) this.guide[i] = (0.299 * data[i * 4] + 0.587 * data[i * 4 + 1] + 0.114 * data[i * 4 + 2]) / 255;
+    this.guide = greyOf(image);
     this.embeddings = await withTimeout(model.get_image_embeddings(inputs), PREPARE_MS, "sam encode");
   }
 
@@ -337,15 +336,22 @@ class SamCutter implements StickerCutter {
     }
     if (bestArea < 0) k = first.scores.indexOf(Math.max(...first.scores));
 
-    const logits = first.logits;
+    return finishMask(first.logits, k, this.rw, this.rh, this.iw, this.ih, this.guide, point);
+  }
+}
 
+/**
+ * One of SAM's low-res readings (LOW×LOW logits, reading `k`) → a crisp mask at the photo's size:
+ * stretched smoothly, then snapped onto the photo's own edges.
+ */
+function finishMask(logits: Float32Array, k: number, rw: number, rh: number, W: number, H: number, guide: Float32Array, point: CutPoint): CutMask | null {
+  {
     // Stretch the low-res reading smoothly to the photo's size (soft 0–1)…
-    const { w, h } = this.lowSize;
-    const W = this.iw;
-    const H = this.ih;
+    const w = Math.max(1, Math.round((rw / 1024) * LOW));
+    const h = Math.max(1, Math.round((rh / 1024) * LOW));
     const soft = new Float32Array(W * H);
-    const sx = this.rw / W / 4; // photo px → low-res px
-    const sy = this.rh / H / 4;
+    const sx = rw / W / 4; // photo px → low-res px
+    const sy = rh / H / 4;
     const base = k * LOW * LOW;
     for (let Y = 0; Y < H; Y++) {
       const fy = Math.min(h - 1, Math.max(0, (Y + 0.5) * sy - 0.5));
@@ -364,10 +370,64 @@ class SamCutter implements StickerCutter {
       }
     }
     // …then let the photo's own edges decide the exact outline.
-    const refined = guidedFilter(this.guide, soft, W, H, Math.max(3, Math.round(W / 170)), 1e-3);
+    const refined = guidedFilter(guide, soft, W, H, Math.max(3, Math.round(W / 170)), 1e-3);
     const alpha = new Uint8ClampedArray(W * H);
     for (let i = 0; i < alpha.length; i++) alpha[i] = refined[i] > 0.5 ? 255 : 0;
     return cleanMask(alpha, W, H, point);
+  }
+}
+
+/** The photo in grey (0–1), to snap mask edges onto real edges. */
+function greyOf(image: HTMLCanvasElement): Float32Array {
+  const { data } = image.getContext("2d", { willReadFrequently: true })!.getImageData(0, 0, image.width, image.height);
+  const g = new Float32Array(image.width * image.height);
+  for (let i = 0; i < g.length; i++) g[i] = (0.299 * data[i * 4] + 0.587 * data[i * 4 + 1] + 0.114 * data[i * 4 + 2]) / 255;
+  return g;
+}
+
+// ── SlimSAM with the heavy half on the server (phones) ─────
+
+/**
+ * Same cutter, but the image encoder runs on the server (see src/lib/server/sam.ts):
+ * an iPhone can't hold it in a page. Only the light finishing happens here.
+ */
+class ServerSamCutter implements StickerCutter {
+  readonly name = "sam";
+  private id = "";
+  private rw = 0;
+  private rh = 0;
+  private iw = 0;
+  private ih = 0;
+  private guide: Float32Array | null = null;
+
+  async prepare(image: HTMLCanvasElement) {
+    const blob = await new Promise<Blob | null>((r) => image.toBlob(r, "image/jpeg", 0.9));
+    if (!blob) throw new Error("no jpeg");
+    const form = new FormData();
+    form.append("image", blob, "photo.jpg");
+    const res = await fetch("/api/sticker/sam", { method: "POST", body: form, signal: AbortSignal.timeout(PREPARE_MS) });
+    if (!res.ok) throw new Error(`server cutter ${res.status}`);
+    const got = (await res.json()) as { id: string; rw: number; rh: number };
+    this.id = got.id;
+    this.rw = got.rw;
+    this.rh = got.rh;
+    this.iw = image.width;
+    this.ih = image.height;
+    this.guide = greyOf(image);
+  }
+
+  async maskAt(point: CutPoint) {
+    if (!this.id || !this.guide) return null;
+    const res = await fetch(`/api/sticker/sam/${this.id}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ x: point.x, y: point.y }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!res.ok) return null;
+    const logits = new Float32Array(await res.arrayBuffer());
+    if (logits.length !== LOW * LOW) return null;
+    return finishMask(logits, 0, this.rw, this.rh, this.iw, this.ih, this.guide, point);
   }
 }
 
@@ -470,15 +530,17 @@ export interface CutBox {
 
 // ── chain ────────────────────────────────────────────────
 
-const CHAIN: (() => StickerCutter)[] = [
-  () => new SamCutter(),
-  () => new ApiCutter(),
-  () => new BlobCutter(),
-];
+// iPhones study the photo on the server (the encoder doesn't fit in a Safari page);
+// everything else on the device first, the server as the backup.
+function chain(): (() => StickerCutter)[] {
+  return isIOS()
+    ? [() => new ServerSamCutter(), () => new ApiCutter(), () => new BlobCutter()]
+    : [() => new SamCutter(), () => new ServerSamCutter(), () => new ApiCutter(), () => new BlobCutter()];
+}
 
 /** Returns the first cutter that can prepare this image. */
 export async function prepareCutter(image: HTMLCanvasElement): Promise<StickerCutter> {
-  for (const make of CHAIN) {
+  for (const make of chain()) {
     const cutter = make();
     try {
       await cutter.prepare(image);
