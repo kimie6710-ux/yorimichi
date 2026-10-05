@@ -19,7 +19,7 @@ import { useSearch } from "@/lib/store/search-context";
 import { recognize, remember, UNNAMED, warmUpVision, type Guess } from "@/lib/vision/recognize";
 import { takePhoto } from "@/lib/pending-photo";
 import { cameraBack, cameraOpening, checkCameraReload, diag } from "@/lib/diag";
-import { modelProgress, onModelProgress } from "@/lib/vision/runtime";
+import { isIOS, modelProgress, onModelProgress } from "@/lib/vision/runtime";
 import { LABEL_MAX, mockLocation, ON_SITE_METERS } from "@/lib/config";
 import { distanceMeters } from "@/lib/geo";
 import type { SpotDetail, Sticker } from "@/lib/types";
@@ -47,8 +47,9 @@ interface Cutout {
 const MAX_CUTOUTS = 6;
 /** You can leave this many of your own stickers at one place (same as the server). */
 const MAX_PLACED_PER_SPOT = 3;
-/** Waiting for the cutter to study the photo (models load only after the shot); past this, a soft round cut is used. */
-const EXACT_CUT_MS = 12000;
+/** Waiting for the cutter to study the photo (models load only after the shot); past this, a soft round cut is used.
+ *  iPhones cut on the CPU (see cutter.ts): slower, so they get longer. */
+const EXACT_CUT_MS = isIOS() ? 30000 : 12000;
 /** Time for finding things in the photo (the first one is always cut). */
 const FIND_MS = 2500;
 
@@ -189,8 +190,6 @@ function Visit() {
     setMemo("");
     setMemoOpen(false);
     setStep("looking");
-    // The models start loading only now, with the waiting screen up (see the spot page).
-    warmUpVision();
     try {
       await nextPaint();
       // Last photo's pictures aren't needed any more (phones run out of memory quickly).
@@ -211,6 +210,7 @@ function Visit() {
       let made: Cutout[] = [];
       if (ready && ready.name === "sam") {
         const found = await findThings(ready, MAX_CUTOUTS, FIND_MS);
+        diag(`found ${found.length} things`);
         made = (await Promise.all(found.map((f) => toCutout(f.mask, null)))).filter((c): c is Cutout => !!c);
       }
       if (made.length === 0) {
@@ -221,6 +221,8 @@ function Visit() {
       if (run.current !== token) return;
       setCutouts(made);
       setStep("pick");
+      // Naming loads its model only now, after cutting: both at once is too much for a phone.
+      warmUpVision();
       void nameAll(made, token);
     } catch (err) {
       console.error("[photo]", err);

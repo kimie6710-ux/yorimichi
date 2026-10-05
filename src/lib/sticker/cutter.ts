@@ -7,7 +7,7 @@
 // soft blob so the flow never dead-ends.
 // To plug in another model/service, implement StickerCutter and add it to CHAIN.
 
-import { devices, loadOn, loadTf, withTimeout } from "@/lib/vision/runtime";
+import { isIOS, devices, loadOn, loadTf, withTimeout } from "@/lib/vision/runtime";
 
 export { within } from "@/lib/vision/runtime";
 
@@ -185,7 +185,9 @@ function loadSam(): Promise<Sam> {
     const tf = await loadTf();
     const [processor, model] = await Promise.all([
       tf.AutoProcessor.from_pretrained(SAM_MODEL),
-      loadOn(devices("fp16", "q8"), (d) => tf.SamModel.from_pretrained(SAM_MODEL, d), "sam"),
+      // On iPhone the GPU run of the image encoder takes more memory than Safari allows a page:
+      // the small CPU model is slower but stays up.
+      loadOn(isIOS() ? [{ device: "wasm", dtype: "q8" }] : devices("fp16", "q8"), (d) => tf.SamModel.from_pretrained(SAM_MODEL, d), "sam"),
     ]);
     return { tf, processor, model: model as unknown as SamModel };
   })().catch((err) => {

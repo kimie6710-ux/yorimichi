@@ -22,6 +22,12 @@ export function loadTf(): Promise<Tf> {
 
 export type Device = { device: "webgpu" | "wasm"; dtype: "fp32" | "fp16" | "q8" };
 
+/** iPhone / iPad Safari: little memory per page; heavy GPU work makes it drop the page. */
+export function isIOS(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.userAgent.includes("Macintosh") && navigator.maxTouchPoints > 1);
+}
+
 /**
  * Where to run: the phone's GPU (WebGPU) when it has one, else the CPU.
  * `gpu`/`cpu` pick the number format that works (and is small) on each.
