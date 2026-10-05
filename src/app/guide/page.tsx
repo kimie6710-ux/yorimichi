@@ -32,8 +32,8 @@ const PAGES: Page[] = [
   },
   {
     icon: "/ui/n-map.png",
-    title: "地図で、気になる一言を",
-    lines: ["地図の「？」は、店名のかわりに", "みちびの一言つき。", "ピンときたものを選んで。"],
+    title: "地図で、気になるひとことを",
+    lines: ["地図の「？」は、店名のかわりに", "みちびのひとことつき。", "ピンときたものを選んで。"],
     frame: "fold",
     bird: "front",
   },
@@ -54,13 +54,13 @@ const PAGES: Page[] = [
   {
     icon: "/ui/n-camera.png",
     title: "撮ると、シールになる",
-    lines: ["写したものが、形のままシールに。", "タイトルは、あなたの見方で。", "みちびの一言と、比べてみて。"],
+    lines: ["写したものが、形のままシールに。", "名前は、あなたの見方で。", "みちびのひとことと、比べてみて。"],
     frame: "tape",
     bird: "flap",
   },
   {
     icon: "/ui/i-send.png",
-    title: "残す・送る・とっておく",
+    title: "置く・送る・しまう",
     lines: ["その場所に置いて、次の人へ。", "知らない誰かに送る。", "ボックスにしまっておく。"],
     frame: "stack",
     bird: "happy",
@@ -68,7 +68,7 @@ const PAGES: Page[] = [
   {
     icon: "/ui/n-book.png",
     title: "ボックスから、手帳へ",
-    lines: ["作ったシールは、まずボックスへ。", "好きなページに、何回でも貼れます。", "テープやみちびで飾るのも自由。"],
+    lines: ["作ったシールは、まずボックスへ。", "好きなページに、何回でも貼れる。", "テープやみちびで飾るのも自由。"],
     frame: "fold",
     bird: "perch",
   },
@@ -86,7 +86,7 @@ export default function GuidePage() {
     <main className="paper flex h-[calc(100dvh-76px-env(safe-area-inset-bottom))] flex-col overflow-hidden px-4 pt-[max(10px,env(safe-area-inset-top))] pb-3">
       <header className="flex shrink-0 items-center gap-3">
         <BackButton fallback="/me" />
-        <h1 className="font-hand text-[26px]">{APP_NAME}のつかいかた</h1>
+        <h1 className="font-hand text-[28px]">{APP_NAME}のつかいかた</h1>
       </header>
 
       <section

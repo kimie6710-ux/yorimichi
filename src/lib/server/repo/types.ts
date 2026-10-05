@@ -33,7 +33,7 @@ export interface VisitRow {
   id: string;
   user_id: string;
   spot_id: string;
-  method: "gps" | "manual";
+  method: "gps" | "manual" | "capture";
   created_at: string;
 }
 

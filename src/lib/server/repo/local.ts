@@ -1,7 +1,6 @@
 import "server-only";
 
-import { statSync } from "node:fs";
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import type { Query, Store, TableName, Tables } from "./types";
@@ -150,7 +149,8 @@ export class LocalStore implements Store {
   }
 
   async fileUrls(paths: string[]): Promise<Map<string, string>> {
-    return new Map(paths.map((p) => [p, versionedUrl(p)]));
+    const unique = [...new Set(paths)];
+    return new Map(await Promise.all(unique.map(async (p) => [p, await versionedUrl(p)] as const)));
   }
 
   static async readFile(p: string): Promise<Buffer | null> {
@@ -163,10 +163,11 @@ export class LocalStore implements Store {
 }
 
 /** Files are served as immutable; the mtime in the URL makes a rewritten file (e.g. a new border) load fresh. */
-function versionedUrl(p: string): string {
+async function versionedUrl(p: string): Promise<string> {
   try {
-    return `/api/files/${p}?v=${Math.floor(statSync(safePath(p)).mtimeMs).toString(36)}`;
+    return `/api/files/${p}?v=${Math.floor((await stat(safePath(p))).mtimeMs).toString(36)}`;
   } catch {
-    return `/api/files/${p}`;
+    // Missing file: a fresh version tag anyway, so nothing old sticks in the cache.
+    return `/api/files/${p}?v=${Date.now().toString(36)}`;
   }
 }

@@ -43,13 +43,13 @@ export async function asUser(
   run: (userId: string) => Promise<Response>,
 ): Promise<Response> {
   const userId = await identify(req);
-  if (!userId) return jsonError("unauthorized", "もう一度開き直してください", 401);
+  if (!userId) return jsonError("unauthorized", "もう一回、開き直してみて。", 401);
   try {
     return await run(userId);
   } catch (err) {
     if (err instanceof RuleError) return jsonError("invalid_input", err.message, err.status);
     console.error("[api]", err);
-    return jsonError("db_failed", "うまく保存できませんでした", 500);
+    return jsonError("db_failed", "うまく保存できなかった。", 500);
   }
 }
 

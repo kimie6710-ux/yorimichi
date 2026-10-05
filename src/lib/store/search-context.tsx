@@ -85,7 +85,7 @@ export function SearchProvider({ children }: { children: ReactNode }) {
   const originRef = useRef<LatLng | null>(null);
   const locRef = useRef<CurrentLocation | null>(null);
 
-  const loadSpots = useCallback(async (origin: LatLng) => {
+  const loadSpots = useCallback(async (origin: LatLng, browsing = false) => {
     const id = ++loadId.current;
     originRef.current = origin;
     setState((s) => ({ ...s, spotsStatus: "loading", spotsError: null, spotsOrigin: origin }));
@@ -100,7 +100,8 @@ export function SearchProvider({ children }: { children: ReactNode }) {
             return { ...s, place: { ...s.place, distanceMeters: Math.round(d), walkMinutes: walkMinutes(d) } };
           })
         : res.spots;
-      setState((s) => ({ ...s, spots, around: res.around ?? [], spotsStatus: res.pending.length ? "seeding" : "ready" }));
+      // The places a sticker can belong to are always the ones around you, not around where the map is looking.
+      setState((s) => ({ ...s, spots, around: browsing ? s.around : (res.around ?? []), spotsStatus: res.pending.length ? "seeding" : "ready" }));
       if (res.pending.length === 0) {
         if (res.spots.length === 0) setState((s) => ({ ...s, spotsError: MICHIBI_LINES.empty }));
         return;
@@ -197,7 +198,7 @@ export function SearchProvider({ children }: { children: ReactNode }) {
   }, [loadSpots]);
 
   /** Look at the spots around another part of the map (you stay where you are). */
-  const browseAt = useCallback((center: LatLng) => void loadSpots(center), [loadSpots]);
+  const browseAt = useCallback((center: LatLng) => void loadSpots(center, true), [loadSpots]);
 
   const refreshSpots = useCallback(() => {
     if (locRef.current) void loadSpots(locRef.current);

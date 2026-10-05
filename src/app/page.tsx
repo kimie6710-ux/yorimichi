@@ -15,6 +15,7 @@ import { api } from "@/lib/api-client";
 import { MICHIBI_LINES } from "@/lib/character";
 import { useSearch } from "@/lib/store/search-context";
 import { distanceMeters } from "@/lib/geo";
+import { ON_SITE_METERS, SEARCH_RADIUS_METERS } from "@/lib/config";
 import type { LatLng, MapSpot } from "@/lib/types";
 import { Wrap } from "@/components/Wrap";
 
@@ -27,6 +28,8 @@ const STARTED_KEY = "yorumichi:started";
  */
 /** Dragged this far from what's loaded: offer to look around there. */
 const LOOK_AGAIN_METERS = 300;
+/** What counts as "this area" when looking around elsewhere on the map. */
+const BROWSE_METERS = SEARCH_RADIUS_METERS;
 
 function spread(spots: MapSpot[], minMeters = 70, max = 10): MapSpot[] {
   const kept: MapSpot[] = [];
@@ -54,19 +57,25 @@ export default function MapHome() {
   const router = useRouter();
   const town = useSearch();
   const { currentLocation, locationStatus, spotsStatus, spotsError } = town;
-  const spots = useMemo(() => spread(town.spots), [town.spots]);
+  // Looking around somewhere else: only what's really around there, so the map stays where you looked
+  // (in a quiet area the nearest dozen can be far off, toward the station).
+  const browsing = !!(town.spotsOrigin && currentLocation && distanceMeters(town.spotsOrigin, currentLocation) > LOOK_AGAIN_METERS);
+  const spots = useMemo(
+    () => spread(browsing && town.spotsOrigin ? town.spots.filter((s) => distanceMeters(s.place.location, town.spotsOrigin!) <= BROWSE_METERS) : town.spots),
+    [town.spots, town.spotsOrigin, browsing],
+  );
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [onboarded, setOnboarded] = useState(true);
   const rail = useRef<HTMLUListElement>(null);
   // Looking around another part of the map (you stay where you are).
   const [moved, setMoved] = useState<LatLng | null>(null);
   const [home, setHome] = useState(0);
-  const looking = !!(town.spotsOrigin && currentLocation && distanceMeters(town.spotsOrigin, currentLocation) > LOOK_AGAIN_METERS);
+  const looking = browsing;
   const canLook = !!(moved && town.spotsOrigin && distanceMeters(moved, town.spotsOrigin) > LOOK_AGAIN_METERS);
   const goHome = () => {
     setMoved(null);
     setHome((n) => n + 1);
-    if (currentLocation) town.browseAt(currentLocation);
+    town.refreshSpots();
   };
 
   useEffect(() => {
@@ -200,7 +209,7 @@ export default function MapHome() {
                 if (moved) town.browseAt(moved);
                 setMoved(null);
               }}
-              className="pointer-events-auto rounded-full bg-butter px-5 py-2 text-[15px] font-bold shadow-[0_4px_12px_-4px_rgb(60_50_30/0.5)] active:translate-y-0.5"
+              className="pointer-events-auto rounded-full bg-butter px-5 py-2 text-[16px] font-bold shadow-[0_4px_12px_-4px_rgb(60_50_30/0.5)] active:translate-y-0.5"
             >
               このあたりを見る
             </button>
@@ -224,7 +233,7 @@ export default function MapHome() {
             {noLocation ? (
               <>
                 <Michibi mood="surprise" size={72} animate="none" />
-                <p className="mt-2 text-base font-bold">現在地を使うと、今いる街のよりみちが見えます。</p>
+                <p className="mt-2 text-base font-bold">現在地を使うと、街のよりみちが見える。</p>
                 <SketchButton className="mt-4" onClick={town.locate}>
                   現在地を使う
                 </SketchButton>
@@ -244,7 +253,7 @@ export default function MapHome() {
                 </SketchButton>
               </>
             ) : spotsStatus === "ready" ? (
-              <Michibi mood="perch" size={72} animate="none" says={spotsError ?? MICHIBI_LINES.empty} />
+              <Michibi mood="perch" size={72} animate="none" says={looking ? MICHIBI_LINES.sparse : (spotsError ?? MICHIBI_LINES.empty)} />
             ) : (
               <Michibi mood="walk" size={72} animate="wander" says={MICHIBI_LINES.loading[0]} />
             )}
@@ -263,7 +272,11 @@ export default function MapHome() {
           <ul ref={rail} className="hide-scrollbar flex snap-x snap-mandatory gap-4 overflow-x-auto px-[9%] pt-4 pb-1" aria-label="近くのスポット">
             {spots.map((s) => (
               <li key={s.place.placeId} data-id={s.place.placeId} className="w-[84%] shrink-0 snap-center">
-                <SpotCard spot={s} active={selected?.place.placeId === s.place.placeId} onFocus={() => select(s.place.placeId, false)} onGo={() => router.push(`/visit/${encodeURIComponent(s.place.placeId)}`)}
+                <SpotCard spot={s} active={selected?.place.placeId === s.place.placeId} onFocus={() => select(s.place.placeId, false)} onGo={() => {
+                    // Already there: straight to the spot (and its camera). Otherwise, walk there.
+                    const here = currentLocation && distanceMeters(currentLocation, s.place.location) <= ON_SITE_METERS;
+                    router.push(here ? `/spot/${encodeURIComponent(s.place.placeId)}` : `/visit/${encodeURIComponent(s.place.placeId)}`);
+                  }}
                   onSave={() => {
                     const next = !s.saved;
                     town.patchSpot(s.place.placeId, { saved: next });
@@ -309,7 +322,7 @@ function SpotCard({
           <img src="/ui/i-star.png" alt="" className={`h-5 w-auto ${spot.saved ? "" : "opacity-50"}`} draggable={false} />
         </button>
       </div>
-      <Link href={`/spot/${encodeURIComponent(spot.place.placeId)}`} className="mt-0.5 line-clamp-2 block text-[20px] leading-snug whitespace-pre-line">
+      <Link href={`/spot/${encodeURIComponent(spot.place.placeId)}`} className="mt-0.5 block text-[22px] leading-snug whitespace-pre-line">
         <Wrap>{spot.copy?.copy}</Wrap>
       </Link>
       <div className="mt-2 flex items-center justify-between gap-2">

@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { LABEL_MAX } from "@/lib/config";
+
 import { DECO_KINDS } from "./types";
 
 // ── Request validation (API routes) ─────────────────────────
@@ -65,16 +67,17 @@ export const locatedSchema = z.object({ latitude: z.number().min(-90).max(90), l
 
 export const stickerMetaSchema = z.object({
   spotId: placeIdSchema,
+  at: z.object({ latitude: z.number().min(-90).max(90), longitude: z.number().min(-180).max(180) }).nullable().default(null),
   memo: z.string().max(80).default(""),
   items: z
-    .array(z.object({ label: z.string().min(1).max(20), rotation: z.number().min(-15).max(15) }))
+    .array(z.object({ label: z.string().min(1).max(LABEL_MAX), rotation: z.number().min(-15).max(15) }))
     .min(1)
     .max(6),
 });
 
 export const stickerPatchSchema = z.object({
   memo: z.string().max(80).optional(),
-  label: z.string().trim().min(1).max(20).optional(),
+  label: z.string().trim().min(1).max(LABEL_MAX).optional(),
 });
 
 export const bookPagesSchema = z.object({

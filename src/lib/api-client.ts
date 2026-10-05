@@ -61,7 +61,7 @@ async function request<T>(url: string, init: RequestInit & { timeoutMs?: number 
     res = await fetch(url, { ...rest, headers: finalHeaders, signal: AbortSignal.timeout(timeoutMs) });
   } catch (err) {
     const timedOut = err instanceof DOMException && err.name === "TimeoutError";
-    throw new ApiClientError(timedOut ? "時間がかかりすぎました" : "ネットワークにつながりません", "network", 0);
+    throw new ApiClientError(timedOut ? "時間がかかりすぎた。" : "ネットワークにつながらない。", "network", 0);
   }
   const body: unknown = await res.json().catch(() => null);
   if (!res.ok) {
@@ -83,13 +83,16 @@ export const api = {
     request<{ spots: MapSpot[]; pending: Place[]; around: NearPlace[]; total: number }>("/api/spots/nearby", { ...post(at), timeoutMs: 20_000 }),
   seedSpots: (origin: LatLng, places: Place[]) =>
     request<{ spots: MapSpot[] }>("/api/spots/seed", { ...post({ origin, places }), timeoutMs: 70_000 }),
-  spot: (id: string, at: LatLng | null) => request<SpotDetail>(`/api/spots/${encodeURIComponent(id)}${qs(at)}`),
+  /** `lite`: skip the Google details call and don't count views (the capture screen only needs the basics). */
+  spot: (id: string, at: LatLng | null, lite = false) =>
+    request<SpotDetail>(`/api/spots/${encodeURIComponent(id)}${qs(at)}${lite ? `${at ? "&" : "?"}lite=1` : ""}`),
   visit: (id: string, at: LatLng | null) => request<{ ok: true }>(`/api/spots/${encodeURIComponent(id)}/visit`, post(at)),
   save: (id: string, save: boolean) => request<{ ok: true }>(`/api/spots/${encodeURIComponent(id)}/save`, post({ save })),
 
-  createStickers: (input: { spotId: string; memo: string; photo: Blob | null; items: { blob: Blob; label: string; rotation: number }[] }) => {
+  createStickers: (input: { spotId: string; memo: string; at: LatLng | null; photo: Blob | null; items: { blob: Blob; label: string; rotation: number }[] }) => {
     const form = new FormData();
-    form.append("meta", JSON.stringify({ spotId: input.spotId, memo: input.memo, items: input.items.map(({ label, rotation }) => ({ label, rotation })) }));
+    const at = input.at ? { latitude: input.at.latitude, longitude: input.at.longitude } : null;
+    form.append("meta", JSON.stringify({ spotId: input.spotId, memo: input.memo, at, items: input.items.map(({ label, rotation }) => ({ label, rotation })) }));
     if (input.photo) form.append("photo", input.photo, "photo.jpg");
     input.items.forEach((it, i) => form.append(`sticker_${i}`, it.blob, `sticker_${i}.png`));
     return request<{ items: Sticker[] }>("/api/stickers", { method: "POST", body: form, timeoutMs: 60_000 });

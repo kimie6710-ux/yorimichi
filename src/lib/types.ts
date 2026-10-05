@@ -95,9 +95,11 @@ export interface SpotCopy {
 /** A place near you that a free capture can be tied to (with or without a copy). */
 export interface NearPlace {
   placeId: string;
+  /** The real name once you've been there; before that, its line (or kind of place). */
   name: string;
   category: string | null;
   distanceMeters: number;
+  location: LatLng;
 }
 
 /** A real place on the map with its よりみち layer. */

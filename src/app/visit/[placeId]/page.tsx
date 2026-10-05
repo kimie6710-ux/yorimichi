@@ -5,13 +5,12 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
 
 import { BackButton } from "@/components/BackButton";
+import { canGoBack } from "@/components/NavTracker";
 import { GuideView } from "@/components/GuideView";
 import { Michibi } from "@/components/Michibi";
 import { SketchButton, SketchInput, SketchLinkButton, SketchSheet } from "@/components/sketch";
 import { MessageView } from "@/components/StateViews";
-import { FindsRow } from "@/components/FindsRow";
 import { StickerView } from "@/components/StickerView";
-import { PlaceImage } from "@/components/PlaceImage";
 import { api, ApiClientError } from "@/lib/api-client";
 import { MICHIBI_LINES, michibiSrc } from "@/lib/character";
 import { boxMask, findThings, MIDDLE_BOX, prepareCutter, warmUpCutter, within, type CutMask, type CutPoint, type StickerCutter } from "@/lib/sticker/cutter";
@@ -20,6 +19,8 @@ import { useSearch } from "@/lib/store/search-context";
 import { recognize, remember, UNNAMED, warmUpVision, type Guess } from "@/lib/vision/recognize";
 import { takePhoto } from "@/lib/pending-photo";
 import { modelProgress, onModelProgress } from "@/lib/vision/runtime";
+import { LABEL_MAX, ON_SITE_METERS } from "@/lib/config";
+import { distanceMeters } from "@/lib/geo";
 import type { SpotDetail, Sticker } from "@/lib/types";
 import { Wrap } from "@/components/Wrap";
 
@@ -43,8 +44,8 @@ interface Cutout {
   emb: Float32Array | null;
 }
 const MAX_CUTOUTS = 6;
-/** Same as the server's on-site distance for leaving a sticker. */
-const PLACE_NEAR_METERS = 150;
+/** You can leave this many of your own stickers at one place (same as the server). */
+const MAX_PLACED_PER_SPOT = 3;
 /** Waiting for the cutter to study the photo; past this, a soft round cut is used. */
 const EXACT_CUT_MS = 9000;
 /** Time for finding things in the photo (the first one is always cut). */
@@ -82,7 +83,6 @@ function Visit() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [step, setStep] = useState<Step>(params.get("step") === "explore" ? "explore" : "go");
   const [error, setError] = useState<string | null>(null);
-  const [nudge, setNudge] = useState(false);
 
   // Capture workspace
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
@@ -114,14 +114,21 @@ function Visit() {
     return () => list.forEach((u) => URL.revokeObjectURL(u));
   }, []);
 
+  // The basics only (no Google details, no view counting): this screen is about the photo.
+  const hasLocation = !!currentLocation;
+  const loadId = useRef(0);
   const load = useCallback(
-    () =>
-      api
-        .spot(spotId, currentLocation)
-        .then(setDetail)
-        .catch((e) => setLoadError(e instanceof ApiClientError ? e.message : "読み込めませんでした")),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- reload on arrival only, not on every GPS tick
-    [spotId],
+    () => {
+      // Only the newest answer counts (the one without a position may come back last).
+      const n = ++loadId.current;
+      return api
+        .spot(spotId, currentLocation, true)
+        .then((d) => n === loadId.current && setDetail(d))
+        .catch((e) => n === loadId.current && setLoadError(e instanceof ApiClientError ? e.message : "読み込めなかった。"));
+    },
+    // Location changes every few meters: load once, and again when it first becomes known.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [spotId, hasLocation],
   );
   useEffect(() => {
     void load();
@@ -129,23 +136,17 @@ function Visit() {
     warmUpVision();
   }, [load]);
 
-  const recorded = useRef(false);
+  /** 着いた (only offered when you're there): count it, then the spot page takes over. */
   async function arrive() {
-    recorded.current = true;
-    setStep("explore");
-    await api.visit(spotId, currentLocation).catch(() => undefined);
-    patchSpot(spotId, { visited: true });
-    await load();
-  }
-
-  // Coming straight to explore (from the spot page / ＋ tab) also counts as a visit.
-  useEffect(() => {
-    if (!free && step === "explore" && detail && !detail.spot.visited && !recorded.current) {
-      recorded.current = true;
-      void api.visit(spotId, currentLocation).then(load).catch(() => undefined);
+    setError(null);
+    try {
+      await api.visit(spotId, currentLocation);
       patchSpot(spotId, { visited: true });
+      router.replace(`/spot/${encodeURIComponent(spotId)}`);
+    } catch (e) {
+      setError(e instanceof ApiClientError ? e.message : "うまくいかなかった。");
     }
-  }, [free, step, detail, spotId, currentLocation, load, patchSpot]);
+  }
 
   async function toCutout(mask: CutMask, point: CutPoint | null): Promise<Cutout | null> {
     if (!work.current) return null;
@@ -183,6 +184,10 @@ function Visit() {
     setError(null);
     setCutouts([]);
     setSticker(null);
+    setSaved(null);
+    setOutcome(null);
+    setMemo("");
+    setMemoOpen(false);
     setStep("looking");
     try {
       await nextPaint();
@@ -217,15 +222,36 @@ function Visit() {
     }
   }
 
-  // A photo already taken on the spot page: go straight to cutting it.
+  // A photo already taken on the spot page: go straight to cutting it. Without one
+  // (reload, back/forward) there's nothing to work on here: the spot page is the place to shoot.
   const handed = useRef(false);
   useEffect(() => {
     if (handed.current) return;
     handed.current = true;
     const file = takePhoto();
     if (file) void Promise.resolve().then(() => onPhoto(file));
+    else if (!free && step === "explore") router.replace(`/spot/${encodeURIComponent(spotId)}`);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on arrival
   }, []);
+
+  // Half-made sticker: the phone's back gesture asks before throwing it away.
+  const working = step === "looking" || step === "pick" || step === "making" || step === "make";
+  useEffect(() => {
+    if (!working) return;
+    // Same router state, one more history entry to catch "back" with.
+    window.history.pushState(window.history.state, "");
+    const onPop = () => {
+      if (window.confirm("作りかけのシールは消えるよ。やめる？")) {
+        run.current++;
+        if (free) setStep("explore");
+        else router.replace(`/spot/${encodeURIComponent(spotId)}`);
+      } else {
+        window.history.pushState(window.history.state, "");
+      }
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [working, free, router, spotId]);
 
   async function choose(picked: Cutout) {
     let c = cutouts.find((x) => x.id === picked.id) ?? picked;
@@ -255,20 +281,29 @@ function Visit() {
   }
 
   async function onPhotoTap(e: MouseEvent<HTMLImageElement>) {
-    if (!cutter.current || cutting || cutouts.length >= MAX_CUTOUTS + 2) return;
+    if (!cutter.current || cutting) return;
+    if (cutouts.length >= MAX_CUTOUTS + 2) {
+      setError("もういっぱい。この中から選んでね。");
+      return;
+    }
     const r = e.currentTarget.getBoundingClientRect();
     const point = { x: Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), y: Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)) };
+    const token = run.current;
     setCutting(true);
     setError(null);
     try {
       await nextPaint();
-      const mask = await (await cutter.current).maskAt(point);
+      // Don't wait forever for a first-time model download.
+      const ready = await within(cutter.current, EXACT_CUT_MS);
+      if (!ready) throw new Error("not ready");
+      const mask = await ready.maskAt(point);
+      if (run.current !== token) return; // a new photo came in meanwhile
       const c = mask ? await toCutout(mask, null) : null;
       if (!c) throw new Error("no mask");
       setCutouts((list) => [...list, c]);
-      void nameAll([c], run.current);
+      void nameAll([c], token);
     } catch {
-      setError("そこはうまく切り抜けなかった。もう少し真ん中をタップしてみて。");
+      if (run.current === token) setError("そこはうまく切り抜けなかった。もう少し真ん中をタップしてみて。");
     } finally {
       setCutting(false);
     }
@@ -282,15 +317,17 @@ function Visit() {
       const { items } = await api.createStickers({
         spotId: linkId,
         memo: memo.trim(),
+        at: currentLocation,
         photo: photoBlob,
         items: [{ blob: sticker.blob, label: label.trim() || UNNAMED, rotation: sticker.rotation }],
       });
       setSaved(items[0]);
+      patchSpot(linkId, { visited: true });
       // The name you settled on teaches the recogniser.
       if (chosenEmb.current) void remember(items[0].id, label, chosenEmb.current);
       setStep("share");
     } catch (err) {
-      setError(err instanceof ApiClientError ? err.message : "保存できませんでした。もう一度どうぞ。");
+      setError(err instanceof ApiClientError ? err.message : "保存できなかった。もう一回どうぞ。");
     } finally {
       setBusy(false);
     }
@@ -307,7 +344,7 @@ function Visit() {
       setStep("done");
       refreshUnread();
     } catch (err) {
-      setError(err instanceof ApiClientError ? err.message : "うまくいきませんでした。");
+      setError(err instanceof ApiClientError ? err.message : "うまくいかなかった。");
     } finally {
       setBusy(false);
     }
@@ -316,7 +353,7 @@ function Visit() {
   if (loadError) {
     return (
       <main className="h-[calc(100dvh-76px)]">
-        <MessageView mood="sleepy" says={loadError} action={{ label: "マップへ", href: "/" }} />
+        <MessageView mood="sleepy" says={loadError} action={{ label: "地図へ", href: "/" }} />
       </main>
     );
   }
@@ -329,28 +366,36 @@ function Visit() {
   }
 
   const { spot } = detail;
-  const others = detail.placed.filter((p) => !p.mine);
   // Where a free capture can belong: the nearest places (the page's own spot first).
   const places = [
-    { placeId: spotId, name: around.find((p) => p.placeId === spotId)?.name || spot.place.name || "この近く" },
+    { placeId: spotId, name: around.find((p) => p.placeId === spotId)?.name || spot.place.name || spot.copy?.copy.replace(/\n/g, "") || "この近く" },
     ...around.filter((p) => p.placeId !== spotId).map((p) => ({ placeId: p.placeId, name: p.name })),
   ].slice(0, 5);
-  // From a spot you walked to you can always leave it there; a free shot only near the place it's tied to.
-  const linkedNear = linkId === spotId ? (around.find((p) => p.placeId === spotId)?.distanceMeters ?? 0) : (around.find((p) => p.placeId === linkId)?.distanceMeters ?? Infinity);
-  const canPlace = !free || linkedNear <= PLACE_NEAR_METERS;
+  // Leaving it there: only when you're there (as the server checks), and not past the per-place limit.
+  const linkedAt = linkId === spotId ? spot.place.location : around.find((p) => p.placeId === linkId)?.location;
+  const nearLinked = !!(currentLocation && linkedAt && distanceMeters(currentLocation, linkedAt) <= ON_SITE_METERS);
+  const placedHere = linkId === spotId ? detail.mine.filter((m) => m.status === "placed").length : 0;
+  const canPlace = (nearLinked || (linkId === spotId && detail.onSite)) && placedHere < MAX_PLACED_PER_SPOT;
 
   if (step === "go") {
     return (
       <main>
-        <GuideView spot={spot} onArrive={() => void arrive()} onQuit={() => router.push("/")} />
+        <GuideView spot={spot} onArrive={() => void arrive()} onQuit={() => (canGoBack() ? router.back() : router.replace("/"))} error={error} />
       </main>
     );
   }
 
+  /** Take the chosen file, then clear the input so picking the same photo again still works. */
+  function pickFile(input: HTMLInputElement) {
+    const file = input.files?.[0];
+    input.value = "";
+    void onPhoto(file);
+  }
+
   const fileInputs = (
     <>
-      <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => void onPhoto(e.target.files?.[0])} />
-      <input ref={libraryRef} type="file" accept="image/jpeg,image/png,image/webp,image/heic" className="sr-only" onChange={(e) => void onPhoto(e.target.files?.[0])} />
+      <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => pickFile(e.currentTarget)} />
+      <input ref={libraryRef} type="file" accept="image/jpeg,image/png,image/webp,image/heic" className="sr-only" onChange={(e) => pickFile(e.currentTarget)} />
     </>
   );
 
@@ -362,7 +407,7 @@ function Visit() {
       <header className="flex shrink-0 items-center gap-3">
         {/* 撮る is a tab of its own: nothing to go back to. */}
         {!free && <BackButton fallback={`/spot/${encodeURIComponent(spotId)}`} />}
-        {free ? <h1 className="font-hand text-[26px]">撮る</h1> : <p className="min-w-0 flex-1 truncate text-[17px]">{spot.copy?.copy}</p>}
+        {free ? <h1 className="font-hand text-[28px]">撮る</h1> : <p className="min-w-0 flex-1 text-[18px] leading-snug"><Wrap>{spot.copy?.copy}</Wrap></p>}
       </header>
 
       {error && (
@@ -371,55 +416,16 @@ function Visit() {
         </p>
       )}
 
-      {/* ───── 探索モード ───── */}
-      {/* ───── どこでも撮る（撮るタブ） ───── */}
-      {step === "explore" && free && (
+      {/* ───── 撮る前（撮るタブ／写真が読めなかったとき） ───── */}
+      {step === "explore" && (
         <section className="animate-rise mt-3 flex min-h-0 flex-1 flex-col">
           <div className="flex min-h-0 flex-1 flex-col items-center justify-center">
-            <Michibi mood="front" size={96} says="なにか見つけた？" above animate="none" />
+            <Michibi mood="front" size={96} says={MICHIBI_LINES.explore} above animate="none" />
           </div>
           <div className="shrink-0 pt-2">
-            <p className="mb-2 text-center text-[17px]">気になったもの、ある？</p>
+            <p className="mb-2 text-center text-[18px]">気になったもの、ある？</p>
             <SketchButton size="lg" block onClick={() => cameraRef.current?.click()}>
-              撮る
-            </SketchButton>
-            <div className="mt-1 flex justify-center">
-              <SketchButton variant="plain" size="sm" onClick={() => libraryRef.current?.click()}>
-                アルバムから選ぶ
-              </SketchButton>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {step === "explore" && !free && (
-        <section className="animate-rise mt-3 flex min-h-0 flex-1 flex-col">
-          <div className="flex shrink-0 items-center gap-3 rounded-[14px_18px_12px_20px] bg-card p-2.5 shadow-[0_1px_0_rgb(60_50_30/0.08),0_6px_12px_-8px_rgb(60_50_30/0.3)]">
-            <PlaceImage place={spot.place} width={200} className="h-16 w-16 shrink-0 rounded-[10px_12px_9px_13px]" />
-            <div className="min-w-0 flex-1">
-              <p className="text-[14px] text-ink-mute">ここでした</p>
-              <p className="truncate text-lg leading-tight">{spot.place.name}</p>
-              {spot.place.primaryTypeLabel && <p className="truncate text-[14px] text-ink-soft">{spot.place.primaryTypeLabel}</p>}
-            </div>
-          </div>
-
-          <div className="mt-3 flex min-h-0 flex-1 flex-col justify-center">
-            {others.length > 0 ? (
-              <>
-                <p className="text-[15px]">{MICHIBI_LINES.somebodyWasHere}</p>
-                <FindsRow items={others} className="mt-2" size="max-h-[22dvh]" />
-              </>
-            ) : (
-              <button type="button" onClick={() => setNudge((v) => !v)} aria-label="ヒント" className="mx-auto">
-                <Michibi mood={nudge ? "surprise" : "front"} size={96} says={nudge ? MICHIBI_LINES.nudge : MICHIBI_LINES.explore} above animate="none" />
-              </button>
-            )}
-          </div>
-
-          <div className="shrink-0 pt-2">
-            <p className="mb-2 text-center text-[17px]">{others.length > 0 ? "あなたは、何を見つける？" : "気になったもの、ある？"}</p>
-            <SketchButton size="lg" block onClick={() => cameraRef.current?.click()}>
-              ここで撮る
+              {free ? "撮る" : "ここで撮る"}
             </SketchButton>
             <div className="mt-1 flex justify-center">
               <SketchButton variant="plain" size="sm" onClick={() => libraryRef.current?.click()}>
@@ -445,7 +451,7 @@ function Visit() {
                 <li key={c.id} className="w-[27%] shrink-0">
                   <button type="button" onClick={() => choose(c)} className="flex w-full flex-col items-center text-center transition-transform active:translate-y-0.5">
                     <StickerView src={c.url} alt={c.label} rotation={c.rotation} className="h-[12dvh] w-auto" />
-                    <span className="mt-1 line-clamp-1 text-[14px]">
+                    <span className="mt-1 text-[14px] leading-snug">
                       {c.naming ? (
                         <span className="wait-dots text-ink-mute" aria-label="名前を考え中">
                           <i>.</i>
@@ -453,7 +459,7 @@ function Visit() {
                           <i>.</i>
                         </span>
                       ) : (
-                        c.label
+                        <Wrap>{c.label}</Wrap>
                       )}
                     </span>
                   </button>
@@ -472,14 +478,14 @@ function Visit() {
             {cutting && (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-card/50">
                 <img src={michibiSrc("flap", "sm")} alt="" className="bird-hop-loop h-14 w-14" />
-                <p className="text-[15px]">
+                <p className="text-[16px]">
                   切ってる<span className="wait-dots" aria-hidden><i>.</i><i>.</i><i>.</i></span>
                 </p>
               </div>
             )}
           </div>
           <div className="flex shrink-0 justify-center pt-1">
-            <SketchButton variant="plain" size="sm" onClick={() => cameraRef.current?.click()}>
+            <SketchButton variant="plain" size="sm" onClick={() => cameraRef.current?.click()} disabled={cutting}>
               撮り直す
             </SketchButton>
           </div>
@@ -502,10 +508,10 @@ function Visit() {
           </div>
           <div className="shrink-0 pt-3">
             <SketchInput
-              aria-label="なまえ"
-              className="w-full !text-[20px]"
+              aria-label="名前"
+              className="w-full !text-[22px]"
               value={label}
-              maxLength={12}
+              maxLength={LABEL_MAX}
               placeholder="なんて呼ぶ？"
               onChange={(e) => setLabel(e.target.value)}
             />
@@ -516,7 +522,7 @@ function Visit() {
                     key={g.label}
                     type="button"
                     onClick={() => setLabel(g.label)}
-                    className={`shrink-0 rounded-[10px_13px_9px_12px] px-3 py-1 text-[15px] transition-colors ${label === g.label ? "bg-butter" : "bg-card"}`}
+                    className={`shrink-0 rounded-[10px_13px_9px_12px] px-3 py-1 text-[16px] transition-colors ${label === g.label ? "bg-butter" : "bg-card"}`}
                   >
                     {g.label}
                   </button>
@@ -525,13 +531,13 @@ function Visit() {
             )}
             <div className="mt-2 flex items-center gap-3 text-[14px] text-ink-soft">
               {free && places.length > 0 && (
-                <button type="button" onClick={() => setPlaceOpen(true)} className="min-w-0 truncate underline decoration-butter decoration-4 underline-offset-2">
-                  場所：{places.find((p) => p.placeId === linkId)?.name ?? "近く"}
+                <button type="button" onClick={() => setPlaceOpen(true)} className="min-w-0 text-left underline decoration-butter decoration-4 underline-offset-2">
+                  場所：<Wrap>{places.find((p) => p.placeId === linkId)?.name ?? "近く"}</Wrap>
                 </button>
               )}
               {!memoOpen && (
                 <button type="button" onClick={() => setMemoOpen(true)} className="ml-auto shrink-0 underline decoration-sky decoration-4 underline-offset-2">
-                  ＋ メモ
+                  メモを書く
                 </button>
               )}
             </div>
@@ -543,7 +549,7 @@ function Visit() {
                 ほかのにする
               </SketchButton>
               <SketchButton size="lg" className="flex-1" onClick={() => void makeSticker()} disabled={busy}>
-                {busy ? "貼ってる…" : "シールにする"}
+                {busy ? "作ってる…" : "シールにする"}
               </SketchButton>
             </div>
           </div>
@@ -566,7 +572,7 @@ function Visit() {
                 ここに置いていく
               </SketchButton>
             ) : (
-              <p className="mb-1 text-[14px] text-ink-soft">置いていけるのは、その場所の近くにいるとき。</p>
+              <p className="mb-1 text-[14px] text-ink-soft">{placedHere >= MAX_PLACED_PER_SPOT ? `ひとつの場所に置けるのは${MAX_PLACED_PER_SPOT}枚まで。` : "置いていけるのは、その場所の近くにいるとき。"}</p>
             )}
             <div className="mt-2 flex gap-2">
               <SketchButton variant="sub" className="flex-1" onClick={() => void share("sent")} disabled={busy}>
@@ -588,7 +594,7 @@ function Visit() {
             <Michibi
               mood={outcome === "sent" ? "flap" : outcome === "placed" ? "perch" : "happy"}
               size={72}
-              says={outcome === "sent" ? (delivered ? MICHIBI_LINES.sent : "届け先、探してるところ。") : outcome === "placed" ? MICHIBI_LINES.placed : "ボックスに入れといた。"}
+              says={outcome === "sent" ? (delivered ? MICHIBI_LINES.sent : MICHIBI_LINES.sendWaiting) : outcome === "placed" ? MICHIBI_LINES.placed : MICHIBI_LINES.kept}
               above
               className="mt-3"
               animate="none"
@@ -598,16 +604,8 @@ function Visit() {
             <SketchLinkButton href="/" variant="sub" className="flex-1">
               ほかの場所へ
             </SketchLinkButton>
-            <SketchButton
-              className="flex-1"
-              onClick={() => {
-                setSaved(null);
-                setSticker(null);
-                setMemo("");
-                void load();
-                cameraRef.current?.click();
-              }}
-            >
+            {/* Only opens the camera: the screen changes once a photo actually comes back. */}
+            <SketchButton className="flex-1" onClick={() => cameraRef.current?.click()}>
               もう1枚撮る
             </SketchButton>
           </div>
@@ -624,9 +622,9 @@ function Visit() {
                   setLinkId(p.placeId);
                   setPlaceOpen(false);
                 }}
-                className={`w-full truncate rounded-[12px_15px_11px_14px] px-4 py-3 text-left text-[16px] ${linkId === p.placeId ? "bg-butter font-bold" : "bg-card"}`}
+                className={`w-full rounded-[12px_15px_11px_14px] px-4 py-3 text-left text-[16px] ${linkId === p.placeId ? "bg-butter font-bold" : "bg-card"}`}
               >
-                {p.name}
+                <Wrap>{p.name}</Wrap>
               </button>
             </li>
           ))}

@@ -35,13 +35,13 @@ export async function POST(req: Request) {
     });
     if (!res.ok) {
       console.error("[cutout]", res.status, await res.text().catch(() => ""));
-      return jsonError("upload_failed", "切り抜きに失敗しました", 502);
+      return jsonError("upload_failed", "うまく切り抜けなかった。", 502);
     }
     return new Response(await res.arrayBuffer(), {
       headers: { "Content-Type": "image/png", "Cache-Control": "no-store" },
     });
   } catch (err) {
     console.error("[cutout]", err);
-    return jsonError("upload_failed", "切り抜きに失敗しました", 502);
+    return jsonError("upload_failed", "うまく切り抜けなかった。", 502);
   }
 }

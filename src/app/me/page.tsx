@@ -13,9 +13,9 @@ import { Wrap } from "@/components/Wrap";
 
 type Tab = "saved" | "visited" | "placed" | "sent";
 const TABS: { value: Tab; label: string; icon: string; note: string }[] = [
-  { value: "saved", label: "気になる", icon: "/ui/i-star.png", note: "星をつけたスポット" },
-  { value: "visited", label: "行った", icon: "/ui/n-map.png", note: "着いたスポット" },
-  { value: "placed", label: "置いた", icon: "/ui/i-bookmark.png", note: "スポットに置いてきたシール" },
+  { value: "saved", label: "気になる", icon: "/ui/i-star.png", note: "「気になる」を押した場所" },
+  { value: "visited", label: "行った", icon: "/ui/n-map.png", note: "行った場所" },
+  { value: "placed", label: "置いた", icon: "/ui/i-bookmark.png", note: "置いてきたシール" },
   { value: "sent", label: "送った", icon: "/ui/i-send.png", note: "誰かに送ったシール" },
 ];
 
@@ -28,15 +28,16 @@ export default function MyPage() {
     api
       .history()
       .then(setData)
-      .catch((e) => setError(e instanceof ApiClientError ? e.message : "読み込めませんでした"));
+      .catch((e) => setError(e instanceof ApiClientError ? e.message : "読み込めなかった。"));
   }, []);
 
   const list = data && tab !== "visited" && tab !== "saved" ? data[tab] : [];
 
   return (
-    <main className="paper min-h-[calc(100dvh-76px)] px-4 pt-[max(12px,env(safe-area-inset-top))] pb-10">
-      <header className="flex items-center gap-3">
-        <h1 className="font-hand text-[26px]">マイページ</h1>
+    // One screen: the header and tiles stay, only the list scrolls inside.
+    <main className="paper flex h-[calc(100dvh-76px-env(safe-area-inset-bottom))] flex-col overflow-hidden px-4 pt-[max(12px,env(safe-area-inset-top))]">
+      <header className="flex shrink-0 items-center gap-3">
+        <h1 className="font-hand text-[28px]">マイページ</h1>
         <Link href="/guide" className="ml-auto flex flex-col items-center gap-0.5 text-[14px] transition-transform active:translate-y-0.5">
           <img src="/ui/n-compass.png" alt="" className="h-9 w-auto" draggable={false} />
           <span className="relative isolate px-1">
@@ -46,7 +47,7 @@ export default function MyPage() {
         </Link>
       </header>
 
-      <div role="tablist" aria-label="マイページの一覧" className="mt-4 grid grid-cols-4 gap-2">
+      <div role="tablist" aria-label="マイページの一覧" className="mt-4 grid shrink-0 grid-cols-4 gap-2">
         {TABS.map((t) => {
           const active = tab === t.value;
           const count = data ? data[t.value].length : null;
@@ -63,12 +64,13 @@ export default function MyPage() {
             >
               <img src={t.icon} alt="" className={`h-6 w-auto ${active ? "" : "opacity-60"}`} draggable={false} />
               <span className={`text-[14px] leading-tight whitespace-nowrap ${active ? "font-bold" : "text-ink-soft"}`}>{t.label}</span>
-              <span className="text-[14px] leading-tight text-ink-mute tabular-nums">{count ?? "–"}</span>
+              <span className="text-[14px] leading-tight text-ink-mute tabular-nums">{count ?? ""}</span>
             </button>
           );
         })}
       </div>
-      <p className="mt-2 text-[14px] text-ink-soft">{TABS.find((t) => t.value === tab)?.note}</p>
+      <p className="mt-2 shrink-0 text-[14px] text-ink-soft">{TABS.find((t) => t.value === tab)?.note}</p>
+      <div className="hide-scrollbar -mx-4 min-h-0 flex-1 overflow-y-auto px-4 pb-4">
 
       {error && <p className="mt-6 text-sm font-bold">{error}</p>}
       {!data && !error && (
@@ -79,12 +81,12 @@ export default function MyPage() {
 
       {data && tab === "visited" && (
         <ul className="mt-4 flex flex-col gap-3">
-          {data.visited.length === 0 && <p className="text-sm text-ink-soft">まだどこにも行っていません。</p>}
+          {data.visited.length === 0 && <p className="text-sm text-ink-soft">まだどこにも行ってない。</p>}
           {data.visited.map((v) => (
             <li key={v.spotId}>
               <Link href={`/spot/${encodeURIComponent(v.spotId)}`} className="block">
                 <SketchSection tone="white" seed={`visited-${v.spotId}`}>
-                  <p className="font-bold">{v.name}</p>
+                  <p className="font-bold"><Wrap>{v.name}</Wrap></p>
                   {v.copy && <p className="mt-0.5 text-sm text-ink-soft"><Wrap>{v.copy}</Wrap></p>}
                 </SketchSection>
               </Link>
@@ -94,7 +96,7 @@ export default function MyPage() {
       )}
       {data && tab === "saved" && (
         <ul className="mt-4 flex flex-col gap-3">
-          {data.saved.length === 0 && <p className="text-sm text-ink-soft">スポットの星を押すと、ここに集まります。</p>}
+          {data.saved.length === 0 && <p className="text-sm text-ink-soft">「気になる」を押すと、ここに集まるよ。</p>}
           {data.saved.map((v) => (
             <li key={v.spotId}>
               <Link href={`/spot/${encodeURIComponent(v.spotId)}`} className="block">
@@ -102,8 +104,8 @@ export default function MyPage() {
                   <div className="flex items-center gap-3">
                     <img src="/ui/i-star.png" alt="" className="h-5 w-auto shrink-0" draggable={false} />
                     <div className="min-w-0">
-                      <p className="font-bold">{v.copy ?? "なんか気になる。"}</p>
-                      <p className="mt-0.5 text-sm text-ink-soft">{v.name ?? "まだ行っていない場所"}</p>
+                      <p className="font-bold"><Wrap>{v.copy ?? "なんか気になる。"}</Wrap></p>
+                      <p className="mt-0.5 text-sm text-ink-soft"><Wrap>{v.name ?? "まだ行ってない場所"}</Wrap></p>
                     </div>
                   </div>
                 </SketchSection>
@@ -114,9 +116,10 @@ export default function MyPage() {
       )}
       {data && tab !== "visited" && tab !== "saved" && (
         <div className="mt-6">
-          {list.length === 0 ? <p className="text-sm text-ink-soft">まだありません。</p> : <StickerGrid items={list} />}
+          {list.length === 0 ? <p className="text-sm text-ink-soft">まだない。</p> : <StickerGrid items={list} />}
         </div>
       )}
+      </div>
     </main>
   );
 }

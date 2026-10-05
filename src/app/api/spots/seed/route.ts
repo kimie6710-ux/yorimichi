@@ -22,6 +22,6 @@ export async function POST(req: Request) {
     return Response.json({ spots });
   } catch (err) {
     console.error("[spots:seed]", err);
-    return jsonError("ai_failed", "ことばを置けませんでした", 502);
+    return jsonError("ai_failed", "ことばを置けなかった。", 502);
   }
 }

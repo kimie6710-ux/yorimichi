@@ -15,14 +15,17 @@ import type {
   SpotDetail,
   Sticker,
 } from "@/lib/types";
+import { LABEL_MAX, ON_SITE_METERS } from "@/lib/config";
 import { demoNeighbours, isOwnerMode } from "./identity";
 import { getStore, type SpotRow, type StickerRow, type TransferRow } from "./repo";
 
 // ─────────────────────────────────────────────
 // Rules (kept here so every store behaves the same)
 // ─────────────────────────────────────────────
-export const ON_SITE_METERS = 150;
+/** After walking there (GPS-checked), the place stays "here" for a day. */
 const ON_SITE_AFTER_VISIT_MS = 24 * 60 * 60 * 1000;
+/** A sticker shot from the 撮る tab can belong to a place this close (the nearest few around you). */
+export const CAPTURE_NEAR_METERS = 800;
 const MAX_PLACED_PER_SPOT = 3;
 const MAX_SENDS_PER_DAY = 3;
 const ACTIVE_WITHIN_MS = 14 * 24 * 60 * 60 * 1000;
@@ -165,7 +168,7 @@ export async function toMapSpots(places: Place[], userId: string | null, reveal:
   // Your newest sticker at each place, for the map marker.
   const mineBy = new Map<string, StickerRow>();
   for (const s of stickers) {
-    if (s.owner_id !== userId) continue;
+    if (s.owner_id !== userId || s.status === "sent") continue;
     const cur = mineBy.get(s.spot_id);
     if (!cur || cur.created_at < s.created_at) mineBy.set(s.spot_id, s);
   }
@@ -238,11 +241,12 @@ export async function seedCopies(places: Place[]): Promise<Map<string, SpotCopy>
 async function isOnSite(userId: string | null, spot: SpotRow, at: LatLng | null): Promise<boolean> {
   if (at && distanceMeters(at, { latitude: spot.lat, longitude: spot.lng }) <= ON_SITE_METERS) return true;
   if (!userId) return false;
-  const recent = await getStore().count("visits", { where: { user_id: userId, spot_id: spot.id }, gte: { created_at: ago(ON_SITE_AFTER_VISIT_MS) } });
+  // Only a visit made on the spot (GPS) keeps it "here" afterwards.
+  const recent = await getStore().count("visits", { where: { user_id: userId, spot_id: spot.id, method: "gps" }, gte: { created_at: ago(ON_SITE_AFTER_VISIT_MS) } });
   return recent > 0;
 }
 
-export async function spotDetail(spotId: string, place: Place, userId: string | null, at: LatLng | null): Promise<SpotDetail> {
+export async function spotDetail(spotId: string, place: Place, userId: string | null, at: LatLng | null, countViews = true): Promise<SpotDetail> {
   const store = getStore();
   const row = (await store.get("spots", spotId)) ?? baseRow(place);
   const onSite = await isOnSite(userId, row, at);
@@ -251,7 +255,7 @@ export async function spotDetail(spotId: string, place: Place, userId: string | 
   const placedRows = found.filter((s) => s.status === "placed");
   const urls = onSite ? await store.fileUrls(placedRows.map((s) => s.image_path)) : new Map<string, string>();
 
-  if (onSite && userId) {
+  if (onSite && userId && countViews) {
     // Count one view per person, for the "your sticker was seen" note.
     const others = placedRows.filter((s) => s.owner_id !== userId);
     if (others.length) {
@@ -288,12 +292,21 @@ export async function toggleSave(userId: string, spotId: string, save: boolean):
   if (!save) for (const r of rows) await store.remove("spot_saves", r.id);
 }
 
+/** "着いた": only counts when you are really there. One record a day per place is enough. */
 export async function recordVisit(userId: string, spotId: string, at: LatLng | null): Promise<void> {
   const store = getStore();
   const spot = await store.get("spots", spotId);
-  if (!spot) throw new RuleError("スポットが見つかりません", 404);
+  if (!spot) throw new RuleError("見つからなかった。", 404);
   const near = at ? distanceMeters(at, { latitude: spot.lat, longitude: spot.lng }) <= ON_SITE_METERS : false;
-  await store.insert("visits", [{ id: uuid(), user_id: userId, spot_id: spotId, method: near ? "gps" : "manual", created_at: now() }]);
+  if (!near) throw new RuleError("まだ着いてないみたい。", 403);
+  await addVisit(userId, spotId, "gps");
+}
+
+async function addVisit(userId: string, spotId: string, method: "gps" | "capture"): Promise<void> {
+  const store = getStore();
+  const recent = await store.count("visits", { where: { user_id: userId, spot_id: spotId, method }, gte: { created_at: ago(ON_SITE_AFTER_VISIT_MS) } });
+  if (recent > 0) return;
+  await store.insert("visits", [{ id: uuid(), user_id: userId, spot_id: spotId, method, created_at: now() }]);
 }
 
 /** Rebuild a Place from what we stored (used for spots reached from a sticker). */
@@ -383,12 +396,16 @@ export async function createStickers(input: {
   memo: string;
   photo: Blob | null;
   items: { blob: Blob; label: string; rotation: number }[];
+  /** Where you shot it. A sticker only belongs to a place near you. */
+  at: LatLng | null;
 }): Promise<Sticker[]> {
   const store = getStore();
   const spot = await store.get("spots", input.spotId);
-  if (!spot) throw new RuleError("スポットが見つかりません", 404);
+  if (!spot) throw new RuleError("見つからなかった。", 404);
+  const away = input.at ? distanceMeters(input.at, { latitude: spot.lat, longitude: spot.lng }) : Infinity;
+  if (away > CAPTURE_NEAR_METERS) throw new RuleError("その場所は、ちょっと遠すぎる。", 403);
   const today = await store.count("stickers", { where: { creator_id: input.userId }, gte: { created_at: ago(24 * 60 * 60 * 1000) } });
-  if (today + input.items.length > MAX_STICKERS_PER_DAY) throw new RuleError(`シールにできるのは1日${MAX_STICKERS_PER_DAY}枚までです`, 429);
+  if (today + input.items.length > MAX_STICKERS_PER_DAY) throw new RuleError(`シールにできるのは1日${MAX_STICKERS_PER_DAY}枚まで。`, 429);
   const obsId = uuid();
   const dir = `${input.userId}/${obsId}`;
   let photoPath: string | null = null;
@@ -422,6 +439,8 @@ export async function createStickers(input: {
     });
   }
   await store.insert("stickers", rows);
+  // Finding something somewhere means you've been there: the place opens up.
+  await addVisit(input.userId, spot.id, away <= ON_SITE_METERS ? "gps" : "capture");
   return toStickers(rows, input.userId);
 }
 
@@ -432,7 +451,7 @@ export async function listMyStickers(userId: string): Promise<Sticker[]> {
 
 async function ownSticker(userId: string, id: string): Promise<StickerRow> {
   const row = await getStore().get("stickers", id);
-  if (!row || row.owner_id !== userId) throw new RuleError("シールが見つかりません", 404);
+  if (!row || row.owner_id !== userId) throw new RuleError("シールが見つからなかった。", 404);
   return row;
 }
 
@@ -444,12 +463,12 @@ export async function updateSticker(
   const row = await ownSticker(userId, id);
   const next: Partial<StickerRow> = {};
   if (patch.memo !== undefined) {
-    if (row.creator_id !== userId) throw new RuleError("届いたシールのメモは変えられません", 403);
+    if (row.creator_id !== userId) throw new RuleError("届いたシールのメモは変えられない。", 403);
     next.memo = patch.memo;
   }
   if (patch.label !== undefined) {
     // Renaming also teaches the recogniser (its memory follows the sticker's current name).
-    if (row.creator_id !== userId) throw new RuleError("届いたシールの名前は変えられません", 403);
+    if (row.creator_id !== userId) throw new RuleError("届いたシールの名前は変えられない。", 403);
     next.label = patch.label;
   }
   await getStore().update("stickers", id, next);
@@ -475,13 +494,13 @@ export async function saveBookPages(userId: string, pages: { idx: number; bg: st
 export async function placeSticker(userId: string, id: string, at: LatLng | null): Promise<Sticker> {
   const store = getStore();
   const row = await ownSticker(userId, id);
-  if (row.origin !== "found") throw new RuleError("置けるのは、自分が見つけたシールだけです");
-  if (row.status !== "kept") throw new RuleError("このシールはもう手もとにありません");
+  if (row.origin !== "found") throw new RuleError("置けるのは、自分で見つけたシールだけ。");
+  if (row.status !== "kept") throw new RuleError("このシールは、もう手もとにない。");
   const spot = await store.get("spots", row.spot_id);
-  if (!spot) throw new RuleError("スポットが見つかりません", 404);
-  if (!(await isOnSite(userId, spot, at))) throw new RuleError("この場所の近くにいるときだけ置けます", 403);
+  if (!spot) throw new RuleError("見つからなかった。", 404);
+  if (!(await isOnSite(userId, spot, at))) throw new RuleError("その場所の近くにいるときだけ置ける。", 403);
   const already = await store.count("stickers", { where: { owner_id: userId, spot_id: spot.id, status: "placed" } });
-  if (already >= MAX_PLACED_PER_SPOT) throw new RuleError(`ひとつの場所に置けるのは${MAX_PLACED_PER_SPOT}枚までです`);
+  if (already >= MAX_PLACED_PER_SPOT) throw new RuleError(`ひとつの場所に置けるのは${MAX_PLACED_PER_SPOT}枚まで。`);
   const placedAt = now();
   await store.update("stickers", id, { status: "placed", placed_at: placedAt });
   return (await toStickers([{ ...row, status: "placed", placed_at: placedAt }], userId))[0];
@@ -559,10 +578,10 @@ async function pickReturnFor(userId: string): Promise<StickerRow | null> {
 export async function sendSticker(userId: string, id: string): Promise<{ delivered: boolean; sticker: Sticker }> {
   const store = getStore();
   const row = await ownSticker(userId, id);
-  if (row.origin !== "found") throw new RuleError("送れるのは、自分が見つけたシールだけです");
-  if (row.status !== "kept") throw new RuleError("このシールはもう手もとにありません");
+  if (row.origin !== "found") throw new RuleError("送れるのは、自分で見つけたシールだけ。");
+  if (row.status !== "kept") throw new RuleError("このシールは、もう手もとにない。");
   const today = await store.count("sticker_transfers", { where: { sender_id: userId, kind: "send" }, gte: { created_at: ago(24 * 60 * 60 * 1000) } });
-  if (today >= MAX_SENDS_PER_DAY) throw new RuleError(`送り出せるのは1日${MAX_SENDS_PER_DAY}枚までです`, 429);
+  if (today >= MAX_SENDS_PER_DAY) throw new RuleError(`送れるのは1日${MAX_SENDS_PER_DAY}枚まで。`, 429);
 
   const transfer: TransferRow = {
     id: uuid(),
@@ -636,7 +655,7 @@ export async function inbox(userId: string): Promise<InboxItem[]> {
 export async function openInboxItem(userId: string, id: string): Promise<void> {
   const store = getStore();
   const t = await store.get("sticker_transfers", id);
-  if (!t || t.receiver_id !== userId) throw new RuleError("見つかりません", 404);
+  if (!t || t.receiver_id !== userId) throw new RuleError("見つからなかった。", 404);
   if (!t.opened_at) await store.update("sticker_transfers", id, { status: "opened", opened_at: now() });
 }
 
@@ -689,7 +708,7 @@ export async function listDecos(userId: string) {
 
 export async function addDeco(userId: string, kind: string, pos: Pos) {
   const store = getStore();
-  if ((await store.count("book_decos", { where: { user_id: userId } })) >= MAX_DECOS) throw new RuleError("これ以上は貼れません");
+  if ((await store.count("book_decos", { where: { user_id: userId } })) >= MAX_DECOS) throw new RuleError("これ以上は貼れない。");
   // Only your own stickers can be stuck in your notebook.
   if (kind.startsWith("sticker:")) await ownSticker(userId, kind.slice(8));
   const row = { id: uuid(), user_id: userId, kind, page: pos.page, x: pos.x, y: pos.y, rot: pos.rot, created_at: now() };
@@ -699,7 +718,7 @@ export async function addDeco(userId: string, kind: string, pos: Pos) {
 
 async function ownDeco(userId: string, id: string) {
   const row = await getStore().get("book_decos", id);
-  if (!row || row.user_id !== userId) throw new RuleError("見つかりません", 404);
+  if (!row || row.user_id !== userId) throw new RuleError("見つからなかった。", 404);
   return row;
 }
 
@@ -732,11 +751,11 @@ export async function listVisionMemory(userId: string) {
 }
 
 export async function addVisionMemory(userId: string, input: { stickerId: string | null; label: string; emb: string; scale: number }) {
-  const label = input.label.trim().slice(0, 12);
+  const label = input.label.trim().slice(0, LABEL_MAX);
   if (!label || label === GENERIC_LABEL) return;
   if (input.stickerId) {
     const s = await getStore().get("stickers", input.stickerId);
-    if (!s || s.owner_id !== userId) throw new RuleError("見つかりません", 404);
+    if (!s || s.owner_id !== userId) throw new RuleError("見つからなかった。", 404);
   }
   const store = getStore();
   await store.insert("vision_memory", [

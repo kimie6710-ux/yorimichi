@@ -98,12 +98,12 @@ export function StickerBox({ stickers, stuck, onPick }: { stickers: Sticker[]; s
       </div>
 
       {groups.length === 0 ? (
-        <p className="pt-6 pb-4 text-center text-[14px] text-ink-soft">{stickers.length ? "見つからなかった。" : "撮ったシールが、ここに入ります。"}</p>
+        <p className="pt-6 pb-4 text-center text-[14px] text-ink-soft">{stickers.length ? "見つからなかった。" : "撮ったシールが、ここに入るよ。"}</p>
       ) : (
         groups.map(([title, list]) => (
           <section key={title} className="mt-3">
-            <h3 className="sticky top-0 z-10 -mx-1 truncate bg-paper-deep px-1 py-1 text-[14px] font-bold text-ink-soft">
-              {title}
+            <h3 className="sticky top-0 z-10 -mx-1 bg-paper-deep px-1 py-1 text-[14px] leading-snug font-bold text-ink-soft">
+              <Wrap>{title}</Wrap>
               <span className="ml-1.5 font-normal text-ink-mute tabular-nums">{list.length}</span>
             </h3>
             <ul className="grid grid-cols-3 gap-x-3 gap-y-3 pt-1">

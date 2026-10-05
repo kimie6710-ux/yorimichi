@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Noto_Sans_JP } from "next/font/google";
 
 import { BottomNav } from "@/components/BottomNav";
+import { NavTracker } from "@/components/NavTracker";
 import { APP_NAME, APP_TAGLINE } from "@/lib/config";
 import { SearchProvider } from "@/lib/store/search-context";
 import "./globals.css";
@@ -35,6 +36,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="ja" className={`${noto.variable} h-full antialiased`}>
       <body className="min-h-dvh bg-paper-deep">
+        <NavTracker />
         <SearchProvider>
           {/* Phone-first: on wider screens the app sits in a phone-width column. */}
           <div className="relative mx-auto min-h-dvh max-w-[480px] bg-paper pb-[calc(76px+env(safe-area-inset-bottom))] sm:shadow-lift">

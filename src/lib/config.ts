@@ -56,6 +56,10 @@ export const SERVICE_AREAS: ServiceArea[] = [
 ];
 
 export const SEARCH_RADIUS_METERS = 800;
+/** "You're there": close enough to see what's left here, leave a sticker, count a visit. Same on every screen. */
+export const ON_SITE_METERS = 150;
+/** Longest sticker name, everywhere (making, renaming, remembering). */
+export const LABEL_MAX = 12;
 
 /**
  * For now the map stays inside 町田市: you can't drag or zoom out past it.

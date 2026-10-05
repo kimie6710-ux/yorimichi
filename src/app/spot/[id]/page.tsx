@@ -28,14 +28,19 @@ export default function SpotPage() {
   const [detail, setDetail] = useState<SpotDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Location changes every few meters: load once, and again when it first becomes known
+  // (opened directly / reloaded, the position arrives a moment after the page).
+  const hasLocation = !!currentLocation;
+  const loadId = useRef(0);
   const load = useCallback(() => {
+    // Only the newest answer counts (the one without a position may come back last).
+    const n = ++loadId.current;
     api
       .spot(id, currentLocation)
-      .then(setDetail)
-      .catch((e) => setError(e instanceof ApiClientError ? e.message : "読み込めませんでした"));
-    // Location changes every few meters; reload only when the spot changes.
+      .then((d) => n === loadId.current && setDetail(d))
+      .catch((e) => n === loadId.current && setError(e instanceof ApiClientError ? e.message : "読み込めなかった。"));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [id, hasLocation]);
   useEffect(load, [load]);
 
   const cameraRef = useRef<HTMLInputElement>(null);
@@ -50,11 +55,14 @@ export default function SpotPage() {
     warmUpVision();
     if (visitedNow) return;
     patchSpot(id, { visited: true });
-    void api.visit(id, currentLocation).catch(() => undefined);
+    // Not recorded after all (e.g. only "here" from an earlier visit): put the map back.
+    api.visit(id, currentLocation).catch(() => patchSpot(id, { visited: false }));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once on arrival, not per GPS tick
   }, [onSiteNow, visitedNow, id]);
 
-  function onPhoto(file: File | undefined) {
+  function onPhoto(input: HTMLInputElement) {
+    const file = input.files?.[0];
+    input.value = ""; // picking the same photo again still counts
     if (!file) return;
     handPhoto(file);
     router.push(`/visit/${encodeURIComponent(id)}?step=explore`);
@@ -64,7 +72,7 @@ export default function SpotPage() {
   if (error) {
     return (
       <main className="h-[calc(100dvh-76px)]">
-        <MessageView mood="sleepy" says={error} action={{ label: "マップへ", href: "/" }} />
+        <MessageView mood="sleepy" says={error} action={{ label: "地図へ", href: "/" }} />
       </main>
     );
   }
@@ -95,7 +103,8 @@ export default function SpotPage() {
   const away = here ? distanceMeters(here, spot.place.location) : null;
   const bearing = here ? bearingDegrees(here, spot.place.location) : 0;
   // What you can see here: others' finds (once you're here) and your own.
-  const finds = [...(onSite ? others : []), ...mine.map((m) => ({ id: m.id, imageUrl: m.imageUrl, label: m.label, rotation: m.rotation, memo: m.memo, mine: true }))];
+  // Sent ones left your hands: they're not "found here" any more.
+  const finds = [...(onSite ? others : []), ...mine.filter((m) => m.status !== "sent").map((m) => ({ id: m.id, imageUrl: m.imageUrl, label: m.label, rotation: m.rotation, memo: m.memo, mine: true }))];
 
   // One screen: the line on top, what's been found in the middle, the way to go at the bottom.
   return (
@@ -109,9 +118,9 @@ export default function SpotPage() {
       </header>
 
       <SketchCard tone="butter" pad="lg" seed={`copy-${id}`} className="mt-3 shrink-0">
-        <p className="font-hand text-[26px] leading-snug whitespace-pre-line"><Wrap>{spot.copy?.copy ?? "なんか気になる。"}</Wrap></p>
+        <p className="font-hand text-[28px] leading-snug whitespace-pre-line"><Wrap>{spot.copy?.copy ?? "なんか気になる。"}</Wrap></p>
         {away !== null && !known && (
-          <p className="mt-2 flex items-center gap-1.5 text-[15px] text-ink-soft">
+          <p className="mt-2 flex items-center gap-1.5 text-[16px] text-ink-soft">
             <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden style={{ transform: `rotate(${bearing}deg)` }}>
               <path d="M12 3l6 16-6-4-6 4z" fill="var(--color-sky-deep)" />
             </svg>
@@ -129,7 +138,7 @@ export default function SpotPage() {
         )}
         {finds.length > 0 ? (
           <>
-            <p className="shrink-0 text-[15px]">{others.length > 0 && onSite ? MICHIBI_LINES.somebodyWasHere : "あなたは、ここでこれを見つけた。"}</p>
+            <p className="shrink-0 text-[16px]">{others.length > 0 && onSite ? MICHIBI_LINES.somebodyWasHere : "あなたは、ここでこれを見つけた。"}</p>
             <div className="flex min-h-0 flex-1 items-center">
               <FindsRow items={finds} className="w-full" />
             </div>
@@ -141,19 +150,19 @@ export default function SpotPage() {
                 <span key={i} className="h-16 w-16 rounded-[44%_52%_47%_55%] bg-ink/15 blur-[6px]" style={{ transform: `rotate(${i * 17 - 10}deg)` }} />
               ))}
             </div>
-            <p className="mt-3 text-[15px] text-ink-soft">誰かが、ここに何かを置いています。着いたら見られます。</p>
+            <p className="mt-3 text-[16px] text-ink-soft">誰かが、何か置いていった。着いたら見られる。</p>
           </div>
         ) : (
-          <p className="mt-2 text-[15px] text-ink-soft">{spot.foundCount > 0 ? `これまでに${spot.foundCount}枚のシールが生まれています。` : "まだ誰も、ここで何も見つけていません。"}</p>
+          <p className="mt-2 text-[16px] text-ink-soft">{spot.foundCount > 0 ? `これまでに${spot.foundCount}枚のシールが生まれてる。` : "まだ誰も、なにも見つけてない。"}</p>
         )}
       </section>
 
       <div className="shrink-0 pt-2">
         {onSite ? (
           <>
-            <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => onPhoto(e.target.files?.[0])} />
-            <input ref={libraryRef} type="file" accept="image/jpeg,image/png,image/webp,image/heic" className="sr-only" onChange={(e) => onPhoto(e.target.files?.[0])} />
-            <p className="mb-2 text-center text-[17px]">{others.length > 0 ? "あなたは、何を見つける？" : "気になったもの、ある？"}</p>
+            <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => onPhoto(e.currentTarget)} />
+            <input ref={libraryRef} type="file" accept="image/jpeg,image/png,image/webp,image/heic" className="sr-only" onChange={(e) => onPhoto(e.currentTarget)} />
+            <p className="mb-2 text-center text-[18px]">{others.length > 0 ? "あなたは、何を見つける？" : "気になったもの、ある？"}</p>
             <SketchButton size="lg" block onClick={() => cameraRef.current?.click()}>
               ここで撮る
             </SketchButton>

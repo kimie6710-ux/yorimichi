@@ -63,9 +63,12 @@ export function StartScreen({ onStart }: { onStart: () => void }) {
       <div className="relative h-[120px]">
         <div className="absolute bottom-2" style={{ left: `${x}%` }}>
           {says && (
-            <SketchBubble side="left" className="animate-peek absolute bottom-[calc(100%-6px)] left-[35%] w-max max-w-[170px]">
-              {says}
-            </SketchBubble>
+            // Anchored at the bird's centre line: the tail's tip points right at it.
+            <div className="absolute bottom-[calc(100%-6px)] left-1/2 flex w-0">
+              <SketchBubble key={says} side="left" tipAtStart className="animate-peek shrink-0 max-w-[170px]">
+                {says}
+              </SketchBubble>
+            </div>
           )}
           <img
             src={michibiSrc(pose, "md")}

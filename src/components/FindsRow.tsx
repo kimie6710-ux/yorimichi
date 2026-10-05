@@ -37,8 +37,8 @@ export function FindsRow({ items, className = "", size = "max-h-[20dvh]" }: { it
         {open && (
           <div className="flex flex-col items-center px-6 pt-2 pb-8 text-center">
             <StickerView src={open.imageUrl} alt={open.label} rotation={open.rotation} lift className="max-h-[40dvh] w-auto" />
-            <p className="mt-4 font-hand text-[24px]"><Wrap>{open.label}</Wrap></p>
-            {open.memo && <p className="mt-2 font-hand text-[17px] leading-relaxed text-ink-soft"><Wrap>{`「${open.memo}」`}</Wrap></p>}
+            <p className="mt-4 font-hand text-[22px]"><Wrap>{open.label}</Wrap></p>
+            {open.memo && <p className="mt-2 font-hand text-[18px] leading-relaxed text-ink-soft"><Wrap>{`「${open.memo}」`}</Wrap></p>}
             <p className="mt-3 text-[14px] text-ink-mute">{open.mine ? "あなたが見つけた" : "知らない誰かが見つけた"}</p>
           </div>
         )}

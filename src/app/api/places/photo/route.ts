@@ -28,6 +28,6 @@ export async function GET(req: Request) {
     });
   } catch (err) {
     console.error("[photo]", err);
-    return jsonError("places_failed", "写真を取得できませんでした", 502);
+    return jsonError("places_failed", "写真を読み込めなかった。", 502);
   }
 }

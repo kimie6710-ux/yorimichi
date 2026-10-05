@@ -310,9 +310,9 @@ export function Notebook({
           <span className={`book-${bgOf(page)} inline-block h-5 w-5 rounded-[4px_6px_4px_5px] shadow-[0_1px_2px_rgb(60_50_30/0.25)]`} aria-hidden />
           紙
         </SketchButton>
-        <SketchButton variant="primary" size="sm" onClick={() => setBoxOpen(true)} className="relative !min-h-10 !gap-1 !px-2 whitespace-nowrap" aria-label={`シールを貼る（まだ貼っていないシール${unstuck}枚）`}>
+        <SketchButton variant="primary" size="sm" onClick={() => setBoxOpen(true)} className="relative !min-h-10 !gap-1 !px-2 whitespace-nowrap" aria-label={`ボックスからシールを貼る（まだ貼ってないシール${unstuck}枚）`}>
           <img src="/ui/n-cards.png" alt="" className="h-5 w-auto" />
-          シール
+          ボックス
           {unstuck > 0 && (
             <span className="absolute -top-1.5 -right-1.5 min-w-5 rounded-full bg-ink px-1 text-center text-[14px] leading-5 font-bold text-white tabular-nums">{unstuck}</span>
           )}

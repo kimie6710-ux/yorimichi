@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useRef, useCallback, useEffect, useState } from "react";
 
 import { BirdStroll } from "@/components/BirdStroll";
 import { Michibi } from "@/components/Michibi";
@@ -29,7 +29,7 @@ export default function NotebookPage() {
         setPages(p.pages);
         setDecos(d.decos);
       })
-      .catch((e) => setError(e instanceof ApiClientError ? e.message : "読み込めませんでした"));
+      .catch((e) => setError(e instanceof ApiClientError ? e.message : "読み込めなかった。"));
   }, []);
 
   const changePages = useCallback((next: BookPage[]) => {
@@ -37,23 +37,40 @@ export default function NotebookPage() {
     void api.saveBookPages(next).catch(() => undefined);
   }, []);
 
+  // Moved or peeled off before the server gave it an id: remembered here, applied once it has one.
+  const pending = useRef(new Map<string, { pos?: BookPos; removed?: boolean }>());
+
   const addDeco = useCallback((kind: BookDecoKind, pos: BookPos) => {
     const temp = `tmp-${crypto.randomUUID()}`;
+    pending.current.set(temp, {});
     setDecos((list) => [...list, { id: temp, kind, pos }]);
     api
       .addDeco(kind, pos)
-      .then(({ deco }) => setDecos((list) => list.map((d) => (d.id === temp ? deco : d))))
-      .catch(() => setDecos((list) => list.filter((d) => d.id !== temp)));
+      .then(({ deco }) => {
+        const later = pending.current.get(temp) ?? {};
+        pending.current.delete(temp);
+        if (later.removed) return void api.removeDeco(deco.id).catch(() => undefined);
+        if (later.pos) void api.moveDeco(deco.id, later.pos).catch(() => undefined);
+        setDecos((list) => list.map((d) => (d.id === temp ? { ...deco, pos: later.pos ?? deco.pos } : d)));
+      })
+      .catch(() => {
+        pending.current.delete(temp);
+        setDecos((list) => list.filter((d) => d.id !== temp));
+      });
   }, []);
 
   const moveDeco = useCallback((id: string, pos: BookPos) => {
     setDecos((list) => list.map((d) => (d.id === id ? { ...d, pos } : d)));
-    if (!id.startsWith("tmp-")) void api.moveDeco(id, pos).catch(() => undefined);
+    const wait = pending.current.get(id);
+    if (wait) wait.pos = pos;
+    else void api.moveDeco(id, pos).catch(() => undefined);
   }, []);
 
   const removeDeco = useCallback((id: string) => {
     setDecos((list) => list.filter((d) => d.id !== id));
-    if (!id.startsWith("tmp-")) void api.removeDeco(id).catch(() => undefined);
+    const wait = pending.current.get(id);
+    if (wait) wait.removed = true;
+    else void api.removeDeco(id).catch(() => undefined);
   }, []);
 
   const open = items?.find((s) => s.id === openId) ?? null;
@@ -61,7 +78,7 @@ export default function NotebookPage() {
   return (
     <main className="paper flex h-[calc(100dvh-76px-env(safe-area-inset-bottom))] flex-col overflow-hidden px-3 pt-[max(10px,env(safe-area-inset-top))] pb-2">
       <div className="flex shrink-0 items-center gap-3 px-1">
-        <h1 className="font-hand text-[26px] tracking-wide">手帳</h1>
+        <h1 className="font-hand text-[28px] tracking-wide">手帳</h1>
         {items && items.length > 0 && <span className="text-sm text-ink-mute">{items.length}枚</span>}
         <TopBar className="ml-auto" />
       </div>

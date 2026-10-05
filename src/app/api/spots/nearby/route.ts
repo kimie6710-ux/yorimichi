@@ -48,7 +48,7 @@ export async function POST(req: Request) {
     } catch (err) {
       console.error("[spots:nearby]", err);
       const status = err instanceof PlacesApiError && err.status === 429 ? 429 : 502;
-      return jsonError("places_failed", "周辺スポットを取得できませんでした", status);
+      return jsonError("places_failed", "まわりの場所を読み込めなかった。", status);
     }
   }
 
@@ -65,11 +65,18 @@ export async function POST(req: Request) {
   const pending = diverse(all.filter((s) => !s.copy).map((s) => s.place), room);
 
   // Nearest places of any kind: a sticker shot anywhere ties to one of these.
-  const around = [...places]
-    .filter((p) => !p.types.some((t) => NOT_A_FIND.has(t)))
-    .sort((a, b) => a.distanceMeters - b.distanceMeters)
+  // Names stay hidden until you've been there (shooting there counts).
+  const around = [...all]
+    .filter((s) => !s.place.types.some((t) => NOT_A_FIND.has(t)))
+    .sort((a, b) => a.place.distanceMeters - b.place.distanceMeters)
     .slice(0, 6)
-    .map((p) => ({ placeId: p.placeId, name: p.name, category: p.primaryTypeLabel ?? null, distanceMeters: p.distanceMeters }));
+    .map((s) => ({
+      placeId: s.place.placeId,
+      name: s.visited ? s.place.name : (s.copy?.copy.replace(/\n/g, "") ?? s.place.primaryTypeLabel ?? "近くの場所"),
+      category: s.place.primaryTypeLabel ?? null,
+      distanceMeters: s.place.distanceMeters,
+      location: s.place.location,
+    }));
 
   return Response.json({ spots: withCopy, pending, around, total: places.length });
 }

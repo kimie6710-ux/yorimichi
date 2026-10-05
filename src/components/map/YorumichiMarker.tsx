@@ -42,7 +42,7 @@ export function YorumichiMarker({
             <path d="M5 12.5l4.2 4.3L19 7" stroke="var(--color-ink)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         ) : (
-          <span className={`relative font-hand font-bold ${selected ? "text-[20px]" : "text-[16px]"}`}>?</span>
+          <span className={`relative font-hand font-bold ${selected ? "text-[22px]" : "text-[16px]"}`}>?</span>
         )}
         {(marker.placed ?? 0) > 0 && (
           // Someone left something here: a tiny sticker peeking out from behind the badge.

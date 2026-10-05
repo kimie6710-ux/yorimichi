@@ -307,7 +307,7 @@ export function SketchBubble({
         }}
       />
       <div
-        className="font-hand text-[15px] leading-snug"
+        className="font-hand text-[16px] leading-snug"
         style={{ padding: `${EDGE_PAD}px ${EDGE_PAD + 4}px ${Math.round(b.foot * BUBBLE_SCALE) + EDGE_PAD}px ${EDGE_PAD + 4}px` }}
       >
         {typeof children === "string" ? <Wrap>{children}</Wrap> : children}

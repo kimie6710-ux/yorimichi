@@ -4,10 +4,11 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
-import { michibiSrc } from "@/lib/character";
+import { MICHIBI_LINES, michibiSrc } from "@/lib/character";
 import type { Sticker } from "@/lib/types";
 import { SketchBubble, SketchButton } from "./sketch";
 import { StickerView } from "./StickerView";
+import { Wrap } from "./Wrap";
 
 type Stage = "lift" | "fold" | "fly" | "arrived";
 
@@ -64,8 +65,12 @@ export function SendAnimation({ sticker, delivered = true, onClose }: { sticker:
         {stage === "arrived" && (
           <div className="absolute top-[130px] left-1/2 w-[70%] -translate-x-1/2 animate-peek text-center">
             <img src="/ui/i-mail.png" alt="" className="mx-auto h-12 w-auto" />
-            <p className="mt-4 font-hand text-[24px]">{delivered ? "どこかの誰かに届いたよ。" : "届け先を、探してるところ。"}</p>
-            <p className="mt-2 text-sm text-ink-soft">「{sticker.label}」が、知らない街の誰かの手帳へ。</p>
+            <p className="mt-4 font-hand text-[22px]">
+              <Wrap>{delivered ? MICHIBI_LINES.sent : MICHIBI_LINES.sendWaiting}</Wrap>
+            </p>
+            <p className="mt-2 text-sm text-ink-soft">
+              <Wrap>{`「${sticker.label}」が、知らない街の誰かのもとへ。`}</Wrap>
+            </p>
           </div>
         )}
 

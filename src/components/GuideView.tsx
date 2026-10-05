@@ -4,13 +4,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { michibiSrc } from "@/lib/character";
+import { ON_SITE_METERS } from "@/lib/config";
 import { bearingDegrees, distanceMeters, walkMinutes } from "@/lib/geo";
 import { useSearch } from "@/lib/store/search-context";
 import type { LatLng, MapSpot } from "@/lib/types";
 import { MapView } from "./map/MapView";
 import { SketchButton, SketchIconButton } from "./sketch";
+import { Wrap } from "./Wrap";
 
-const ARRIVE_METERS = 40;
+/** Arrived = the same "you're there" distance as everywhere else. */
+const ARRIVE_METERS = ON_SITE_METERS;
 /** Off the path by this much → ask for a new route. */
 const OFF_ROUTE_METERS = 45;
 /** Close enough to a corner to count it as passed. */
@@ -66,7 +69,7 @@ const clock = (minutes: number) => {
  * In-app walking guide: the route on the map, the next corner ("40m先 右へ"),
  * and the map following you. The real place stays a surprise until arrival.
  */
-export function GuideView({ spot, onArrive, onQuit }: { spot: MapSpot; onArrive: () => void; onQuit: () => void }) {
+export function GuideView({ spot, onArrive, onQuit, error = null }: { spot: MapSpot; onArrive: () => void; onQuit: () => void; error?: string | null }) {
   const { currentLocation, startTracking, stopTracking } = useSearch();
   const dest = spot.place.location;
   const [route, setRoute] = useState<LatLng[] | null>(null);
@@ -185,17 +188,17 @@ export function GuideView({ spot, onArrive, onQuit }: { spot: MapSpot; onArrive:
           <div className="min-w-0 flex-1">
             {near ? (
               <>
-                <p className="text-[26px] leading-tight font-bold">このへん</p>
-                <p className="truncate text-[15px] text-ink-soft">まわりを見てみて</p>
+                <p className="text-[28px] leading-tight font-bold">このへん</p>
+                <p className="text-[16px] text-ink-soft">まわりを見てみて</p>
               </>
             ) : remaining === null ? (
               <p className="text-[18px]">現在地を確認中…</p>
             ) : dir && toCorner !== null ? (
               <>
                 <p className="text-[28px] leading-none font-bold tabular-nums">{meters(toCorner)}</p>
-                <p className="mt-1 truncate text-[16px] text-ink-soft">
+                <p className="mt-1 text-[16px] leading-snug text-ink-soft">
                   {dir.word}
-                  {hint && <span className="text-ink-mute">・{hint}</span>}
+                  {hint && <span className="text-ink-mute">・<Wrap>{hint}</Wrap></span>}
                 </p>
               </>
             ) : (
@@ -237,17 +240,18 @@ export function GuideView({ spot, onArrive, onQuit }: { spot: MapSpot; onArrive:
       <div className="absolute inset-x-0 bottom-0 p-3">
         <div className="flex items-center gap-3 rounded-[20px_24px_18px_26px] bg-card p-3 pl-4 shadow-[0_-4px_18px_-8px_rgb(60_50_30/0.4)]">
           <div className="min-w-0 flex-1">
-            <p className="text-[24px] leading-tight font-bold tabular-nums" aria-live="polite">
+            <p className="text-[22px] leading-tight font-bold tabular-nums" aria-live="polite">
               {remaining === null ? "…" : near ? "到着" : `約${mins}分`}
             </p>
-            <p className="truncate text-[14px] text-ink-mute tabular-nums">
-              {remaining !== null && !near ? `あと${meters(remaining)}・${clock(mins ?? 0)}着` : copy}
+            <p className="text-[14px] leading-snug text-ink-mute tabular-nums">
+              {error ?? (remaining !== null && !near ? `あと${meters(remaining)}・${clock(mins ?? 0)}着` : <Wrap>{copy}</Wrap>)}
             </p>
           </div>
           <SketchButton variant="plain" size="sm" onClick={onQuit} className="shrink-0">
             やめる
           </SketchButton>
-          <SketchButton size="md" onClick={onArrive} className="shrink-0">
+          {/* Only when you're really there (the server checks the same distance). */}
+          <SketchButton size="md" onClick={onArrive} disabled={!near} className="shrink-0">
             着いた
           </SketchButton>
         </div>

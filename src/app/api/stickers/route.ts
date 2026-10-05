@@ -41,21 +41,22 @@ export async function POST(req: Request) {
 
     const files = meta.data.items.map((_, i) => form.get(`sticker_${i}`));
     if (files.some((f) => !(f instanceof File) || f.type !== "image/png" || f.size === 0 || f.size > MAX_IMAGE_BYTES)) {
-      return jsonError("invalid_input", "シール画像が不正です", 400);
+      return jsonError("invalid_input", "シールの画像がうまく読めなかった。", 400);
     }
     if ((await Promise.all(files.map((f) => sniff(f as File)))).some((k) => k !== "png")) {
-      return jsonError("invalid_input", "シール画像が不正です", 400);
+      return jsonError("invalid_input", "シールの画像がうまく読めなかった。", 400);
     }
     const photo = form.get("photo");
     const photoOk = photo instanceof File && photo.size > 0 && photo.size <= MAX_IMAGE_BYTES && (await sniff(photo)) !== null;
     const total = files.reduce((n, f) => n + (f as File).size, 0) + (photoOk ? (photo as File).size : 0);
-    if (total > MAX_TOTAL_BYTES) return jsonError("invalid_input", "画像が大きすぎます", 413);
+    if (total > MAX_TOTAL_BYTES) return jsonError("invalid_input", "画像が大きすぎた。", 413);
 
     const items = await createStickers({
       userId,
       spotId: meta.data.spotId,
       memo: meta.data.memo,
       photo: photoOk ? photo : null,
+      at: meta.data.at,
       items: meta.data.items.map((it, i) => ({ ...it, blob: files[i] as File })),
     });
     return Response.json({ items });
