@@ -128,7 +128,8 @@ export default function MapHome() {
     );
     el.querySelectorAll("[data-id]").forEach((c) => io.observe(c));
     return () => io.disconnect();
-  }, [spots]);
+    // `onboarded`: the cards only exist once the cover is gone.
+  }, [spots, onboarded]);
 
   if (onboarded === null) return <main className="h-[calc(100dvh-76px)] bg-paper" />;
   if (!onboarded) {
