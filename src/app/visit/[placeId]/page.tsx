@@ -13,11 +13,12 @@ import { MessageView } from "@/components/StateViews";
 import { StickerView } from "@/components/StickerView";
 import { api, ApiClientError } from "@/lib/api-client";
 import { MICHIBI_LINES, michibiSrc } from "@/lib/character";
-import { boxMask, findThings, MIDDLE_BOX, prepareCutter, warmUpCutter, within, type CutMask, type CutPoint, type StickerCutter } from "@/lib/sticker/cutter";
+import { boxMask, findThings, MIDDLE_BOX, prepareCutter, within, type CutMask, type CutPoint, type StickerCutter } from "@/lib/sticker/cutter";
 import { canvasToBlob, downscaleToJpeg, loadBitmap, plainFromMask, randomRotation, stickerFromMask, toCanvas } from "@/lib/sticker/render";
 import { useSearch } from "@/lib/store/search-context";
 import { recognize, remember, UNNAMED, warmUpVision, type Guess } from "@/lib/vision/recognize";
 import { takePhoto } from "@/lib/pending-photo";
+import { cameraBack, cameraOpening, checkCameraReload, diag } from "@/lib/diag";
 import { modelProgress, onModelProgress } from "@/lib/vision/runtime";
 import { LABEL_MAX, mockLocation, ON_SITE_METERS } from "@/lib/config";
 import { distanceMeters } from "@/lib/geo";
@@ -46,8 +47,8 @@ interface Cutout {
 const MAX_CUTOUTS = 6;
 /** You can leave this many of your own stickers at one place (same as the server). */
 const MAX_PLACED_PER_SPOT = 3;
-/** Waiting for the cutter to study the photo; past this, a soft round cut is used. */
-const EXACT_CUT_MS = 9000;
+/** Waiting for the cutter to study the photo (models load only after the shot); past this, a soft round cut is used. */
+const EXACT_CUT_MS = 12000;
 /** Time for finding things in the photo (the first one is always cut). */
 const FIND_MS = 2500;
 
@@ -132,8 +133,6 @@ function Visit() {
   );
   useEffect(() => {
     void load();
-    warmUpCutter();
-    warmUpVision();
   }, [load]);
 
   /** 着いた (only offered when you're there): count it, then the spot page takes over. */
@@ -190,6 +189,8 @@ function Visit() {
     setMemo("");
     setMemoOpen(false);
     setStep("looking");
+    // The models start loading only now, with the waiting screen up (see the spot page).
+    warmUpVision();
     try {
       await nextPaint();
       const bitmap = await loadBitmap(file);
@@ -201,7 +202,9 @@ function Visit() {
       cutter.current = prepareCutter(canvas);
       cutter.current.catch(() => undefined);
       // Study the photo once, then cut each thing along its shape.
+      const t0 = performance.now();
       const ready = await within(cutter.current, EXACT_CUT_MS);
+      diag(`cutter ${ready ? ready.name : "not ready (timeout)"} after ${Math.round(performance.now() - t0)}ms`);
       let made: Cutout[] = [];
       if (ready && ready.name === "sam") {
         const found = await findThings(ready, MAX_CUTOUTS, FIND_MS);
@@ -218,6 +221,7 @@ function Visit() {
       void nameAll(made, token);
     } catch (err) {
       console.error("[photo]", err);
+      diag(`photo failed: ${String(err).slice(0, 120)}`);
       setError("写真を読み込めなかった。別の写真でもう一回どうぞ。");
       setStep("explore");
     }
@@ -229,7 +233,9 @@ function Visit() {
   useEffect(() => {
     if (handed.current) return;
     handed.current = true;
+    checkCameraReload(`visit${free ? " free" : ""}`);
     const file = takePhoto();
+    diag(`visit opened (step ${step}${free ? ", free" : ""}${file ? ", photo handed" : ""})`);
     if (file) void Promise.resolve().then(() => onPhoto(file));
     else if (!free && step === "explore") router.replace(`/spot/${encodeURIComponent(spotId)}`);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on arrival
@@ -412,7 +418,17 @@ function Visit() {
   function pickFile(input: HTMLInputElement) {
     const file = input.files?.[0];
     input.value = "";
+    cameraBack();
+    diag(`photo back: ${file ? `${file.type} ${Math.round(file.size / 1024)}KB` : "none"} (step ${step}${free ? ", free" : ""})`);
     void onPhoto(file);
+  }
+  function openCamera() {
+    cameraOpening(`visit camera${free ? " free" : ""}`);
+    cameraRef.current?.click();
+  }
+  function openLibrary() {
+    cameraOpening(`visit album${free ? " free" : ""}`);
+    libraryRef.current?.click();
   }
 
   const fileInputs = (
@@ -447,11 +463,11 @@ function Visit() {
           </div>
           <div className="shrink-0 pt-2">
             <p className="mb-2 text-center text-[18px]">気になったもの、ある？</p>
-            <SketchButton size="lg" block onClick={() => cameraRef.current?.click()}>
+            <SketchButton size="lg" block onClick={() => openCamera()}>
               {free ? "撮る" : "ここで撮る"}
             </SketchButton>
             <div className="mt-1 flex justify-center">
-              <SketchButton variant="plain" size="sm" onClick={() => libraryRef.current?.click()}>
+              <SketchButton variant="plain" size="sm" onClick={() => openLibrary()}>
                 アルバムから選ぶ
               </SketchButton>
             </div>
@@ -508,7 +524,7 @@ function Visit() {
             )}
           </div>
           <div className="flex shrink-0 justify-center pt-1">
-            <SketchButton variant="plain" size="sm" onClick={() => cameraRef.current?.click()} disabled={cutting}>
+            <SketchButton variant="plain" size="sm" onClick={() => openCamera()} disabled={cutting}>
               撮り直す
             </SketchButton>
           </div>
@@ -629,7 +645,7 @@ function Visit() {
               ほかの場所へ
             </SketchLinkButton>
             {/* Only opens the camera: the screen changes once a photo actually comes back. */}
-            <SketchButton className="flex-1" onClick={() => cameraRef.current?.click()}>
+            <SketchButton className="flex-1" onClick={() => openCamera()}>
               もう1枚撮る
             </SketchButton>
           </div>

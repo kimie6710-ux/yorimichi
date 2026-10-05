@@ -18,8 +18,6 @@ import { distanceMeters } from "@/lib/geo";
 import { SEARCH_RADIUS_METERS } from "@/lib/config";
 import type { LatLng, MapSpot } from "@/lib/types";
 import { Wrap } from "@/components/Wrap";
-import { warmUpCutter } from "@/lib/sticker/cutter";
-import { warmUpVision } from "@/lib/vision/recognize";
 
 /** Shown once each time the app is opened (per browser session). */
 const STARTED_KEY = "yorumichi:started";
@@ -136,9 +134,6 @@ export default function MapHome() {
     return (
       <StartScreen
         onStart={() => {
-          // Start fetching the on-device models now, so the first sticker is cut properly.
-          warmUpCutter();
-          warmUpVision();
           try {
             sessionStorage.setItem(STARTED_KEY, "1");
           } catch {

@@ -38,12 +38,9 @@ export default function MyPage() {
     <main className="paper flex h-[calc(100dvh-76px-env(safe-area-inset-bottom))] flex-col overflow-hidden px-4 pt-[max(12px,env(safe-area-inset-top))]">
       <header className="flex shrink-0 items-center gap-3">
         <h1 className="font-hand text-[28px]">マイページ</h1>
-        <Link href="/guide" className="ml-auto flex flex-col items-center gap-0.5 text-[14px] transition-transform active:translate-y-0.5">
+        {/* The compass says it: no label. */}
+        <Link href="/guide" aria-label="つかいかた" className="ml-auto flex h-11 w-11 items-center justify-center transition-transform active:translate-y-0.5">
           <img src="/ui/n-compass.png" alt="" className="h-9 w-auto" draggable={false} />
-          <span className="relative isolate px-1">
-            <img src="/ui/marker-yellow.png" alt="" aria-hidden className="absolute inset-x-0 bottom-0 -z-10 h-2 w-full" />
-            つかいかた
-          </span>
         </Link>
       </header>
 

@@ -17,8 +17,7 @@ import { useSearch } from "@/lib/store/search-context";
 import type { SpotDetail } from "@/lib/types";
 import { Wrap } from "@/components/Wrap";
 import { handPhoto } from "@/lib/pending-photo";
-import { warmUpCutter } from "@/lib/sticker/cutter";
-import { warmUpVision } from "@/lib/vision/recognize";
+import { cameraBack, cameraOpening, checkCameraReload, diag } from "@/lib/diag";
 
 export default function SpotPage() {
   const { id: raw } = useParams<{ id: string }>();
@@ -42,18 +41,17 @@ export default function SpotPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, hasLocation]);
   useEffect(load, [load]);
+  useEffect(() => checkCameraReload("spot"), []);
 
   const cameraRef = useRef<HTMLInputElement>(null);
   const libraryRef = useRef<HTMLInputElement>(null);
   const onSiteNow = !!detail?.onSite;
   const visitedNow = !!detail?.spot.visited;
 
-  // Being here counts as a visit; get the cutter ready before the shutter.
+  // Being here counts as a visit. (The on-device models load only once a photo is taken:
+  // loading them earlier freezes the phone's screen and can make Safari drop the page when the camera opens.)
   useEffect(() => {
-    if (!onSiteNow) return;
-    warmUpCutter();
-    warmUpVision();
-    if (visitedNow) return;
+    if (!onSiteNow || visitedNow) return;
     patchSpot(id, { visited: true });
     // Not recorded after all (e.g. only "here" from an earlier visit): put the map back.
     api.visit(id, currentLocation).catch(() => patchSpot(id, { visited: false }));
@@ -63,6 +61,8 @@ export default function SpotPage() {
   function onPhoto(input: HTMLInputElement) {
     const file = input.files?.[0];
     input.value = ""; // picking the same photo again still counts
+    cameraBack();
+    diag(`spot photo back: ${file ? `${file.type} ${Math.round(file.size / 1024)}KB` : "none"}`);
     if (!file) return;
     handPhoto(file);
     router.push(`/visit/${encodeURIComponent(id)}?step=explore`);
@@ -163,11 +163,11 @@ export default function SpotPage() {
             <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => onPhoto(e.currentTarget)} />
             <input ref={libraryRef} type="file" accept="image/jpeg,image/png,image/webp,image/heic" className="sr-only" onChange={(e) => onPhoto(e.currentTarget)} />
             <p className="mb-2 text-center text-[18px]">{others.length > 0 ? "あなたは、何を見つける？" : "気になったもの、ある？"}</p>
-            <SketchButton size="lg" block onClick={() => cameraRef.current?.click()}>
+            <SketchButton size="lg" block onClick={() => (cameraOpening("spot camera"), cameraRef.current?.click())}>
               ここで撮る
             </SketchButton>
             <div className="mt-1 flex justify-center">
-              <SketchButton variant="plain" size="sm" onClick={() => libraryRef.current?.click()}>
+              <SketchButton variant="plain" size="sm" onClick={() => (cameraOpening("spot album"), libraryRef.current?.click())}>
                 アルバムから選ぶ
               </SketchButton>
             </div>

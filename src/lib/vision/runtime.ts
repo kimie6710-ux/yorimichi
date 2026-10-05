@@ -2,6 +2,8 @@
 
 // Shared setup for the on-device models (cutting out + naming).
 
+import { diag } from "@/lib/diag";
+
 type Tf = typeof import("@huggingface/transformers");
 let tfPromise: Promise<Tf> | null = null;
 
@@ -64,11 +66,15 @@ export function trackProgress(info: ProgressInfo) {
 export async function loadOn<T>(tries: Device[], load: (d: Device) => Promise<T>, what: string): Promise<T> {
   let last: unknown;
   for (const d of tries) {
+    const t0 = performance.now();
     try {
-      return await load({ ...d, progress_callback: trackProgress } as Device);
+      const got = await load({ ...d, progress_callback: trackProgress } as Device);
+      diag(`${what} ready on ${d.device}/${d.dtype} in ${Math.round(performance.now() - t0)}ms`);
+      return got;
     } catch (err) {
       last = err;
       console.warn(`[${what}] ${d.device}/${d.dtype} unavailable`, err);
+      diag(`${what} failed on ${d.device}/${d.dtype} after ${Math.round(performance.now() - t0)}ms: ${String(err).slice(0, 120)}`);
     }
   }
   throw last;

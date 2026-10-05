@@ -140,12 +140,17 @@ export function useMapBird(spots: MapSpot[], selected: MapSpot | null, origin: L
     walking.current = true;
     setFlip(to.longitude < from.longitude);
     setPose("walk");
+    let drawn = 0;
     const step = (now: number) => {
       const k = Math.min(1, (now - t0) / duration);
       const e = k < 0.5 ? 2 * k * k : 1 - (-2 * k + 2) ** 2 / 2;
       const p = { latitude: from.latitude + (to.latitude - from.latitude) * e, longitude: from.longitude + (to.longitude - from.longitude) * e };
       posRef.current = p;
-      setPos(p);
+      // ~20 moves a second is smooth enough, and leaves a phone free to answer taps.
+      if (k >= 1 || now - drawn > 50) {
+        drawn = now;
+        setPos(p);
+      }
       if (k < 1) {
         raf = requestAnimationFrame(step);
         return;
