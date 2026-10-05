@@ -13,31 +13,56 @@ const SAY_MS = 4200;
 
 function greeting(): string {
   const h = new Date().getHours();
-  if (h < 5) return "こんな時間の道も、悪くない。";
-  if (h < 11) return "おはよう。どこ寄ってく？";
+  if (h < 5) return "こんな時間の道も、わるくないね。";
+  if (h < 11) return "おはよう。今日はどこ寄ってく？";
   if (h < 16) return "今日はどこ寄ってく？";
-  if (h < 19) return "夕方の道、けっこう好き。";
-  return "夜の道も悪くないよ。";
+  if (h < 19) return "夕方の道、ぼくけっこう好き。";
+  return "夜の道も、わるくないよ。";
 }
 
-const IDLE_LINES = ["なんかあるかも。", "こっち、こっち。", "ちょっと寄り道しない？", "ぼくも気になってた。", "足もと、見てる？"];
-const TAP_LINES = ["わっ、びっくりした。", "なになに、どうしたの？", "つつかないで〜。", "いっしょに行く？", "それ、いいね。"];
+/** Said on reaching the spot you picked on the map. */
+const ARRIVE_LINES = [
+  "ぼく、ここちょっと好き。",
+  "ここ、なんか気になる。",
+  "ここから見てると、おもしろい。",
+  "ぼく、黄色いの好き。",
+  "ここ、少しだけひみつっぽい。",
+  "ここに来たかったんだ。",
+  "近くで見ると、けっこういいね。",
+  "ここ、見逃されがち。",
+];
+const IDLE_LINES = [
+  "なんかあるかも。",
+  "こっち、こっち。",
+  "ちょっと寄り道しない？",
+  "ぼくも気になってた。",
+  "足もと、見てる？",
+  "そこ、見た？",
+  "もう少し歩いてみよ。",
+  "ここで止まるのもあり。",
+];
+/** Left alone for a while. */
+const WAITING_LINES = ["あの「？」、気にならない？", "まだ行ってない「？」があるよ。", "どの「？」にする？", "ぼく、ちょっと待ってる。", "そろそろ歩く？", "まだ見てない道、あるよ。"];
+const TAP_LINES = ["わっ、びっくりした。", "なになに、どうしたの？", "つつかないで〜。", "ぼく、ここにいるよ。", "いっしょに行く？", "それ、いいね。", "呼んだ？", "うん、聞いてる。"];
+/** Setting off for a walk on its own. */
+const SETOFF_LINES = ["ちょっと散歩してくる。", "ひまだから歩いてくる。", "すぐ戻るね。", "先に見てくる。", "何かあったら教えるね。"];
+const SLEEP_LINES = ["……むにゃ。", "……すこし寝る。", "……またあとでね。"];
 /** Things it mutters when left alone and wandering off by itself. */
 export const WANDER_LINES = [
   "電柱と目が合った。",
   "ポストに話しかけたら、無視された。",
   "今、雲がひとつ減った。",
-  "右足から歩く日。",
+  "今日は右足から歩く日。",
   "道、さっきより長くない？",
   "看板の「営業中」、ずっと営業中。",
   "自販機がこっち見てる。",
   "ちょっと角を数えてくる。",
   "マンホールのふた、全部ちがう顔。",
-  "あの猫、たぶん町内会長。",
-  "向こうの信号、青の気分じゃない。",
-  "落ち葉を一枚だけ持って帰る。",
+  "あの影、ぼくより大きかった。",
+  "向こうの信号、青の気分じゃなさそう。",
+  "落ち葉、一枚だけ見つけた。",
   "なんとなく、左の道のほうが好き。",
-  "さっきの影、ぼくより大きかった。",
+  "ここ、風の通り道っぽい。",
   "ひまだから、地図のはじっこ見てくる。",
 ];
 const WANDER_AFTER_MS = 22000;
@@ -82,7 +107,7 @@ export function useMapBird(spots: MapSpot[], selected: MapSpot | null, origin: L
     if (!selected) return;
     lastTouch.current = performance.now();
     // eslint-disable-next-line react-hooks/set-state-in-effect -- follow the spot the person picked
-    setTarget({ at: selected.place.location, line: selected.copy?.birdLine || null, wander: false });
+    setTarget({ at: selected.place.location, line: pick(ARRIVE_LINES), wander: false });
   }, [selected]);
 
   const say = useCallback((line: string) => {
@@ -152,13 +177,13 @@ export function useMapBird(spots: MapSpot[], selected: MapSpot | null, origin: L
       const idle = performance.now() - lastTouch.current;
       if (idle > SLEEP_AFTER_MS) {
         setPose("sleepy");
-        if (Math.random() < 0.25) say("……むにゃ。");
+        if (Math.random() < 0.25) say(pick(SLEEP_LINES));
         return;
       }
       if (idle > WANDER_AFTER_MS && Math.random() < 0.6) {
         // Left alone: go for a little walk on its own, muttering something odd.
         const at = emptySpot(spots, posRef.current);
-        say(pick(["ちょっと散歩してくる。", "ひまだから歩いてくる。", "すぐ戻る。"]));
+        say(pick(SETOFF_LINES));
         setTimeout(() => setTarget({ at, line: pick(WANDER_LINES), wander: true }), 1200);
         return;
       }
@@ -170,7 +195,7 @@ export function useMapBird(spots: MapSpot[], selected: MapSpot | null, origin: L
         setFlip((f) => !f);
         setPose("side");
       } else if (r < 0.75) {
-        say(Math.random() < 0.5 ? pick(IDLE_LINES) : pick(["あの「？」、気にならない？", "まだ行ってない「？」がある。", "どの「？」にする？"]));
+        say(Math.random() < 0.5 ? pick(IDLE_LINES) : pick(WAITING_LINES));
       } else {
         setPose("front");
       }
