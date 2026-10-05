@@ -3,7 +3,7 @@
 import type { LatLng } from "./types";
 
 export const APP_NAME = "よりみち";
-export const APP_TAGLINE = "いつもの道に、あたらしい目を。";
+export const APP_TAGLINE = "いつもの道を、知らない道に。";
 
 export const publicConfig = {
   /** Browser key for the Maps JavaScript API (restrict it by HTTP referrer). */
