@@ -12,8 +12,8 @@ import { MapView } from "./map/MapView";
 import { SketchButton, SketchIconButton } from "./sketch";
 import { Wrap } from "./Wrap";
 
-/** Arrived = the same "you're there" distance as everywhere else. */
-const ARRIVE_METERS = ON_SITE_METERS;
+/** Close enough to stop giving directions and say "このへん". */
+const ARRIVE_METERS = 40;
 /** Off the path by this much → ask for a new route. */
 const OFF_ROUTE_METERS = 45;
 /** Close enough to a corner to count it as passed. */
@@ -122,6 +122,8 @@ export function GuideView({ spot, onArrive, onQuit, error = null }: { spot: MapS
 
   const remaining = currentLocation ? distanceMeters(currentLocation, dest) : null;
   const near = remaining !== null && remaining <= ARRIVE_METERS;
+  // "着いた" counts within the same distance as everywhere else (the server checks it too).
+  const canArrive = (remaining !== null && remaining <= ON_SITE_METERS) || !!mockLocation();
 
   // The next thing to do: the corner at the end of the current step.
   const current = steps[stepIdx];
@@ -252,7 +254,7 @@ export function GuideView({ spot, onArrive, onQuit, error = null }: { spot: MapS
           </SketchButton>
           {/* Only when you're really there (the server checks the same distance). With a fixed
               position nobody can walk anywhere, so it's always open. */}
-          <SketchButton size="md" onClick={onArrive} disabled={!near && !mockLocation()} className="shrink-0">
+          <SketchButton size="md" onClick={onArrive} disabled={!canArrive} className="shrink-0">
             着いた
           </SketchButton>
         </div>

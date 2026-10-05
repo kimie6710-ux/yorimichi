@@ -105,7 +105,12 @@ export default function MyPage() {
                     <img src="/ui/i-star.png" alt="" className="h-5 w-auto shrink-0" draggable={false} />
                     <div className="min-w-0">
                       <p className="font-bold"><Wrap>{v.copy ?? "なんか気になる。"}</Wrap></p>
-                      <p className="mt-0.5 text-sm text-ink-soft"><Wrap>{v.name ?? "まだ行ってない場所"}</Wrap></p>
+                      {/* Not been there yet: no name, only the line. */}
+                      {v.name && (
+                        <p className="mt-0.5 text-sm text-ink-soft">
+                          <Wrap>{v.name}</Wrap>
+                        </p>
+                      )}
                     </div>
                   </div>
                 </SketchSection>

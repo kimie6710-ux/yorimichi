@@ -15,7 +15,7 @@ import { api } from "@/lib/api-client";
 import { MICHIBI_LINES } from "@/lib/character";
 import { useSearch } from "@/lib/store/search-context";
 import { distanceMeters } from "@/lib/geo";
-import { ON_SITE_METERS, SEARCH_RADIUS_METERS } from "@/lib/config";
+import { SEARCH_RADIUS_METERS } from "@/lib/config";
 import type { LatLng, MapSpot } from "@/lib/types";
 import { Wrap } from "@/components/Wrap";
 import { warmUpCutter } from "@/lib/sticker/cutter";
@@ -279,11 +279,7 @@ export default function MapHome() {
           <ul ref={rail} className="hide-scrollbar flex snap-x snap-mandatory items-stretch gap-4 overflow-x-auto px-[9%] pt-4 pb-1" aria-label="近くのスポット">
             {spots.map((s) => (
               <li key={s.place.placeId} data-id={s.place.placeId} className="w-[84%] shrink-0 snap-center">
-                <SpotCard spot={s} active={selected?.place.placeId === s.place.placeId} onFocus={() => select(s.place.placeId, false)} onGo={() => {
-                    // Already there: straight to the spot (and its camera). Otherwise, walk there.
-                    const here = currentLocation && distanceMeters(currentLocation, s.place.location) <= ON_SITE_METERS;
-                    router.push(here ? `/spot/${encodeURIComponent(s.place.placeId)}` : `/visit/${encodeURIComponent(s.place.placeId)}`);
-                  }}
+                <SpotCard spot={s} active={selected?.place.placeId === s.place.placeId} onFocus={() => select(s.place.placeId, false)} onGo={() => router.push(`/visit/${encodeURIComponent(s.place.placeId)}`)}
                   onSave={() => {
                     const next = !s.saved;
                     town.patchSpot(s.place.placeId, { saved: next });
