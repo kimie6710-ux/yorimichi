@@ -44,7 +44,8 @@ interface Cutout {
   guesses: Guess[];
   emb: Float32Array | null;
 }
-const MAX_CUTOUTS = 6;
+/** A few whole things, not every part of one (more can be added by tapping the photo). */
+const MAX_CUTOUTS = 3;
 /** You can leave this many of your own stickers at one place (same as the server). */
 const MAX_PLACED_PER_SPOT = 3;
 /** Waiting for the cutter to study the photo (models load only after the shot); past this, a soft round cut is used.

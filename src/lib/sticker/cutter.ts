@@ -158,7 +158,7 @@ function looksLikeObject(mask: CutMask): boolean {
   const edges = [top, bottom, left, right].filter(Boolean).length;
   const ratio = area / (w * h);
   // A thing, not a slice of wall or sky: not huge, not a speck, not running off two sides.
-  return ratio <= 0.45 && ratio >= 0.012 && edges < 2;
+  return ratio <= 0.45 && ratio >= 0.035 && edges < 2;
 }
 
 // ── SlimSAM (default, on-device) ──────────────────────────
@@ -604,7 +604,7 @@ export async function findThings(cutter: StickerCutter, max: number, budgetMs: n
       if (!m) continue;
       if (t.strict && found.length > 0 && !looksLikeObject(m)) continue;
       // Already have it, or it's just a part of something already cut (an eye of a face).
-      if (found.some((f) => maskIoU(f.mask, m) > 0.55 || insideOf(m, f.mask) > 0.8)) continue;
+      if (found.some((f) => maskIoU(f.mask, m) > 0.5 || insideOf(m, f.mask) > 0.5 || insideOf(f.mask, m) > 0.5)) continue;
       found.push({ mask: m, point: t.point });
     } catch (err) {
       console.warn("[find] point failed", err);

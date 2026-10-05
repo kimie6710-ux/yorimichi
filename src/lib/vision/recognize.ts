@@ -1,7 +1,7 @@
 "use client";
 
 import { api } from "@/lib/api-client";
-import { devices, loadOn, loadTf } from "./runtime";
+import { devices, isIOS, loadOn, loadTf } from "./runtime";
 
 // On-device naming of cut-out things — no AI API, nothing leaves the phone.
 //
@@ -113,7 +113,10 @@ function loadMemory(): Promise<Memory[]> {
 
 /** Start downloading early (e.g. while walking to the spot). */
 export function warmUpVision(): void {
-  void loadVision().catch(() => undefined);
+  // iPhones name things on the server (the model doesn't fit next to everything else in a Safari page).
+  if (isIOS()) void fetch("/api/vision/embed").catch(() => undefined);
+  else void loadVision().catch(() => undefined);
+  void loadVocab().catch(() => undefined);
   void loadMemory();
 }
 
@@ -142,10 +145,21 @@ function onWhite(source: HTMLCanvasElement): HTMLCanvasElement {
 }
 
 export async function embed(cutout: HTMLCanvasElement): Promise<Float32Array> {
+  if (isIOS()) return embedOnServer(onWhite(cutout));
   const v = await loadVision();
   const inputs = await v.processor(v.RawImage.fromCanvas(onWhite(cutout)));
   const { image_embeds } = await v.model(inputs);
   return Float32Array.from(image_embeds.normalize(2, -1).data);
+}
+
+async function embedOnServer(card: HTMLCanvasElement): Promise<Float32Array> {
+  const blob = await new Promise<Blob | null>((r) => card.toBlob(r, "image/jpeg", 0.92));
+  if (!blob) throw new Error("no jpeg");
+  const form = new FormData();
+  form.append("image", blob, "cutout.jpg");
+  const res = await fetch("/api/vision/embed", { method: "POST", body: form, signal: AbortSignal.timeout(15_000) });
+  if (!res.ok) throw new Error(`embed ${res.status}`);
+  return new Float32Array(await res.arrayBuffer());
 }
 
 /** Name a cut-out thing. */
