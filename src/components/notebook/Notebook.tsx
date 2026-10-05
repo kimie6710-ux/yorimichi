@@ -306,9 +306,9 @@ export function Notebook({
         <span className="w-11 shrink-0 text-center text-[14px] whitespace-nowrap text-ink-mute tabular-nums">
           {page + 1} / {pageCount}
         </span>
-        <SketchButton variant="plain" size="sm" onClick={() => setPaperOpen((v) => !v)} aria-expanded={paperOpen} className="!min-h-10 !gap-1 !px-1.5 whitespace-nowrap">
-          <span className={`book-${bgOf(page)} inline-block h-5 w-5 rounded-[4px_6px_4px_5px] shadow-[0_1px_2px_rgb(60_50_30/0.25)]`} aria-hidden />
-          紙
+        {/* The swatch says it all: no label. */}
+        <SketchButton variant="plain" size="sm" onClick={() => setPaperOpen((v) => !v)} aria-expanded={paperOpen} aria-label="ページの紙を選ぶ" className="!min-h-10 !px-1.5">
+          <span className={`book-${bgOf(page)} inline-block h-6 w-6 rounded-[4px_6px_4px_5px] shadow-[0_1px_2px_rgb(60_50_30/0.25)]`} aria-hidden />
         </SketchButton>
         <SketchButton variant="primary" size="sm" onClick={() => setBoxOpen(true)} className="relative !min-h-10 !gap-1 !px-2 whitespace-nowrap" aria-label={`ボックスからシールを貼る（まだ貼ってないシール${unstuck}枚）`}>
           <img src="/ui/n-cards.png" alt="" className="h-5 w-auto" />
