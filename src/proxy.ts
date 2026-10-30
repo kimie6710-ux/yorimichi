@@ -31,9 +31,7 @@ function isHome(request: NextRequest): boolean {
 
 export function proxy(request: NextRequest) {
   const home = isHome(request);
-  // The purchased font is for this machine only (its license forbids putting the file on the web):
-  // anyone outside gets the fallback font.
-  if (!home && request.nextUrl.pathname.startsWith("/fonts/local/")) return new NextResponse(null, { status: 404 });
+  // ころたんPro is served through the shared link too (non-commercial use, per the owner).
   const key = process.env.YORIMICHI_ACCESS_KEY ?? "";
   if (!key || home) return NextResponse.next();
 

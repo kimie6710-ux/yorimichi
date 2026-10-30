@@ -246,19 +246,11 @@ export default function MapHome() {
           <div className="pointer-events-none ml-3 inline-flex items-center gap-2.5 rounded-full bg-card/90 px-3 py-1 text-[14px] text-ink-soft shadow-[0_2px_6px_-3px_rgb(60_50_30/0.4)]">
             {/* Same shapes as on the map, all the same size */}
             <span className="flex items-center gap-1">
-              <span className="relative flex h-5 w-5 items-center justify-center" aria-hidden>
-                <img src="/ui/badge-yellow.png" alt="" className="absolute inset-0 h-full w-full" />
-                <span className="relative font-hand text-[14px] leading-none font-bold">?</span>
-              </span>
+              <StatusMark visited={false} />
               まだ
             </span>
             <span className="flex items-center gap-1">
-              <span className="relative flex h-5 w-5 items-center justify-center" aria-hidden>
-                <img src="/ui/badge-blue.png" alt="" className="absolute inset-0 h-full w-full" />
-                <svg className="relative h-2.5 w-2.5" viewBox="0 0 24 24" fill="none">
-                  <path d="M5 12.5l4.2 4.3L19 7" stroke="var(--color-ink)" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </span>
+              <StatusMark visited />
               行った
             </span>
             <span className="flex items-center gap-1">
@@ -293,6 +285,23 @@ export default function MapHome() {
   );
 }
 
+/** まだ＝黄色い「？」、行った＝水色の「✓」。地図の上・凡例・カードで同じ形。 */
+function StatusMark({ visited, large = false, label = false }: { visited: boolean; large?: boolean; label?: boolean }) {
+  const box = large ? "h-7 w-7" : "h-5 w-5";
+  return (
+    <span className={`relative flex ${box} shrink-0 items-center justify-center`} {...(label ? { role: "img", "aria-label": visited ? "行った" : "まだ" } : { "aria-hidden": true })}>
+      <img src={visited ? "/ui/badge-blue.png" : "/ui/badge-yellow.png"} alt="" className="absolute inset-0 h-full w-full" draggable={false} />
+      {visited ? (
+        <svg className={`relative ${large ? "h-3.5 w-3.5" : "h-2.5 w-2.5"}`} viewBox="0 0 24 24" fill="none">
+          <path d="M5 12.5l4.2 4.3L19 7" stroke="var(--color-ink)" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      ) : (
+        <span className={`relative font-hand ${large ? "text-[18px]" : "text-[14px]"} leading-none font-bold`}>?</span>
+      )}
+    </span>
+  );
+}
+
 function SpotCard({
   spot,
   active,
@@ -309,7 +318,7 @@ function SpotCard({
   return (
     <SketchCard tone={active ? "white" : "paper"} pad="md" seed={`card-${spot.place.placeId}`} onClick={onFocus} className="flex h-full flex-col">
       <div className="flex items-start justify-between">
-        <span className="text-[14px] text-ink-mute">{spot.visited ? "行った" : "まだ"}</span>
+        <StatusMark visited={spot.visited} large label />
         <button
           type="button"
           onClick={(e) => {
